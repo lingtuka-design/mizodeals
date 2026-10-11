@@ -105,25 +105,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         <div className="overflow-y-auto px-4 sm:px-6 py-5 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
             {/* Image section */}
-            <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF]">
+            <a
+              href={deal.affiliateUrl}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF] block group cursor-pointer"
+              title={`Open ${deal.title} on ${storeBadge.name}`}
+            >
               <img
                 src={deal.imageUrl}
                 alt={deal.title}
-                className="w-full h-full object-cover object-center"
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
               />
               <div className="absolute top-3 left-3">
                 <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl shadow-sm">
                   {deal.discountPercent}% OFF
                 </span>
               </div>
-            </div>
+            </a>
 
             {/* Price & Meta Column */}
             <div className="flex flex-col justify-between">
               <div>
-                <h2 className="text-lg sm:text-xl font-bold text-stone-900 leading-snug">
+                <a
+                  href={deal.affiliateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="text-lg sm:text-xl font-bold text-stone-900 leading-snug hover:text-orange-600 transition-colors block cursor-pointer"
+                  title={`Open ${deal.title} on ${storeBadge.name}`}
+                >
                   {deal.title}
-                </h2>
+                </a>
 
                 <div className="flex items-center gap-2.5 mt-3">
                   <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-xs font-bold text-amber-800">

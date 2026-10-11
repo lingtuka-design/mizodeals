@@ -6,11 +6,11 @@ import {
   Flame, 
   Star, 
   Clock, 
-  BellRing,
   CheckCircle2,
   Copy,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  TrendingDown
 } from 'lucide-react';
 import type { Deal } from '../../types';
 import { STORE_BADGES } from '../../config/constants';
@@ -32,7 +32,6 @@ export const DealCard: React.FC<DealCardProps> = ({
   isBookmarked = false,
   onToggleBookmark,
   onOpenDetails,
-  onOpenAlert,
 }) => {
   const { showToast } = useToast();
   const { savingsAmount } = getDealSavings(deal.originalPrice, deal.dealPrice);
@@ -43,11 +42,13 @@ export const DealCard: React.FC<DealCardProps> = ({
   const isExpired = isDealExpired(deal);
 
   const handleWhatsAppShare = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     shareDealToWhatsApp(deal);
   };
 
   const handleCopyWhatsAppCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     const text = generateWhatsAppDealShareText(deal);
     const success = await copyTextToClipboard(text);
@@ -56,19 +57,25 @@ export const DealCard: React.FC<DealCardProps> = ({
     }
   };
 
-  const handleCardClick = () => {
-    if (onOpenDetails) {
-      onOpenDetails(deal);
-    }
+  const handleBookmarkClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleBookmark?.(deal.id);
+    showToast(isBookmarked ? 'Removed from saved deals' : 'Saved to your deals list', 'info');
+  };
+
+  const handleOpenDetails = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onOpenDetails?.(deal);
   };
 
   return (
     <div 
-      onClick={handleCardClick}
-      className={`group relative bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer ${
+      className={`group relative bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between ${
         isExpired 
           ? 'border-stone-300/80 bg-stone-50/50 opacity-70 hover:opacity-100 grayscale-[25%]' 
-          : 'border-[#EAE6DF] hover:border-stone-300'
+          : 'border-[#EAE6DF] hover:border-orange-300'
       }`}
     >
       {/* Top badges bar */}
@@ -115,12 +122,8 @@ export const DealCard: React.FC<DealCardProps> = ({
           {/* Bookmark Button */}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleBookmark?.(deal.id);
-              showToast(isBookmarked ? 'Removed from saved deals' : 'Saved to your deals list', 'info');
-            }}
-            className={`p-1.5 rounded-full transition-colors ${
+            onClick={handleBookmarkClick}
+            className={`p-1.5 rounded-full transition-colors z-10 ${
               isBookmarked 
                 ? 'text-rose-500 bg-rose-50' 
                 : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
@@ -132,8 +135,14 @@ export const DealCard: React.FC<DealCardProps> = ({
           </button>
         </div>
 
-        {/* Product Image */}
-        <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF]/60 mb-3 group-hover:border-stone-200">
+        {/* Product Image: DIRECT AMAZON LINK */}
+        <a
+          href={deal.affiliateUrl}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF]/60 mb-3 group-hover:border-stone-300 block cursor-pointer"
+          title={`Open ${deal.title} on ${storeBadge.name}`}
+        >
           <img
             src={deal.imageUrl}
             alt={deal.title}
@@ -162,14 +171,20 @@ export const DealCard: React.FC<DealCardProps> = ({
               </span>
             </div>
           )}
-        </div>
+        </a>
 
-        {/* Product Title */}
-        <h3 className={`text-sm font-semibold line-clamp-2 leading-snug transition-colors ${
-          isExpired ? 'text-stone-500' : 'text-stone-900 group-hover:text-orange-600'
-        }`}>
+        {/* Product Title: DIRECT AMAZON LINK */}
+        <a
+          href={deal.affiliateUrl}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className={`block text-sm font-semibold line-clamp-2 leading-snug transition-colors cursor-pointer ${
+            isExpired ? 'text-stone-500 hover:text-stone-800' : 'text-stone-900 hover:text-orange-600'
+          }`}
+          title={`Open ${deal.title} on ${storeBadge.name}`}
+        >
           {deal.title}
-        </h3>
+        </a>
 
         {/* Rating and Reviews */}
         <div className="flex items-center gap-2 mt-2">
@@ -229,14 +244,13 @@ export const DealCard: React.FC<DealCardProps> = ({
 
       {/* Action Buttons */}
       <div className="mt-4 pt-3 border-t border-[#EAE6DF] space-y-2">
-        {/* Primary Buy CTA */}
+        {/* Primary Buy CTA: DIRECT AMAZON LINK */}
         {isExpired ? (
           <a
             href={deal.affiliateUrl}
             target="_blank"
             rel="noopener noreferrer nofollow"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 px-4 bg-stone-200 hover:bg-stone-300 active:bg-stone-400 text-stone-800 font-semibold text-xs rounded-xl transition-all cursor-pointer border border-stone-300"
+            className="w-full flex items-center justify-center gap-1.5 py-3 px-4 bg-stone-200 hover:bg-stone-300 active:bg-stone-400 text-stone-800 font-bold text-xs rounded-xl transition-all cursor-pointer border border-stone-300 shadow-2xs"
           >
             <span>Check Current Price on Amazon</span>
             <ExternalLink className="w-3.5 h-3.5 text-stone-600" />
@@ -246,8 +260,7 @@ export const DealCard: React.FC<DealCardProps> = ({
             href={deal.affiliateUrl}
             target="_blank"
             rel="noopener noreferrer nofollow"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 px-4 bg-stone-900 hover:bg-stone-800 active:bg-black text-white font-semibold text-xs rounded-xl shadow-xs transition-all duration-150 cursor-pointer"
+            className="w-full flex items-center justify-center gap-1.5 py-3 px-4 bg-stone-900 hover:bg-stone-800 active:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-all duration-150 cursor-pointer"
           >
             <span>Buy on {storeBadge.name}</span>
             <ExternalLink className="w-3.5 h-3.5 text-stone-300" />
@@ -259,7 +272,7 @@ export const DealCard: React.FC<DealCardProps> = ({
           <button
             type="button"
             onClick={handleWhatsAppShare}
-            className="flex items-center justify-center gap-1 py-1.5 px-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-semibold text-[11px] rounded-lg border border-[#25D366]/30 transition-colors"
+            className="flex items-center justify-center gap-1 py-1.5 px-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-semibold text-[11px] rounded-lg border border-[#25D366]/30 transition-colors cursor-pointer"
             title="Share Deal to WhatsApp"
           >
             <Share2 className="w-3 h-3 text-[#25D366]" />
@@ -269,24 +282,21 @@ export const DealCard: React.FC<DealCardProps> = ({
           <button
             type="button"
             onClick={handleCopyWhatsAppCopy}
-            className="flex items-center justify-center gap-1 py-1.5 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium text-[11px] rounded-lg border border-[#EAE6DF] transition-colors"
+            className="flex items-center justify-center gap-1 py-1.5 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium text-[11px] rounded-lg border border-[#EAE6DF] transition-colors cursor-pointer"
             title="Copy pre-formatted WhatsApp text"
           >
             <Copy className="w-3 h-3 text-stone-500" />
-            <span>Copy Text</span>
+            <span>Copy</span>
           </button>
 
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenAlert?.(deal);
-            }}
-            className="flex items-center justify-center gap-1 py-1.5 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium text-[11px] rounded-lg border border-[#EAE6DF] transition-colors"
-            title="Set Price Drop Alert"
+            onClick={handleOpenDetails}
+            className="flex items-center justify-center gap-1 py-1.5 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium text-[11px] rounded-lg border border-[#EAE6DF] transition-colors cursor-pointer"
+            title="View price history chart and full specs"
           >
-            <BellRing className="w-3 h-3 text-orange-600" />
-            <span>Alert</span>
+            <TrendingDown className="w-3 h-3 text-orange-600" />
+            <span>Details</span>
           </button>
         </div>
       </div>

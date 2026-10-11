@@ -17,18 +17,24 @@ export const EmbeddedDealCard: React.FC<EmbeddedDealCardProps> = ({ deal }) => {
     <div className="my-6 p-4 sm:p-5 bg-white border-2 border-[#EAE6DF] hover:border-orange-300 rounded-2xl shadow-xs transition-all">
       <div className="flex flex-col sm:flex-row gap-4 items-center">
         {/* Thumbnail */}
-        <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF] shrink-0">
+        <a
+          href={deal.affiliateUrl}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF] shrink-0 block cursor-pointer group"
+          title={`Open ${deal.title} on ${storeBadge.name}`}
+        >
           <img
             src={deal.imageUrl}
             alt={deal.title}
-            className="w-full h-full object-cover object-center"
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
           />
           <div className="absolute top-1.5 left-1.5">
             <span className="bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md">
               {deal.discountPercent}% OFF
             </span>
           </div>
-        </div>
+        </a>
 
         {/* Details */}
         <div className="flex-1 min-w-0 text-center sm:text-left">
@@ -41,9 +47,15 @@ export const EmbeddedDealCard: React.FC<EmbeddedDealCardProps> = ({ deal }) => {
             </span>
           </div>
 
-          <h4 className="text-sm sm:text-base font-bold text-stone-900 line-clamp-2 leading-snug">
+          <a
+            href={deal.affiliateUrl}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="text-sm sm:text-base font-bold text-stone-900 line-clamp-2 leading-snug hover:text-orange-600 transition-colors block cursor-pointer"
+            title={`Open ${deal.title} on ${storeBadge.name}`}
+          >
             {deal.title}
-          </h4>
+          </a>
 
           <div className="flex items-center gap-2 justify-center sm:justify-start my-2">
             <span className="text-xl font-black text-stone-900">{formatINR(deal.dealPrice)}</span>

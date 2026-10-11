@@ -19,7 +19,8 @@ import {
   MessageCircle, 
   Share2, 
   ExternalLink,
-  Tag
+  Tag,
+  Info
 } from 'lucide-react';
 import { WHATSAPP_CHANNEL_URL, WHATSAPP_COMMUNITY_MEMBERS, STORE_BADGES } from '../config/constants';
 
@@ -240,8 +241,7 @@ export const HomeView: React.FC = () => {
               return (
                 <div
                   key={deal.id}
-                  onClick={() => setSelectedDeal(deal)}
-                  className="bg-white border border-[#EAE6DF] hover:border-orange-300 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group"
+                  className="bg-white border border-[#EAE6DF] hover:border-orange-300 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -249,25 +249,37 @@ export const HomeView: React.FC = () => {
                         <Flame className="w-2.5 h-2.5 fill-current" />
                         {deal.discountPercent}% OFF LOOT
                       </span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.2 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
                         {storeBadge.name}
                       </span>
                     </div>
 
-                    <div className="aspect-16/10 rounded-xl overflow-hidden bg-[#FAF9F5] mb-3">
+                    <a
+                      href={deal.affiliateUrl}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="aspect-16/10 rounded-xl overflow-hidden bg-[#FAF9F5] mb-3 block cursor-pointer"
+                      title={`Open ${deal.title} on ${storeBadge.name}`}
+                    >
                       <img
                         src={deal.imageUrl}
-                        alt=""
+                        alt={deal.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                    </div>
+                    </a>
 
-                    <h3 className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-2 leading-snug group-hover:text-orange-600 transition-colors">
+                    <a
+                      href={deal.affiliateUrl}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-2 leading-snug hover:text-orange-600 transition-colors block cursor-pointer"
+                      title={`Open ${deal.title} on ${storeBadge.name}`}
+                    >
                       {deal.title}
-                    </h3>
+                    </a>
                   </div>
 
-                  <div className="mt-3 pt-2.5 border-t border-[#EAE6DF] flex items-center justify-between">
+                  <div className="mt-3 pt-2.5 border-t border-[#EAE6DF] flex items-center justify-between gap-2">
                     <div>
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-base font-extrabold text-stone-900">{formatINR(deal.dealPrice)}</span>
@@ -278,24 +290,31 @@ export const HomeView: React.FC = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          shareDealToWhatsApp(deal);
-                        }}
-                        className="p-1.5 bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#128C7E] rounded-lg transition-colors"
+                        onClick={() => setSelectedDeal(deal)}
+                        className="p-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg transition-colors cursor-pointer"
+                        title="View details & price history"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => shareDealToWhatsApp(deal)}
+                        className="p-1.5 bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#128C7E] rounded-lg transition-colors cursor-pointer"
                         title="Broadcast on WhatsApp"
                       >
                         <Share2 className="w-3.5 h-3.5 text-[#25D366]" />
                       </button>
+
                       <a
                         href={deal.affiliateUrl}
                         target="_blank"
                         rel="noopener noreferrer nofollow"
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg shadow-2xs"
-                        title="Buy on Amazon"
+                        className="flex items-center gap-1 py-1.5 px-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors cursor-pointer"
+                        title={`Buy on ${storeBadge.name}`}
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Buy</span>
+                        <ExternalLink className="w-3 h-3 text-stone-300" />
                       </a>
                     </div>
                   </div>

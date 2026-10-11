@@ -104,11 +104,17 @@ export const DealDetailView: React.FC = () => {
       }`}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           {/* Image */}
-          <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF]">
+          <a
+            href={deal.affiliateUrl}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF] block group cursor-pointer"
+            title={`Open ${deal.title} on ${storeBadge.name}`}
+          >
             <img
               src={deal.imageUrl}
               alt={deal.title}
-              className={`w-full h-full object-cover ${isExpired ? 'opacity-80 grayscale-[20%]' : ''}`}
+              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isExpired ? 'opacity-80 grayscale-[20%]' : ''}`}
             />
             {isExpired ? (
               <div className="absolute top-3 left-3">
@@ -124,7 +130,7 @@ export const DealDetailView: React.FC = () => {
                 </span>
               </div>
             )}
-          </div>
+          </a>
 
           {/* Info */}
           <div className="space-y-4">
@@ -146,9 +152,15 @@ export const DealDetailView: React.FC = () => {
               <span className="text-xs text-stone-500">{formatDealTime(deal.createdAt)}</span>
             </div>
 
-            <h1 className={`text-xl sm:text-2xl font-bold leading-snug ${isExpired ? 'text-stone-600' : 'text-stone-900'}`}>
-              {deal.title}
-            </h1>
+            <a
+              href={deal.affiliateUrl}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className={`text-xl sm:text-2xl font-bold leading-snug hover:text-orange-600 transition-colors block cursor-pointer ${isExpired ? 'text-stone-600' : 'text-stone-900'}`}
+              title={`Open ${deal.title} on ${storeBadge.name}`}
+            >
+              <h1>{deal.title}</h1>
+            </a>
 
             <div className="flex items-center gap-2.5">
               <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-xs font-bold text-amber-800">
