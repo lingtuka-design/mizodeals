@@ -1,0 +1,82 @@
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router';
+import { RootLayout } from './views/RootLayout';
+import { HomeView } from './views/HomeView';
+import { BlogListView } from './views/BlogListView';
+import { BlogDetailView } from './views/BlogDetailView';
+import { DealDetailView } from './views/DealDetailView';
+import { SavedDealsView } from './views/SavedDealsView';
+import type { DealCategory, DealsFilterParams } from './types';
+
+// Root Route
+const rootRoute = createRootRoute({
+  component: RootLayout,
+});
+
+// Home Route with search param validation
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  validateSearch: (search: Record<string, unknown>): DealsFilterParams => {
+    return {
+      category: (search.category as DealCategory) || 'all',
+      search: (search.search as string) || '',
+      sort: (search.sort as DealsFilterParams['sort']) || 'discount_desc',
+      lootOnly: search.lootOnly === true || search.lootOnly === 'true',
+      priceRange: (search.priceRange as DealsFilterParams['priceRange']) || 'all',
+    };
+  },
+  component: HomeView,
+});
+
+// Blog List Route
+const blogIndexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/blog',
+  component: BlogListView,
+});
+
+// Blog Detail Route
+const blogDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/blog/$slug',
+  component: BlogDetailView,
+});
+
+// Standalone Deal Detail Route
+const dealDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/deals/$id',
+  component: DealDetailView,
+});
+
+// Saved Deals Route
+const savedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/saved',
+  component: SavedDealsView,
+});
+
+// Create Router Tree
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  blogIndexRoute,
+  blogDetailRoute,
+  dealDetailRoute,
+  savedRoute,
+]);
+
+export const router = createRouter({
+  routeTree,
+  defaultPreload: 'intent',
+});
+
+// Register router instance for type-safety across the app
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
