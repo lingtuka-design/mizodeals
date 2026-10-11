@@ -1,9 +1,11 @@
 import React from 'react';
-import { BLOG_POSTS } from '../data/blogs';
+import { useData } from '../context/DataContext';
 import { BlogCard } from '../components/blog/BlogCard';
 import { BookOpen, Sparkles } from 'lucide-react';
 
 export const BlogListView: React.FC = () => {
+  const { blogs } = useData();
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Header */}
@@ -22,7 +24,7 @@ export const BlogListView: React.FC = () => {
 
       {/* Guide Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {BLOG_POSTS.map((post) => (
+        {blogs.map((post) => (
           <BlogCard key={post.id} post={post} />
         ))}
       </div>

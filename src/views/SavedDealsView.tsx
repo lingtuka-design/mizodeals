@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { INITIAL_DEALS } from '../data/deals';
+import { useData } from '../context/DataContext';
 import { DealCard } from '../components/deals/DealCard';
 import { DealDetailModal } from '../components/deals/DealDetailModal';
 import { PriceAlertModal } from '../components/common/PriceAlertModal';
@@ -9,11 +9,12 @@ import { Heart, Sparkles, ArrowLeft } from 'lucide-react';
 import type { Deal } from '../types';
 
 export const SavedDealsView: React.FC = () => {
+  const { deals } = useData();
   const { savedIds, isBookmarked, toggleBookmark } = useBookmarks();
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [alertDeal, setAlertDeal] = useState<Deal | null>(null);
 
-  const bookmarkedDeals = INITIAL_DEALS.filter((d) => savedIds.includes(d.id));
+  const bookmarkedDeals = deals.filter((d) => savedIds.includes(d.id));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">

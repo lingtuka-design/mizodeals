@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
-import { INITIAL_DEALS } from '../data/deals';
+import { useData } from '../context/DataContext';
 import { STORE_BADGES } from '../config/constants';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../utils/formatters';
 import { shareDealToWhatsApp, generateWhatsAppDealShareText } from '../utils/affiliate';
@@ -24,11 +24,12 @@ import {
 
 export const DealDetailView: React.FC = () => {
   const { id } = useParams({ strict: false }) as { id: string };
+  const { deals } = useData();
   const { isBookmarked, toggleBookmark } = useBookmarks();
   const { showToast } = useToast();
   const [isAlertOpen, setIsAlertOpen] = useState(false);
 
-  const deal = INITIAL_DEALS.find((d) => d.id === id);
+  const deal = deals.find((d) => d.id === id);
 
   if (!deal) {
     return (

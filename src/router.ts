@@ -9,6 +9,7 @@ import { BlogListView } from './views/BlogListView';
 import { BlogDetailView } from './views/BlogDetailView';
 import { DealDetailView } from './views/DealDetailView';
 import { SavedDealsView } from './views/SavedDealsView';
+import { AdminView } from './views/AdminView';
 import type { DealCategory, DealsFilterParams } from './types';
 
 // Root Route
@@ -60,6 +61,13 @@ const savedRoute = createRoute({
   component: SavedDealsView,
 });
 
+// Admin Route
+const adminRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin',
+  component: AdminView,
+});
+
 // Create Router Tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -67,6 +75,7 @@ const routeTree = rootRoute.addChildren([
   blogDetailRoute,
   dealDetailRoute,
   savedRoute,
+  adminRoute,
 ]);
 
 export const router = createRouter({

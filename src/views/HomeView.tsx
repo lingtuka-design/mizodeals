@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useSearch, useNavigate } from '@tanstack/react-router';
-import { INITIAL_DEALS } from '../data/deals';
+import { useData } from '../context/DataContext';
 import type { Deal, DealCategory, DealsFilterParams } from '../types';
 import { DealFilters } from '../components/deals/DealFilters';
 import { DealGrid } from '../components/deals/DealGrid';
@@ -11,6 +11,7 @@ import { Flame, Sparkles, Zap, ShieldCheck, ArrowRight, MessageCircle } from 'lu
 import { WHATSAPP_CHANNEL_URL, WHATSAPP_COMMUNITY_MEMBERS } from '../config/constants';
 
 export const HomeView: React.FC = () => {
+  const { deals } = useData();
   const searchParams = useSearch({ strict: false }) as DealsFilterParams;
   const navigate = useNavigate();
 
@@ -42,7 +43,7 @@ export const HomeView: React.FC = () => {
   // Category counts calculation
   const categoryCounts = useMemo(() => {
     const counts: Record<DealCategory, number> = {
-      all: INITIAL_DEALS.length,
+      all: deals.length,
       shoes_fashion: 0,
       electronics: 0,
       sports: 0,
@@ -50,18 +51,18 @@ export const HomeView: React.FC = () => {
       gadgets: 0,
     };
 
-    INITIAL_DEALS.forEach((deal) => {
+    deals.forEach((deal) => {
       if (counts[deal.category] !== undefined) {
         counts[deal.category]++;
       }
     });
 
     return counts;
-  }, []);
+  }, [deals]);
 
   // Filtered and sorted deals
   const filteredDeals = useMemo(() => {
-    return INITIAL_DEALS.filter((deal) => {
+    return deals.filter((deal) => {
       // Category filter
       if (activeFilters.category && activeFilters.category !== 'all' && deal.category !== activeFilters.category) {
         return false;
@@ -128,7 +129,7 @@ export const HomeView: React.FC = () => {
           <div className="flex flex-wrap items-center gap-3 mt-4 text-xs font-medium text-stone-600">
             <span className="flex items-center gap-1.5 bg-[#FAF9F5] px-3 py-1.5 rounded-xl border border-[#EAE6DF]">
               <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              <strong>{INITIAL_DEALS.length}</strong> Live Deals Today
+              <strong>{deals.length}</strong> Live Deals Today
             </span>
             <span className="flex items-center gap-1.5 bg-[#FAF9F5] px-3 py-1.5 rounded-xl border border-[#EAE6DF]">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
@@ -173,7 +174,7 @@ export const HomeView: React.FC = () => {
           filters={activeFilters}
           onFilterChange={handleFilterChange}
           categoryCounts={categoryCounts}
-          totalDealsCount={INITIAL_DEALS.length}
+          totalDealsCount={deals.length}
         />
       </section>
 

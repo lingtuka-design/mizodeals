@@ -1,7 +1,6 @@
 import React from 'react';
 import { useParams, Link } from '@tanstack/react-router';
-import { BLOG_POSTS } from '../data/blogs';
-import { INITIAL_DEALS } from '../data/deals';
+import { useData } from '../context/DataContext';
 import { EmbeddedDealCard } from '../components/blog/EmbeddedDealCard';
 import { ArrowLeft, Clock, Share2, Sparkles, MessageCircle } from 'lucide-react';
 import { useToast } from '../components/common/Toast';
@@ -9,9 +8,10 @@ import { copyTextToClipboard } from '../utils/formatters';
 
 export const BlogDetailView: React.FC = () => {
   const { slug } = useParams({ strict: false }) as { slug: string };
+  const { blogs, deals } = useData();
   const { showToast } = useToast();
 
-  const post = BLOG_POSTS.find((p) => p.slug === slug);
+  const post = blogs.find((p) => p.slug === slug);
 
   if (!post) {
     return (
@@ -30,7 +30,7 @@ export const BlogDetailView: React.FC = () => {
   }
 
   // Find embedded deals
-  const featuredDeals = INITIAL_DEALS.filter((d) => post.featuredDealIds.includes(d.id));
+  const featuredDeals = deals.filter((d) => post.featuredDealIds.includes(d.id));
 
   const handleShareArticle = async () => {
     const text = `📖 *${post.title}*\n\nCheck out this tested buying guide for Mizoram on Mizodeals:\n${window.location.href}`;
