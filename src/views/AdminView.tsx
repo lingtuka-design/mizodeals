@@ -71,6 +71,7 @@ export const AdminView: React.FC = () => {
     ratingsCount: number;
     imageUrl: string;
     isLootDeal: boolean;
+    status: 'active' | 'expired';
     couponText: string;
     description: string;
   }>({
@@ -85,6 +86,7 @@ export const AdminView: React.FC = () => {
     ratingsCount: 500,
     imageUrl: '',
     isLootDeal: false,
+    status: 'active',
     couponText: '',
     description: '',
   });
@@ -172,6 +174,7 @@ export const AdminView: React.FC = () => {
       ratingsCount: 1200,
       imageUrl: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=800&q=80',
       isLootDeal: true,
+      status: 'active',
       couponText: '',
       description: '',
     });
@@ -192,6 +195,7 @@ export const AdminView: React.FC = () => {
       ratingsCount: deal.ratingsCount,
       imageUrl: deal.imageUrl,
       isLootDeal: Boolean(deal.isLootDeal),
+      status: deal.status || 'active',
       couponText: deal.couponText || '',
       description: deal.description || '',
     });
@@ -212,6 +216,7 @@ export const AdminView: React.FC = () => {
       updateDeal(editingDealId, {
         ...dealForm,
         affiliateUrl,
+        lastCheckedAt: new Date().toISOString(),
         verifiedAt: 'Updated just now',
       });
       showToast('Deal updated successfully!', 'success');
@@ -219,6 +224,8 @@ export const AdminView: React.FC = () => {
       addDeal({
         ...dealForm,
         affiliateUrl,
+        createdAt: new Date().toISOString(),
+        lastCheckedAt: new Date().toISOString(),
         verifiedAt: 'Just added',
       });
       showToast('New deal created and published!', 'success');
@@ -291,8 +298,30 @@ export const AdminView: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expired'>('all');
+
+  // Automated Price Re-check & Loot Classifier
+  const handleRunPriceRecheck = () => {
+    let recheckedExpired = 0;
+    let recheckedLoot = 0;
+    deals.forEach((d) => {
+      const isExpired = d.status === 'expired' || (d.currentPrice ? d.currentPrice > d.dealPrice * 1.15 : false);
+      const isLoot = !isExpired && d.discountPercent >= 50 && d.rating >= 4.0 && d.ratingsCount >= 100;
+      updateDeal(d.id, {
+        status: isExpired ? 'expired' : 'active',
+        isLootDeal: isLoot,
+        lastCheckedAt: new Date().toISOString(),
+        verifiedAt: isExpired ? 'Price Changed' : 'Checked just now',
+      });
+      if (isExpired) recheckedExpired++;
+      if (isLoot) recheckedLoot++;
+    });
+    showToast(`Automated check complete: ${recheckedLoot} Loot Deals active, ${recheckedExpired} expired.`, 'success');
+  };
+
   // Filter deals
   const filteredDeals = deals.filter((d) => {
+    if (statusFilter !== 'all' && (d.status || 'active') !== statusFilter) return false;
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return d.title.toLowerCase().includes(term) || d.asin.toLowerCase().includes(term) || d.category.includes(term);
@@ -449,10 +478,26 @@ export const AdminView: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-stone-500 whitespace-nowrap">
-                Showing {filteredDeals.length} of {deals.length} deals
-              </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'expired')}
+                className="px-3 py-2 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl text-xs font-semibold text-stone-700 cursor-pointer"
+              >
+                <option value="all">All Deals ({deals.length})</option>
+                <option value="active">Active Only ({deals.filter(d => (d.status || 'active') === 'active').length})</option>
+                <option value="expired">Expired Only ({deals.filter(d => d.status === 'expired').length})</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={handleRunPriceRecheck}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                title="Runs automated rules to detect expired prices or promote >50% discount items to Loot Deals"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                <span>Price Re-check Worker</span>
+              </button>
             </div>
           </div>
 
@@ -462,6 +507,7 @@ export const AdminView: React.FC = () => {
                 <thead className="bg-[#FAF9F5] text-stone-500 font-bold border-b border-[#EAE6DF]">
                   <tr>
                     <th className="py-3 px-4">Item</th>
+                    <th className="py-3 px-3">Status</th>
                     <th className="py-3 px-3">Category</th>
                     <th className="py-3 px-3">Price</th>
                     <th className="py-3 px-3">Discount</th>
@@ -491,6 +537,27 @@ export const AdminView: React.FC = () => {
                             </div>
                           </div>
                         </div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStatus = (deal.status || 'active') === 'active' ? 'expired' : 'active';
+                            updateDeal(deal.id, { 
+                              status: newStatus,
+                              verifiedAt: newStatus === 'expired' ? 'Price Changed' : 'Marked Active'
+                            });
+                            showToast(`Deal marked as ${newStatus}`, 'info');
+                          }}
+                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
+                            deal.status === 'expired'
+                              ? 'bg-stone-200 text-stone-700 hover:bg-stone-300'
+                              : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                          }`}
+                          title="Click to toggle status"
+                        >
+                          {deal.status === 'expired' ? '❌ EXPIRED' : '🟢 ACTIVE'}
+                        </button>
                       </td>
                       <td className="py-3 px-3">
                         <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 font-medium capitalize">
@@ -816,7 +883,7 @@ export const AdminView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">Category</label>
                   <select
@@ -842,6 +909,18 @@ export const AdminView: React.FC = () => {
                     <option value="amazon">Amazon.in</option>
                     <option value="flipkart">Flipkart</option>
                     <option value="hm">H&M</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">Status</label>
+                  <select
+                    value={dealForm.status}
+                    onChange={(e) => setDealForm({ ...dealForm, status: e.target.value as 'active' | 'expired' })}
+                    className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl text-xs font-semibold text-stone-900 cursor-pointer"
+                  >
+                    <option value="active">Active Deal</option>
+                    <option value="expired">Expired / Stock Out</option>
                   </select>
                 </div>
               </div>

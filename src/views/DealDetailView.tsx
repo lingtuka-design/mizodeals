@@ -4,8 +4,10 @@ import { useData } from '../context/DataContext';
 import { STORE_BADGES } from '../config/constants';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../utils/formatters';
 import { shareDealToWhatsApp, generateWhatsAppDealShareText } from '../utils/affiliate';
+import { isLootDeal, isDealExpired, formatDealTime } from '../utils/dealLogic';
 import { PriceHistoryChart } from '../components/deals/PriceHistoryChart';
 import { PriceAlertModal } from '../components/common/PriceAlertModal';
+import { DealCard } from '../components/deals/DealCard';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useToast } from '../components/common/Toast';
 import { 
@@ -15,11 +17,12 @@ import {
   Heart, 
   Flame, 
   Star, 
-  CheckCircle2, 
   Truck, 
   ShieldCheck, 
   BellRing,
-  Copy
+  Copy,
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 
 export const DealDetailView: React.FC = () => {
@@ -35,7 +38,7 @@ export const DealDetailView: React.FC = () => {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
         <h2 className="text-xl font-bold text-stone-900 mb-2">Deal Not Found</h2>
-        <p className="text-sm text-stone-500 mb-6">This deal may have expired or is no longer listed.</p>
+        <p className="text-sm text-stone-500 mb-6">This deal may have been removed or link is incorrect.</p>
         <Link
           to="/"
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-xl hover:bg-stone-800"
@@ -50,6 +53,13 @@ export const DealDetailView: React.FC = () => {
   const { savingsAmount } = getDealSavings(deal.originalPrice, deal.dealPrice);
   const storeBadge = STORE_BADGES[deal.store] || STORE_BADGES.amazon;
   const bookmarked = isBookmarked(deal.id);
+  const isExpired = isDealExpired(deal);
+  const isLoot = isLootDeal(deal);
+
+  // Active alternative deals (same category or active loot deals)
+  const activeAlternatives = deals
+    .filter((d) => d.id !== deal.id && !isDealExpired(d))
+    .slice(0, 4);
 
   const handleCopyLink = async () => {
     const success = await copyTextToClipboard(deal.affiliateUrl);
@@ -74,38 +84,69 @@ export const DealDetailView: React.FC = () => {
         </Link>
       </div>
 
-      <div className="bg-white border border-[#EAE6DF] rounded-3xl p-6 sm:p-10 shadow-xs space-y-8">
+      {/* EXPIRED DEAL NOTIFICATION BANNER */}
+      {isExpired && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-start gap-3 shadow-2xs">
+          <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold text-amber-900">
+              He deal hi a expired tawh a, thil man hi a to leh tawh a ni maithei!
+            </h3>
+            <p className="text-xs text-amber-800/90 mt-0.5 leading-relaxed">
+              Amazon-in flash price discount an ti tawp tawh a ni thei. Hnuai lamah hian Amazon-a a man thar i check thei a, emaw thil dang a tlawm lai (active deals) kan rawt te hi i en nghal thei e.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className={`bg-white border rounded-3xl p-6 sm:p-10 shadow-xs space-y-8 ${
+        isExpired ? 'border-stone-300/80 bg-stone-50/30' : 'border-[#EAE6DF]'
+      }`}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           {/* Image */}
           <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF]">
             <img
               src={deal.imageUrl}
               alt={deal.title}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover ${isExpired ? 'opacity-80 grayscale-[20%]' : ''}`}
             />
-            <div className="absolute top-3 left-3">
-              <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl shadow-sm">
-                {deal.discountPercent}% OFF
-              </span>
-            </div>
+            {isExpired ? (
+              <div className="absolute top-3 left-3">
+                <span className="bg-stone-800 text-white text-xs font-bold px-2.5 py-1 rounded-xl shadow-sm flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  DEAL EXPIRED
+                </span>
+              </div>
+            ) : (
+              <div className="absolute top-3 left-3">
+                <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl shadow-sm">
+                  {deal.discountPercent}% OFF
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Info */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 flex-wrap">
-              {deal.isLootDeal && (
-                <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-xs">
+              {isExpired ? (
+                <span className="inline-flex items-center gap-1 bg-stone-700 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
+                  ❌ PRICE CHANGED
+                </span>
+              ) : isLoot ? (
+                <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-extrabold px-2.5 py-0.5 rounded-full shadow-xs">
                   <Flame className="w-3.5 h-3.5 fill-current" />
                   LOOT DEAL
                 </span>
-              )}
+              ) : null}
+
               <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
                 {storeBadge.name}
               </span>
-              <span className="text-xs text-stone-500">{deal.verifiedAt}</span>
+              <span className="text-xs text-stone-500">{formatDealTime(deal.createdAt)}</span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-bold text-stone-900 leading-snug">
+            <h1 className={`text-xl sm:text-2xl font-bold leading-snug ${isExpired ? 'text-stone-600' : 'text-stone-900'}`}>
               {deal.title}
             </h1>
 
@@ -121,22 +162,40 @@ export const DealDetailView: React.FC = () => {
 
             {/* Pricing Card */}
             <div className="p-4 bg-[#FAF9F5] border border-[#EAE6DF] rounded-2xl">
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-black text-stone-900 tracking-tight">
-                  {formatINR(deal.dealPrice)}
-                </span>
-                <span className="text-base font-semibold text-stone-400 line-through">
-                  {formatINR(deal.originalPrice)}
-                </span>
-              </div>
-              {savingsAmount > 0 && (
-                <p className="text-xs font-bold text-emerald-700 mt-1">
-                  Instant Discount: {formatINR(savingsAmount)} ({deal.discountPercent}% OFF)
-                </p>
-              )}
-              {deal.couponText && (
-                <div className="mt-2 text-xs font-medium bg-amber-100/80 text-amber-900 border border-amber-300 rounded-lg p-2">
-                  🎟️ {deal.couponText}
+              {isExpired ? (
+                <div>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-2xl font-bold text-stone-600">
+                      Was Deal Price: {formatINR(deal.dealPrice)}
+                    </span>
+                    <span className="text-sm font-semibold text-stone-400 line-through">
+                      MRP {formatINR(deal.originalPrice)}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium text-amber-800 mt-1">
+                    Special promotional discount has expired. Amazon live price may be higher.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl font-black text-stone-900 tracking-tight">
+                      {formatINR(deal.dealPrice)}
+                    </span>
+                    <span className="text-base font-semibold text-stone-400 line-through">
+                      {formatINR(deal.originalPrice)}
+                    </span>
+                  </div>
+                  {savingsAmount > 0 && (
+                    <p className="text-xs font-bold text-emerald-700 mt-1">
+                      Instant Discount: {formatINR(savingsAmount)} ({deal.discountPercent}% OFF)
+                    </p>
+                  )}
+                  {deal.couponText && (
+                    <div className="mt-2 text-xs font-medium bg-amber-100/80 text-amber-900 border border-amber-300 rounded-lg p-2">
+                      🎟️ {deal.couponText}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -151,15 +210,27 @@ export const DealDetailView: React.FC = () => {
 
             {/* Actions */}
             <div className="space-y-2 pt-2">
-              <a
-                href={deal.affiliateUrl}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl shadow-xs transition-colors"
-              >
-                <span>Buy Now on {storeBadge.name}</span>
-                <ExternalLink className="w-4 h-4" />
-              </a>
+              {isExpired ? (
+                <a
+                  href={deal.affiliateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-sm rounded-xl border border-stone-300 transition-colors"
+                >
+                  <span>Check Current Price on Amazon</span>
+                  <ExternalLink className="w-4 h-4 text-stone-600" />
+                </a>
+              ) : (
+                <a
+                  href={deal.affiliateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl shadow-xs transition-colors"
+                >
+                  <span>Buy Now on {storeBadge.name}</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
 
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -208,29 +279,6 @@ export const DealDetailView: React.FC = () => {
           lowestEverPrice={deal.lowestEverPrice}
         />
 
-        {/* Overview */}
-        {deal.description && (
-          <div>
-            <h3 className="text-base font-bold text-stone-900 mb-2">Description</h3>
-            <p className="text-sm text-stone-700 leading-relaxed">{deal.description}</p>
-          </div>
-        )}
-
-        {/* Highlights */}
-        {deal.highlights && deal.highlights.length > 0 && (
-          <div>
-            <h3 className="text-base font-bold text-stone-900 mb-3">Key Features</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-stone-700">
-              {deal.highlights.map((h, i) => (
-                <div key={i} className="flex items-start gap-2 bg-[#FAF9F5] border border-[#EAE6DF] p-2.5 rounded-xl">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>{h}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Affiliate Verification Footer */}
         <div className="pt-6 border-t border-[#EAE6DF] flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
           <span className="flex items-center gap-1.5">
@@ -256,6 +304,34 @@ export const DealDetailView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* RECOMMENDED ACTIVE DEALS FOR EXPIRED ITEMS */}
+      {isExpired && activeAlternatives.length > 0 && (
+        <div className="space-y-4 pt-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-orange-600" />
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-stone-900">
+                A Tlawm Lai Deal Active Dangte (Alternative Deals)
+              </h3>
+              <p className="text-xs text-stone-500">
+                He thil man a to leh tak avangin heng a hnuaia active loot deal-te hi thlang rawh le:
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {activeAlternatives.map((altDeal) => (
+              <DealCard
+                key={altDeal.id}
+                deal={altDeal}
+                isBookmarked={isBookmarked(altDeal.id)}
+                onToggleBookmark={toggleBookmark}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <PriceAlertModal
         deal={deal}

@@ -54,18 +54,24 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     if (success) showToast('WhatsApp viral deal copy copied!', 'success');
   };
 
+  const isExpired = deal.status === 'expired';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-white border border-[#EAE6DF] rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xs border-b border-[#EAE6DF] px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {deal.isLootDeal && (
+            {isExpired ? (
+              <span className="inline-flex items-center gap-1 bg-stone-800 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
+                DEAL EXPIRED
+              </span>
+            ) : deal.isLootDeal ? (
               <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                 <Flame className="w-3 h-3 fill-current" />
                 LOOT DEAL
               </span>
-            )}
+            ) : null}
             <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
               {storeBadge.name}
             </span>
@@ -162,15 +168,27 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
               {/* Action CTAs */}
               <div className="mt-5 space-y-2">
-                <a
-                  href={deal.affiliateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                >
-                  <span>Grab Deal on {storeBadge.name}</span>
-                  <ExternalLink className="w-4 h-4" />
-                </a>
+                {isExpired ? (
+                  <a
+                    href={deal.affiliateUrl}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-sm rounded-xl border border-stone-300 transition-all cursor-pointer"
+                  >
+                    <span>Check Current Price on Amazon</span>
+                    <ExternalLink className="w-4 h-4 text-stone-600" />
+                  </a>
+                ) : (
+                  <a
+                    href={deal.affiliateUrl}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
+                  >
+                    <span>Grab Deal on {storeBadge.name}</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
