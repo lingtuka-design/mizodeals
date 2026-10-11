@@ -2,9 +2,40 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { Deal, BlogPost } from '../types';
 import { INITIAL_DEALS } from '../data/deals';
 import { BLOG_POSTS } from '../data/blogs';
+import { buildAffiliateUrl, ensureAffiliateTag } from '../utils/affiliate';
 
-const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v1';
+const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v2';
+const STORAGE_DEALS_OLD_KEY = 'mizodeals_all_deals_v1';
 const STORAGE_BLOGS_KEY = 'mizodeals_all_blogs_v1';
+
+// Automatically fix any stale or invalid mock ASINs in existing client localStorage
+const sanitizeDeals = (loadedDeals: Deal[]): Deal[] => {
+  return loadedDeals.map((d) => {
+    if (d.asin === 'B0CRV2HZZL' || d.id === 'deal-12') {
+      return {
+        ...d,
+        asin: 'B00KF38N2O',
+        title: 'Nivia Storm Football (Size 5) with High Grip TPU Outer & Rubber Bladder',
+        affiliateUrl: buildAffiliateUrl('B00KF38N2O', 'amazon'),
+      };
+    }
+    if (d.asin === 'B0CY5JGFK8' || d.id === 'deal-7') {
+      return {
+        ...d,
+        asin: 'B08HGN7K21',
+        title: 'JBL Go 3 Wireless Ultra-Portable Bluetooth Speaker (Pro Sound, IP67 Waterproof & Dustproof)',
+        affiliateUrl: buildAffiliateUrl('B08HGN7K21', 'amazon'),
+      };
+    }
+    if (d.affiliateUrl) {
+      return {
+        ...d,
+        affiliateUrl: ensureAffiliateTag(d.affiliateUrl),
+      };
+    }
+    return d;
+  });
+};
 
 interface DataContextType {
   deals: Deal[];
@@ -25,10 +56,13 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [deals, setDeals] = useState<Deal[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_DEALS_KEY);
+      // Check v2 first, then fallback to v1 migration
+      const stored = localStorage.getItem(STORAGE_DEALS_KEY) || localStorage.getItem(STORAGE_DEALS_OLD_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return sanitizeDeals(parsed);
+        }
       }
     } catch (e) {
       console.error('Failed to load deals from localStorage', e);

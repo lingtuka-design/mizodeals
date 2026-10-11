@@ -5,14 +5,18 @@ import type { Deal } from '../types';
  * Builds an affiliate URL for a given ASIN and store.
  * Always appends the affiliate tag: https://www.amazon.in/dp/{ASIN}?tag=lalmalsawmtlu-21
  */
-export function buildAffiliateUrl(asin: string, store: Deal['store'] = 'amazon'): string {
+export function buildAffiliateUrl(asinOrUrl: string, store: Deal['store'] = 'amazon'): string {
+  const clean = asinOrUrl.trim();
+  if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    return ensureAffiliateTag(clean);
+  }
   if (store === 'amazon') {
-    return `https://www.amazon.in/dp/${asin}?tag=${AFFILIATE_TAG}`;
+    return `https://www.amazon.in/dp/${clean}?tag=${AFFILIATE_TAG}`;
   }
   if (store === 'flipkart') {
-    return `https://www.flipkart.com/search?q=${asin}&affid=${AFFILIATE_TAG}`;
+    return `https://www.flipkart.com/search?q=${encodeURIComponent(clean)}&affid=${AFFILIATE_TAG}`;
   }
-  return `https://www.amazon.in/dp/${asin}?tag=${AFFILIATE_TAG}`;
+  return `https://www.amazon.in/dp/${clean}?tag=${AFFILIATE_TAG}`;
 }
 
 /**
