@@ -29,13 +29,13 @@ When shopping for daily walking or hiking footwear in the Northeast, keep these 
 
 ### Top Recommendation on Deal Today
 
-If you are looking for an everyday trail runner that does not burn a hole in your wallet, the Puma Dazzler series currently on 62% discount provides phenomenal heel stabilization and grippy rubber traction.
+If you are looking for an everyday walking and running shoe that does not burn a hole in your wallet, the ASIAN Captain-13 series currently on steep discount provides phenomenal heel stabilization and grippy rubber traction.
     `,
   },
   {
     id: 'post-2',
-    slug: 'best-budget-5g-smartphones-under-18000',
-    title: 'Best 5G Smartphones Under ₹18,000 for Strong Network Reception in Northeast Hills',
+    slug: 'best-5g-smartphones-battery-hills',
+    title: 'Top 5G Smartphones: Battery Endurance & Strong Network Reception in Northeast Hills',
     summary: 'Weak cellular signal between hill valleys drains battery fast. We tested battery endurance and 5G band support on top budget Amazon contenders.',
     category: 'Electronics',
     readTime: '5 min read',
@@ -64,9 +64,9 @@ When riding two-wheelers or waiting outdoors, high peak brightness (above 1200 n
   },
   {
     id: 'post-3',
-    slug: 'chilly-winter-coffee-makers-guide',
-    title: 'Warm Up Your Winter: Best Home Espresso & Coffee Makers with Amazon Deals',
-    summary: 'As the winter mist rolls into the hills, there is nothing quite like a steaming cup of fresh cafe-style cappuccino at home without paying ₹200 a cup.',
+    slug: 'winter-warmth-kettles-smart-gadgets',
+    title: 'Warm Up Your Winter: Best Fast Electric Kettles & Smart Home Gadgets on Amazon Deals',
+    summary: 'As winter mist rolls into the hills, quick morning boiling and smart Alexa controls keep your home warm and cozy without high electricity bills.',
     category: 'Home & Kitchen',
     readTime: '3 min read',
     publishedAt: 'October 5, 2026',
