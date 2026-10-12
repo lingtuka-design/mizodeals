@@ -91,16 +91,15 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
             )}
           </Link>
 
-          {/* WhatsApp Channel Direct CTA */}
+          {/* WhatsApp Channel Direct CTA (Desktop/tablet only; mobile has top banner & bottom nav) */}
           <a
             href={WHATSAPP_CHANNEL_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-bold text-xs rounded-xl shadow-2xs transition-all"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-bold text-xs rounded-xl shadow-2xs transition-all"
           >
             <MessageCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Join WhatsApp VIP</span>
-            <span className="sm:hidden">WhatsApp</span>
+            <span>Join WhatsApp VIP</span>
           </a>
         </div>
       </div>

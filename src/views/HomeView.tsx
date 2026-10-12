@@ -184,8 +184,8 @@ export const HomeView: React.FC = () => {
             </div>
           </div>
 
-          {/* VIP WhatsApp Card */}
-          <div className="shrink-0 lg:max-w-xs w-full bg-[#FAF9F5] border border-[#EAE6DF] rounded-2xl p-4 shadow-2xs">
+          {/* VIP WhatsApp Card (Desktop Only - mobile users have top bar and bottom nav) */}
+          <div className="hidden lg:block shrink-0 lg:max-w-xs w-full bg-[#FAF9F5] border border-[#EAE6DF] rounded-2xl p-4 shadow-2xs">
             <div className="flex items-center gap-2 mb-1.5">
               <div className="w-7 h-7 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0">
                 <MessageCircle className="w-4 h-4 fill-white" />
