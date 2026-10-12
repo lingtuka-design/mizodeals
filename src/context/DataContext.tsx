@@ -51,7 +51,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const stored = localStorage.getItem(STORAGE_BLOGS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((p: BlogPost) => p.id));
+          const missing = BLOG_POSTS.filter((p) => !existingIds.has(p.id));
+          if (missing.length === 0) return parsed;
+          return [...parsed, ...missing];
+        }
       }
     } catch (e) {
       console.error('Failed to load blogs from localStorage', e);
