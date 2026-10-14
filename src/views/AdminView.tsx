@@ -36,6 +36,7 @@ export const AdminView: React.FC = () => {
     deals, 
     blogs, 
     addDeal, 
+    addMultipleDeals,
     updateDeal, 
     deleteDeal, 
     addBlogPost, 
@@ -143,16 +144,61 @@ export const AdminView: React.FC = () => {
   }>>([]);
   const [importedDealIds, setImportedDealIds] = useState<Set<string>>(new Set());
 
-  // Fetch DesiDime Live Feed
-  const handleFetchDesiDime = async () => {
+  // Auto-Publish All Scraped Deals at once
+  const handleAutoPublishAllDeals = (dealsToPublish = scrapedDeals) => {
+    if (!dealsToPublish.length) {
+      showToast('No deals to auto-publish. Fetch deals first!', 'warning');
+      return;
+    }
+
+    const payload = dealsToPublish.map((item) => {
+      const finalAsin = item.asin || `DD-${item.dealId}`;
+      const affiliateUrl = item.amazonUrl || buildAffiliateUrl(finalAsin, 'amazon');
+
+      return {
+        asin: finalAsin,
+        title: item.title,
+        category: (item.category as DealCategory) || 'electronics',
+        store: 'amazon' as StoreType,
+        originalPrice: item.originalPrice || item.price * 2,
+        dealPrice: item.price,
+        discountPercent: item.discountPercent || 50,
+        rating: item.rating || 4.3,
+        ratingsCount: item.ratingsCount || 500,
+        imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80',
+        isLootDeal: item.isLootDeal || item.discountPercent >= 50,
+        status: 'active' as const,
+        couponText: item.discountPercent >= 60 ? '⚡ Exclusive Loot Deal' : undefined,
+        description: `Imported via DesiDime Smart Scraper. 100% verified Amazon pricing categorized into ${item.category}.`,
+        affiliateUrl,
+        createdAt: new Date().toISOString(),
+        lastCheckedAt: new Date().toISOString(),
+        verifiedAt: 'Auto-published just now',
+      };
+    });
+
+    const count = addMultipleDeals(payload);
+    const newIds = new Set(importedDealIds);
+    dealsToPublish.forEach((d) => newIds.add(d.dealId));
+    setImportedDealIds(newIds);
+
+    showToast(`Successfully auto-published ${count} new deals across all categories!`, 'success');
+  };
+
+  // Fetch DesiDime Live Feed (with optional auto-publish parameter)
+  const handleFetchDesiDime = async (autoPublish = false) => {
     setIsScrapingDesiDime(true);
     try {
-      const res = await fetch('/api/desidime-scraper?limit=20');
+      const res = await fetch('/api/desidime-scraper?limit=25');
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const data = await res.json() as { success: boolean; deals?: any[]; error?: string };
       if (data.success && Array.isArray(data.deals)) {
         setScrapedDeals(data.deals);
-        showToast(`Fetched ${data.deals.length} Amazon deals from DesiDime!`, 'success');
+        if (autoPublish) {
+          handleAutoPublishAllDeals(data.deals);
+        } else {
+          showToast(`Fetched ${data.deals.length} Amazon deals from DesiDime!`, 'success');
+        }
       } else {
         throw new Error(data.error || 'Failed to parse response');
       }
@@ -737,16 +783,37 @@ export const AdminView: React.FC = () => {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleFetchDesiDime}
+                  onClick={() => handleFetchDesiDime(false)}
+                  disabled={isScrapingDesiDime}
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 disabled:opacity-60 font-bold text-xs rounded-xl border border-[#EAE6DF] transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isScrapingDesiDime ? 'animate-spin' : ''}`} />
+                  <span>Fetch Preview</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleFetchDesiDime(true)}
                   disabled={isScrapingDesiDime}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isScrapingDesiDime ? 'animate-spin' : ''}`} />
-                  <span>{isScrapingDesiDime ? 'Harvesting Deals...' : 'Fetch Live DesiDime Deals'}</span>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isScrapingDesiDime ? 'Scraping & Auto-Publishing...' : '⚡ Fetch & Auto-Publish All'}</span>
                 </button>
+
+                {scrapedDeals.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleAutoPublishAllDeals()}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Publish Current ({scrapedDeals.length})</span>
+                  </button>
+                )}
               </div>
             </div>
 

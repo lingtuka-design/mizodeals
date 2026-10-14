@@ -151,15 +151,73 @@ export const onRequestGet: PagesFunction = async (context) => {
           // If redirect fails, leave ASIN as null
         }
 
-        // Categorize based on title
+        // Smart Auto-Categorization matching our DealCategory types
         const lowerTitle = item.title.toLowerCase();
         let category = 'electronics';
-        if (lowerTitle.includes('shirt') || lowerTitle.includes('shoe') || lowerTitle.includes('bag') || lowerTitle.includes('wear') || lowerTitle.includes('jewel')) {
-          category = 'fashion';
-        } else if (lowerTitle.includes('cook') || lowerTitle.includes('kitchen') || lowerTitle.includes('bottle') || lowerTitle.includes('fan') || lowerTitle.includes('mop')) {
-          category = 'home';
-        } else if (lowerTitle.includes('shampoo') || lowerTitle.includes('serum') || lowerTitle.includes('cream') || lowerTitle.includes('face') || lowerTitle.includes('perfume')) {
-          category = 'beauty';
+
+        if (
+          lowerTitle.includes('shoe') ||
+          lowerTitle.includes('sneaker') ||
+          lowerTitle.includes('shirt') ||
+          lowerTitle.includes('t-shirt') ||
+          lowerTitle.includes('pant') ||
+          lowerTitle.includes('jeans') ||
+          lowerTitle.includes('dress') ||
+          lowerTitle.includes('jacket') ||
+          lowerTitle.includes('bag') ||
+          lowerTitle.includes('luggage') ||
+          lowerTitle.includes('trolley') ||
+          lowerTitle.includes('watch') ||
+          lowerTitle.includes('jewel') ||
+          lowerTitle.includes('gold') ||
+          lowerTitle.includes('sandal') ||
+          lowerTitle.includes('fashion')
+        ) {
+          category = 'shoes_fashion';
+        } else if (
+          lowerTitle.includes('cook') ||
+          lowerTitle.includes('kitchen') ||
+          lowerTitle.includes('kettle') ||
+          lowerTitle.includes('bottle') ||
+          lowerTitle.includes('fan') ||
+          lowerTitle.includes('mop') ||
+          lowerTitle.includes('cleaner') ||
+          lowerTitle.includes('bed') ||
+          lowerTitle.includes('pillow') ||
+          lowerTitle.includes('chair') ||
+          lowerTitle.includes('furniture') ||
+          lowerTitle.includes('refrigerator') ||
+          lowerTitle.includes('fridge') ||
+          lowerTitle.includes('washing machine') ||
+          lowerTitle.includes('purifier')
+        ) {
+          category = 'home_kitchen';
+        } else if (
+          lowerTitle.includes('dumbbell') ||
+          lowerTitle.includes('gym') ||
+          lowerTitle.includes('football') ||
+          lowerTitle.includes('badminton') ||
+          lowerTitle.includes('cricket') ||
+          lowerTitle.includes('yoga') ||
+          lowerTitle.includes('sport') ||
+          lowerTitle.includes('cycle')
+        ) {
+          category = 'sports';
+        } else if (
+          lowerTitle.includes('smartwatch') ||
+          lowerTitle.includes('earbuds') ||
+          lowerTitle.includes('earphone') ||
+          lowerTitle.includes('headphone') ||
+          lowerTitle.includes('charger') ||
+          lowerTitle.includes('powerbank') ||
+          lowerTitle.includes('cable') ||
+          lowerTitle.includes('stand') ||
+          lowerTitle.includes('holder') ||
+          lowerTitle.includes('gadget')
+        ) {
+          category = 'gadgets';
+        } else {
+          category = 'electronics';
         }
 
         // Check if loot deal (>= 50% discount)

@@ -11,6 +11,7 @@ interface DataContextType {
   deals: Deal[];
   blogs: BlogPost[];
   addDeal: (deal: Omit<Deal, 'id'>) => Deal;
+  addMultipleDeals: (newDeals: Array<Omit<Deal, 'id'>>) => number;
   updateDeal: (id: string, updated: Partial<Deal>) => void;
   deleteDeal: (id: string) => void;
   addBlogPost: (post: Omit<BlogPost, 'id'>) => BlogPost;
@@ -91,6 +92,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return newDeal;
   }, []);
 
+  const addMultipleDeals = useCallback((newDealsData: Array<Omit<Deal, 'id'>>) => {
+    if (!newDealsData.length) return 0;
+    let addedCount = 0;
+    setDeals((prev) => {
+      const existingAsins = new Set(prev.map((d) => d.asin.toLowerCase()));
+      const toAdd: Deal[] = [];
+
+      newDealsData.forEach((d) => {
+        if (!existingAsins.has(d.asin.toLowerCase())) {
+          existingAsins.add(d.asin.toLowerCase());
+          toAdd.push({
+            ...d,
+            id: `deal-${Date.now()}-${Math.random().toString(36).substring(2, 6)}-${toAdd.length}`,
+          });
+        }
+      });
+
+      addedCount = toAdd.length;
+      return [...toAdd, ...prev];
+    });
+    return addedCount;
+  }, []);
+
   const updateDeal = useCallback((id: string, updated: Partial<Deal>) => {
     setDeals((prev) =>
       prev.map((deal) => (deal.id === id ? { ...deal, ...updated } : deal))
@@ -151,6 +175,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deals,
         blogs,
         addDeal,
+        addMultipleDeals,
         updateDeal,
         deleteDeal,
         addBlogPost,
