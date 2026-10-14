@@ -6,6 +6,3 @@ pages_build_output_dir = "dist"
 binding = "DB"
 database_name = "mizodeals-db"
 database_id = "37664d9a-03e0-4e57-bbd2-309dc03c5175"
-
-[vars]
-AMAZON_PARTNER_TAG = "lalmalsawmtlu-21"
