@@ -80,19 +80,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetch('/api/deals?status=all&limit=60')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch from D1');
-        return res.json() as Promise<{ success: boolean; deals?: Deal[] }>;
+        return res.json() as Promise<{ success: boolean; deals?: Deal[]; source?: string }>;
       })
       .then((data) => {
         if (isMounted && data.success && Array.isArray(data.deals) && data.deals.length > 0) {
           setDeals((prev) => {
-            const existingAsins = new Set(prev.map((d) => d.asin.toLowerCase()));
-            const newFromDb = data.deals!.filter(
-              (d) => !existingAsins.has(d.asin.toLowerCase())
-            );
-            if (newFromDb.length > 0) {
-              return [...newFromDb, ...prev];
-            }
-            return prev;
+            // Prioritize freshly fetched D1 deals
+            const d1Asins = new Set(data.deals!.map((d) => d.asin.toLowerCase()));
+            const remainingLocal = prev.filter((d) => !d1Asins.has(d.asin.toLowerCase()));
+            return [...data.deals!, ...remainingLocal];
           });
         }
       })

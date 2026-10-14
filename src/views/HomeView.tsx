@@ -39,11 +39,11 @@ export const HomeView: React.FC = () => {
   // Active Feed Tab: 'all' | 'loot' | 'new'
   const activeTab: DealsTabMode = (searchParams.tab as DealsTabMode) || 'all';
 
-  // Filter params with defaults
+  // Filter params with defaults (Default sort is newest so live scraped deals appear on top)
   const activeFilters: DealsFilterParams = useMemo(() => ({
     category: searchParams.category || 'all',
     search: searchParams.search || '',
-    sort: searchParams.sort || (activeTab === 'new' ? 'newest' : 'discount_desc'),
+    sort: searchParams.sort || 'newest',
     lootOnly: activeTab === 'loot' || Boolean(searchParams.lootOnly),
     tab: activeTab,
     priceRange: searchParams.priceRange || 'all',
@@ -134,7 +134,7 @@ export const HomeView: React.FC = () => {
       }
       switch (activeFilters.sort) {
         case 'discount_desc':
-          return b.discountPercent - a.discountPercent;
+          return b.discountPercent - a.discountPercent || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case 'price_asc':
           return a.dealPrice - b.dealPrice;
         case 'price_desc':
@@ -142,9 +142,8 @@ export const HomeView: React.FC = () => {
         case 'rating_desc':
           return b.rating - a.rating;
         case 'newest':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         default:
-          return b.discountPercent - a.discountPercent;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
   }, [activeDeals, activeFilters, activeTab]);

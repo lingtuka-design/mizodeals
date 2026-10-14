@@ -84,15 +84,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         art.match(/<img[^>]+src="([^"]+)"/i);
       const imageUrl = imgMatch ? imgMatch[1].replace(/&amp;/g, '&') : '';
 
-      // Title
-      const titleMatch =
-        art.match(/alt="([^"]+)"/i) ||
-        art.match(/data-permalink="deals\/([^"]+)"/i);
-      let title = titleMatch ? titleMatch[1].replace(/-/g, ' ').trim() : 'Amazon Deal';
-      // Clean up title capitalization if came from permalink
-      if (title.length > 5) {
-        title = title.charAt(0).toUpperCase() + title.slice(1);
+      // Clean Title Extraction: Find image alt that is not an icon, or format permalink
+      const alts = [...art.matchAll(/alt="([^"]+)"/g)]
+        .map((m) => m[1])
+        .filter((a) => !a.toLowerCase().includes('icon') && !a.toLowerCase().includes('avatar') && a.length > 5);
+
+      const permalinkMatch = art.match(/data-permalink="deals\/([^"]+)"/i)?.[1];
+      let permalinkTitle = permalinkMatch ? permalinkMatch.replace(/-/g, ' ').trim() : '';
+      if (permalinkTitle.length > 5) {
+        permalinkTitle = permalinkTitle.charAt(0).toUpperCase() + permalinkTitle.slice(1);
       }
+
+      let title = alts[0] || permalinkTitle || 'Amazon Hot Deal';
+      // Clean up common DesiDime noise words
+      title = title.replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 
       // Price extraction
       const priceText = art.match(/₹\s*([0-9,]+)/)?.[1];
