@@ -74,6 +74,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [deals]);
 
+  // Fetch latest live deals from Cloudflare D1 database on mount
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/deals?status=all&limit=60')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch from D1');
+        return res.json() as Promise<{ success: boolean; deals?: Deal[] }>;
+      })
+      .then((data) => {
+        if (isMounted && data.success && Array.isArray(data.deals) && data.deals.length > 0) {
+          setDeals((prev) => {
+            const existingAsins = new Set(prev.map((d) => d.asin.toLowerCase()));
+            const newFromDb = data.deals!.filter(
+              (d) => !existingAsins.has(d.asin.toLowerCase())
+            );
+            if (newFromDb.length > 0) {
+              return [...newFromDb, ...prev];
+            }
+            return prev;
+          });
+        }
+      })
+      .catch((err) => {
+        // Silently keep local seed deals if offline or in dev
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Sync blogs to localStorage
   useEffect(() => {
     try {

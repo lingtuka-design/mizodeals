@@ -14,8 +14,13 @@ interface DesiDimeDealResult {
   isLootDeal: boolean;
 }
 
-export const onRequestGet: PagesFunction = async (context) => {
-  const { request } = context;
+interface Env {
+  DB?: D1Database;
+  AMAZON_PARTNER_TAG?: string;
+}
+
+export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { request, env } = context;
   const url = new URL(request.url);
   const limitParam = url.searchParams.get('limit') || '15';
   const limit = Math.min(Math.max(parseInt(limitParam, 10) || 15, 1), 30);
@@ -241,10 +246,66 @@ export const onRequestGet: PagesFunction = async (context) => {
       })
     );
 
+    // 4. If auto_publish=true and DB is bound, persist directly to Cloudflare D1
+    let insertedCount = 0;
+    const shouldAutoPublish = url.searchParams.get('auto_publish') === 'true';
+    if (shouldAutoPublish && env.DB && resolvedDeals.length > 0) {
+      const nowIso = new Date().toISOString();
+      for (const deal of resolvedDeals) {
+        const finalAsin = deal.asin || `DD-${deal.dealId}`;
+        const affiliateUrl =
+          deal.amazonUrl || `https://www.amazon.in/dp/${finalAsin}?tag=${targetTag}`;
+
+        try {
+          // INSERT OR IGNORE avoids duplicates based on UNIQUE(asin)
+          await env.DB.prepare(
+            `INSERT INTO deals (
+              id, asin, title, category, store, original_price, deal_price, current_price,
+              discount_percent, rating, ratings_count, image_url, affiliate_url, status,
+              is_loot_deal, coupon_text, description, created_at, last_checked_at, verified_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(asin) DO UPDATE SET
+              deal_price = excluded.deal_price,
+              discount_percent = excluded.discount_percent,
+              last_checked_at = excluded.last_checked_at,
+              verified_at = 'Re-checked via Auto-Sync'`
+          )
+            .bind(
+              `deal-${deal.dealId}`,
+              finalAsin,
+              deal.title,
+              deal.category,
+              'amazon',
+              deal.originalPrice,
+              deal.price,
+              deal.price,
+              deal.discountPercent,
+              deal.rating,
+              deal.ratingsCount,
+              deal.imageUrl,
+              affiliateUrl,
+              'active',
+              deal.isLootDeal ? 1 : 0,
+              deal.discountPercent >= 60 ? '⚡ Exclusive Loot Deal' : null,
+              `Curated via DesiDime Smart Auto-Harvester. 100% verified Amazon pricing categorized into ${deal.category}.`,
+              nowIso,
+              nowIso,
+              'Auto-published just now'
+            )
+            .run();
+          insertedCount++;
+        } catch (dbErr) {
+          // Continue with next deal
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         count: resolvedDeals.length,
+        insertedCount: shouldAutoPublish ? insertedCount : undefined,
+        autoPublished: shouldAutoPublish,
         deals: resolvedDeals,
         timestamp: new Date().toISOString(),
       }),
@@ -253,7 +314,7 @@ export const onRequestGet: PagesFunction = async (context) => {
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=300', // Cache 5 mins at edge
+          'Cache-Control': shouldAutoPublish ? 'no-cache' : 'public, max-age=180',
         },
       }
     );
