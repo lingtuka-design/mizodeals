@@ -4,7 +4,7 @@ import { INITIAL_DEALS } from '../data/deals';
 import { BLOG_POSTS } from '../data/blogs';
 import { buildAffiliateUrl, ensureAffiliateTag } from '../utils/affiliate';
 
-const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v3';
+const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v4';
 const STORAGE_BLOGS_KEY = 'mizodeals_all_blogs_v1';
 
 interface DataContextType {
@@ -27,9 +27,10 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [deals, setDeals] = useState<Deal[]>(() => {
     try {
-      // Clean up legacy v1 and v2 caches containing broken dummy ASINs
+      // Clean up legacy v1, v2, and v3 caches containing stale placeholder watch images
       localStorage.removeItem('mizodeals_all_deals_v1');
       localStorage.removeItem('mizodeals_all_deals_v2');
+      localStorage.removeItem('mizodeals_all_deals_v3');
 
       const stored = localStorage.getItem(STORAGE_DEALS_KEY);
       if (stored) {
