@@ -264,6 +264,25 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           category = 'electronics';
         }
 
+        // Only publish deals that have a verified Amazon ASIN (filters out generic store coupons)
+        if (!asin) return;
+
+        // Dynamic category image fallback if image is missing or generic unsplash watch
+        let finalImage = item.imageUrl;
+        if (!finalImage || finalImage.includes('546868871-7041f2a55e12')) {
+          if (category === 'shoes_fashion') {
+            finalImage = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80';
+          } else if (category === 'home_kitchen') {
+            finalImage = 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80';
+          } else if (category === 'sports') {
+            finalImage = 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=600&q=80';
+          } else if (category === 'gadgets') {
+            finalImage = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80';
+          } else {
+            finalImage = 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=600&q=80';
+          }
+        }
+
         const isLootDeal = item.discountPercent >= 50;
 
         resolvedDeals.push({
@@ -274,9 +293,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           discountPercent: item.discountPercent,
           rating: 4.4,
           ratingsCount: 520,
-          imageUrl: item.imageUrl,
+          imageUrl: finalImage,
           asin,
-          amazonUrl: cleanAmazonUrl || (asin ? `https://www.amazon.in/dp/${asin}?tag=${targetTag}` : null),
+          amazonUrl: cleanAmazonUrl || `https://www.amazon.in/dp/${asin}?tag=${targetTag}`,
           category,
           source: 'DesiDime Live FPD',
           isLootDeal,
