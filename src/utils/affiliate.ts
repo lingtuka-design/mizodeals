@@ -50,8 +50,8 @@ export function generateWhatsAppDealShareText(deal: Deal): string {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsFormatted = savings > 0 ? ` (Save ₹${savings.toLocaleString('en-IN')})` : '';
   const lootHeader = deal.isLootDeal 
-    ? '🔥 *LOOT DEAL ALERT!* 🔥\n' 
-    : '⚡ *AMAZON PRICE DROP!* ⚡\n';
+    ? '🔥 *MAN TLAHNIAM BIK!* 🔥\n' 
+    : '⚡ *MAN TLAHNIAM!* ⚡\n';
 
   const landingUrl = getDealLandingUrl(deal);
 

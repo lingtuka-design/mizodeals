@@ -37,8 +37,8 @@ function formatMessage(deal) {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
   const lootHeader = deal.isLootDeal || deal.discountPercent >= 50
-    ? '🔥 *LOOT DEAL ALERT!* 🔥\n'
-    : '⚡ *AMAZON PRICE DROP!* ⚡\n';
+    ? '🔥 *MAN TLAHNIAM BIK!* 🔥\n'
+    : '⚡ *MAN TLAHNIAM!* ⚡\n';
 
   const dealUrl = `https://mizodeals.pages.dev/deals/${deal.id}`;
 
