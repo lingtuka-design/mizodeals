@@ -9,8 +9,10 @@ const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
 const API_URL = 'https://mizodeals.pages.dev/api/deals?status=all&limit=100';
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
+const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'ifs', 'all'];
+let currentSourceIndex = 0;
 
-// Load already posted deal IDs
+// Load already posted deal IDs and ASINs
 function getPostedDealIds() {
   try {
     if (fs.existsSync(POSTED_FILE)) {
@@ -23,9 +25,11 @@ function getPostedDealIds() {
   return new Set();
 }
 
-function recordPostedDealId(dealId) {
+// Record both deal ID and ASIN to guarantee 0 duplicate products
+function recordPostedDeal(deal) {
   const ids = Array.from(getPostedDealIds());
-  ids.push(dealId);
+  if (deal.id && !ids.includes(deal.id)) ids.push(deal.id);
+  if (deal.asin && !ids.includes(deal.asin)) ids.push(deal.asin);
   fs.writeFileSync(POSTED_FILE, JSON.stringify(ids, null, 2));
 }
 
@@ -115,7 +119,30 @@ async function startBot() {
 
 async function checkAndPostDeals(sock, channelJid) {
   if (!sock || !channelJid) return;
-  console.log(`[${new Date().toLocaleTimeString()}] Checking live deals from Mizodeals database...`);
+
+  const currentSource = SCRAPER_SOURCES[currentSourceIndex % SCRAPER_SOURCES.length];
+  currentSourceIndex++;
+
+  console.log(`\n======================================================`);
+  console.log(`[${new Date().toLocaleTimeString()}] 🔄 AUTO-HARVEST CYCLE: [${currentSource.toUpperCase()}]`);
+  console.log(`======================================================`);
+
+  // Step 1: Auto-scrape from rotated source and auto-publish to D1 (no manual work needed)
+  try {
+    const harvestUrl = `https://mizodeals.pages.dev/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=40`;
+    const harvestRes = await fetch(harvestUrl);
+    if (harvestRes.ok) {
+      const harvestData = await harvestRes.json();
+      console.log(`🌾 Auto-harvested: ${harvestData.count || 0} deals found from ${currentSource.toUpperCase()} (${harvestData.insertedCount || 0} updated in D1 database).`);
+    } else {
+      console.warn(`Auto-harvest responded with status: ${harvestRes.status}`);
+    }
+  } catch (hErr) {
+    console.warn('Auto-harvest background sync notice:', hErr.message);
+  }
+
+  // Step 2: Fetch newly synced live deals from database
+  console.log(`[${new Date().toLocaleTimeString()}] Checking live unposted loot deals in catalog...`);
 
   try {
     const res = await fetch(API_URL);
@@ -126,13 +153,17 @@ async function checkAndPostDeals(sock, channelJid) {
     const postedIds = getPostedDealIds();
 
     // Prioritize top loot deals (50%+ off or marked isLootDeal)
+    // Filter out both deal ID and ASIN so product duplicates are 100% prevented
     const newDeals = data.deals.filter(
-      (d) => !postedIds.has(d.id) && (d.isLootDeal || d.discountPercent >= 50)
+      (d) =>
+        !postedIds.has(d.id) &&
+        (!d.asin || !postedIds.has(d.asin)) &&
+        (d.isLootDeal || d.discountPercent >= 50)
     );
 
-    console.log(`Found ${newDeals.length} unposted loot deals.`);
+    console.log(`Found ${newDeals.length} unposted loot deals available.`);
 
-    // To prevent channel spam, post max 2-3 per run
+    // To prevent channel spam, post max 1-2 per 30 minutes
     const toPost = newDeals.slice(0, 2);
 
     for (const deal of toPost) {
@@ -167,8 +198,8 @@ async function checkAndPostDeals(sock, channelJid) {
 
         await sock.sendMessage(channelJid, msgPayload);
 
-        recordPostedDealId(deal.id);
-        console.log(`✅ Posted successfully with thumbnail: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        recordPostedDeal(deal);
+        console.log(`✅ Posted successfully with thumbnail: ${deal.id} [${deal.asin || 'NO-ASIN'}] - ${deal.title.slice(0, 30)}`);
 
         // Wait 10 seconds between posts to keep channel clean
         await new Promise((resolve) => setTimeout(resolve, 10000));
