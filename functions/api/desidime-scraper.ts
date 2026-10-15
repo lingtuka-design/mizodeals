@@ -23,7 +23,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const limitParam = url.searchParams.get('limit') || '50';
-  const limit = Math.min(Math.max(parseInt(limitParam, 10) || 50, 1), 80);
+  const limit = Math.min(Math.max(parseInt(limitParam, 10) || 50, 1), 70);
   const targetTag = url.searchParams.get('tag') || 'lalmalsawmtlu-21';
 
   try {
@@ -34,13 +34,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'Accept-Language': 'en-US,en;q=0.9',
     };
 
-    // Parallel fetch from 2 High-Volume endpoints:
-    // 1) Amazon India Dedicated Store Page (contains 70+ direct Amazon deals)
-    // 2) Live Deals Catalog
-    const [storeRes, dealsRes] = await Promise.all([
-      fetch('https://www.desidime.com/stores/amazon-india', { headers }).catch(() => null),
-      fetch('https://www.desidime.com/deals', { headers }).catch(() => null),
-    ]);
+    // Parallel fetch across 5 consecutive pages to gather a rich catalog of REAL products
+    const pageUrls = [
+      'https://www.desidime.com/deals?page=1',
+      'https://www.desidime.com/deals?page=2',
+      'https://www.desidime.com/deals?page=3',
+      'https://www.desidime.com/deals?page=4',
+      'https://www.desidime.com/deals?page=5',
+    ];
+
+    const responses = await Promise.all(
+      pageUrls.map((pUrl) => fetch(pUrl, { headers }).then((r) => (r.ok ? r.text() : '')).catch(() => ''))
+    );
 
     const rawDeals: {
       dealId: string;
@@ -55,28 +60,31 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     const seenIds = new Set<string>();
 
-    // 1. Parse Deals Page (Articles)
-    if (dealsRes && dealsRes.ok) {
-      const dealsHtml = await dealsRes.text();
-      const articleChunks = dealsHtml.split('<article class="');
+    for (const html of responses) {
+      if (!html) continue;
+      const articleChunks = html.split('<article class="');
 
       for (let i = 1; i < articleChunks.length; i++) {
         const art = articleChunks[i];
         const dealId = art.match(/data-gtm-deal-id="([^"]+)"/)?.[1];
         const store = art.match(/data-gtm-store="([^"]+)"/)?.[1] || '';
 
+        // Only Amazon deals
         const isAmazon = store.toLowerCase().includes('amazon') || art.toLowerCase().includes('amazon');
         if (!dealId || !isAmazon || seenIds.has(dealId)) continue;
+
+        // Image: MUST have a genuine CDN image (photos, topics, attachments) - strictly no generic placeholders
+        const imgMatch =
+          art.match(/src="(https:\/\/[^"]*(?:photos|topics|attachments)[^"]*)"/i) ||
+          art.match(/id="image-[0-9]+"\s+src="([^"]+)"/i);
+
+        if (!imgMatch) continue; // Skip if no real product thumbnail
+        const imageUrl = imgMatch[1].replace(/&amp;/g, '&');
+        if (imageUrl.includes('placeholder') || imageUrl.includes('default.png')) continue;
+
         seenIds.add(dealId);
 
-        // Image
-        const imgMatch =
-          art.match(/id="image-[0-9]+"\s+src="([^"]+)"/i) ||
-          art.match(/<img[^>]+src="([^"]+desidime\.com\/[^"]+)"/i) ||
-          art.match(/<img[^>]+src="([^"]+)"/i);
-        const imageUrl = imgMatch ? imgMatch[1].replace(/&amp;/g, '&') : '';
-
-        // Title
+        // Title: Extract clean descriptive product name
         const alts = [...art.matchAll(/alt="([^"]+)"/g)]
           .map((m) => m[1])
           .filter((a) => !a.toLowerCase().includes('icon') && !a.toLowerCase().includes('avatar') && a.length > 5);
@@ -87,14 +95,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           permalinkTitle = permalinkTitle.charAt(0).toUpperCase() + permalinkTitle.slice(1);
         }
 
-        let title = alts[0] || permalinkTitle || 'Amazon Hot Deal';
+        let title = alts[0] || permalinkTitle || 'Amazon Deal';
         title = title.replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 
-        // Price
+        // Price extraction
         const priceText = art.match(/₹\s*([0-9,]+)/)?.[1];
         const dealPrice = priceText ? parseInt(priceText.replace(/,/g, ''), 10) : 999;
 
-        // Discount
+        // Discount extraction
         const discountMatch = art.match(/([0-9]+)%\s*off/i);
         const discountPercent = discountMatch ? parseInt(discountMatch[1], 10) : 40;
         const originalPrice = Math.round(dealPrice / (1 - Math.min(discountPercent, 85) / 100));
@@ -112,48 +120,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // 2. Parse Amazon Store Page (Coupons & Deals)
-    if (storeRes && storeRes.ok) {
-      const storeHtml = await storeRes.text();
-      const cardRegex = /data-href-alt="https:\/\/visit\.desidime\.com\/visit\/[^\/]+\/([0-9]+)"[^>]*>([\s\S]*?)<\/a>/g;
-      let match;
-
-      while ((match = cardRegex.exec(storeHtml)) !== null) {
-        const id = match[1];
-        if (seenIds.has(id)) continue;
-        seenIds.add(id);
-
-        const cleanTitle = match[2]
-          .replace(/<[^>]+>/g, '')
-          .replace(/&#39;/g, "'")
-          .replace(/&amp;/g, '&')
-          .trim();
-
-        if (cleanTitle.length < 6) continue;
-
-        // Check if discount % mentioned in title
-        const discMatch = cleanTitle.match(/([0-9]+)%\s*off/i);
-        const discountPercent = discMatch ? parseInt(discMatch[1], 10) : 45;
-
-        // Extract price from title if available (e.g., "Rs. 1500" or "Rs 999")
-        const priceMatch = cleanTitle.match(/(?:Rs\.?|₹)\s*([0-9,]+)/i);
-        const dealPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ''), 10) : 1499;
-        const originalPrice = Math.round(dealPrice / (1 - Math.min(discountPercent, 85) / 100));
-
-        rawDeals.push({
-          dealId: id,
-          title: cleanTitle,
-          store: 'Amazon',
-          price: dealPrice,
-          originalPrice,
-          discountPercent,
-          imageUrl: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=400&q=80',
-          visitUrl: `https://visit.desidime.com/visit/coupons-2/${id}`,
-        });
-      }
-    }
-
-    // 3. Resolve Amazon ASINs from visit links concurrently (up to limit)
+    // Resolve Amazon ASINs from visit links concurrently (up to limit)
     const candidates = rawDeals.slice(0, limit);
     const resolvedDeals: DesiDimeDealResult[] = [];
 
@@ -188,7 +155,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             }
           }
         } catch (err) {
-          // If redirect fails, fallback gracefully
+          // If redirect fails, leave ASIN as null
         }
 
         // Smart Category Classifier
@@ -212,7 +179,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           lowerTitle.includes('gold') ||
           lowerTitle.includes('sandal') ||
           lowerTitle.includes('fashion') ||
-          lowerTitle.includes('clothing')
+          lowerTitle.includes('footwear') ||
+          lowerTitle.includes('kurti') ||
+          lowerTitle.includes('ethnic')
         ) {
           category = 'shoes_fashion';
         } else if (
@@ -231,7 +200,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           lowerTitle.includes('refrigerator') ||
           lowerTitle.includes('fridge') ||
           lowerTitle.includes('washing machine') ||
-          lowerTitle.includes('purifier')
+          lowerTitle.includes('purifier') ||
+          lowerTitle.includes('ac') ||
+          lowerTitle.includes('air conditioner')
         ) {
           category = 'home_kitchen';
         } else if (
@@ -264,25 +235,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           category = 'electronics';
         }
 
-        // Only publish deals that have a verified Amazon ASIN (filters out generic store coupons)
-        if (!asin) return;
-
-        // Dynamic category image fallback if image is missing or generic unsplash watch
-        let finalImage = item.imageUrl;
-        if (!finalImage || finalImage.includes('546868871-7041f2a55e12')) {
-          if (category === 'shoes_fashion') {
-            finalImage = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80';
-          } else if (category === 'home_kitchen') {
-            finalImage = 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80';
-          } else if (category === 'sports') {
-            finalImage = 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=600&q=80';
-          } else if (category === 'gadgets') {
-            finalImage = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80';
-          } else {
-            finalImage = 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=600&q=80';
-          }
-        }
-
         const isLootDeal = item.discountPercent >= 50;
 
         resolvedDeals.push({
@@ -293,9 +245,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           discountPercent: item.discountPercent,
           rating: 4.4,
           ratingsCount: 520,
-          imageUrl: finalImage,
+          imageUrl: item.imageUrl,
           asin,
-          amazonUrl: cleanAmazonUrl || `https://www.amazon.in/dp/${asin}?tag=${targetTag}`,
+          amazonUrl: cleanAmazonUrl || (asin ? `https://www.amazon.in/dp/${asin}?tag=${targetTag}` : null),
           category,
           source: 'DesiDime Live FPD',
           isLootDeal,
@@ -303,7 +255,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       })
     );
 
-    // 4. If auto_publish=true and DB is bound, persist directly to Cloudflare D1
+    // Save to Cloudflare D1 if auto_publish is active
     let insertedCount = 0;
     const shouldAutoPublish = url.searchParams.get('auto_publish') === 'true';
     if (shouldAutoPublish && env.DB && resolvedDeals.length > 0) {
@@ -321,6 +273,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               is_loot_deal, coupon_text, description, created_at, last_checked_at, verified_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(asin) DO UPDATE SET
+              title = excluded.title,
+              image_url = excluded.image_url,
               deal_price = excluded.deal_price,
               discount_percent = excluded.discount_percent,
               last_checked_at = excluded.last_checked_at,
@@ -351,7 +305,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             .run();
           insertedCount++;
         } catch (dbErr) {
-          // Skip if any error
+          // Skip if duplicate error
         }
       }
     }
