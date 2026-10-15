@@ -1,32 +1,23 @@
-# React + TypeScript + Vite
+# Mizodeals — Amazon Affiliate & Loot Deals Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Curated Amazon India price drops, lightning loot deals, and buying guides tailored for Mizoram & Northeast India.
 
-Currently, two official plugins are available:
+## Key Links & Endpoints
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Live Website:** [https://mizodeals.pages.dev](https://mizodeals.pages.dev)
+- **Official WhatsApp Channel:** [https://whatsapp.com/channel/0029VbE4k2N8fewji3I3Wa0t](https://whatsapp.com/channel/0029VbE4k2N8fewji3I3Wa0t)
+- **24/7 Cloud WhatsApp Bot Dashboard:** [https://mizodeals-whatsapp-bot.onrender.com/](https://mizodeals-whatsapp-bot.onrender.com/)
+- **Admin Dashboard:** [https://mizodeals.pages.dev/admin](https://mizodeals.pages.dev/admin)
 
-## React Compiler
+## Architecture
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+1. **Frontend & Bridge Pages:** React 19 + TypeScript + Vite + Tailwind CSS deployed on Cloudflare Pages.
+2. **Database:** Cloudflare D1 (SQLite at the edge) storing verified deals with automatic deduplication by ASIN.
+3. **Multi-Source Scraper:** `functions/api/multi-scraper.ts` scraping live deals across:
+   - Telegram Deals (`dealbee`, `shopping_deals`)
+   - DealsMagnet (`dealsmagnet.com`)
+   - IndiaFreeStuff (`indiafreestuff.in`)
+4. **24/7 Autonomous Bot:** Hosted on Render Cloud (`whatsapp-bot/bot.js`):
+   - Rotates sources every 30 minutes.
+   - Auto-publishes to Cloudflare D1 with Amazon tag `lalmalsawmtlu-21`.
+   - Posts to WhatsApp Channel with real Jimp thumbnails and Mizo headers (`🔥 MAN TLAHNIAM NASA! 🔥`).
