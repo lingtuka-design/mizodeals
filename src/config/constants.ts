@@ -3,8 +3,8 @@ export const SITE_URL = 'https://mizodeals.pages.dev';
 
 export const SITE_NAME = 'Mizodeals';
 export const SITE_TAGLINE = 'Curated Amazon Deals & Buying Guides for Mizoram';
-export const WHATSAPP_CHANNEL_URL = 'https://chat.whatsapp.com/invite/mizodeals-vip-loot';
-export const WHATSAPP_CHANNEL_NAME = 'Mizodeals VIP Loot Alerts';
+export const WHATSAPP_CHANNEL_URL = 'https://whatsapp.com/channel/0029VbE4k2N8fewji3I3Wa0t';
+export const WHATSAPP_CHANNEL_NAME = 'Mizodeals VIP Loot Channel';
 export const WHATSAPP_COMMUNITY_MEMBERS = '2,850+';
 
 export const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = {
