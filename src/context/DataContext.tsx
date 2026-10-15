@@ -4,7 +4,7 @@ import { INITIAL_DEALS } from '../data/deals';
 import { BLOG_POSTS } from '../data/blogs';
 import { buildAffiliateUrl, ensureAffiliateTag } from '../utils/affiliate';
 
-const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v4';
+const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v5';
 const STORAGE_BLOGS_KEY = 'mizodeals_all_blogs_v1';
 
 interface DataContextType {
@@ -27,10 +27,11 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [deals, setDeals] = useState<Deal[]>(() => {
     try {
-      // Clean up legacy v1, v2, and v3 caches containing stale placeholder watch images
+      // Clean up legacy v1..v4 caches to ensure instantaneous delivery of fresh catalog
       localStorage.removeItem('mizodeals_all_deals_v1');
       localStorage.removeItem('mizodeals_all_deals_v2');
       localStorage.removeItem('mizodeals_all_deals_v3');
+      localStorage.removeItem('mizodeals_all_deals_v4');
 
       const stored = localStorage.getItem(STORAGE_DEALS_KEY);
       if (stored) {
@@ -78,7 +79,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch latest live deals from Cloudflare D1 database on mount
   useEffect(() => {
     let isMounted = true;
-    fetch('/api/deals?status=all&limit=60')
+    fetch('/api/deals?status=all&limit=100')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch from D1');
         return res.json() as Promise<{ success: boolean; deals?: Deal[]; source?: string }>;

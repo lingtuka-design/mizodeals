@@ -34,13 +34,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'Accept-Language': 'en-US,en;q=0.9',
     };
 
-    // Parallel fetch across 5 consecutive pages to gather a rich catalog of REAL products
+    // Fetch Amazon store pages and deals feed
     const pageUrls = [
+      'https://www.desidime.com/stores/amazon-india?page=1',
+      'https://www.desidime.com/stores/amazon-india?page=2',
       'https://www.desidime.com/deals?page=1',
       'https://www.desidime.com/deals?page=2',
-      'https://www.desidime.com/deals?page=3',
-      'https://www.desidime.com/deals?page=4',
-      'https://www.desidime.com/deals?page=5',
     ];
 
     const responses = await Promise.all(
@@ -73,46 +72,77 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const isAmazon = store.toLowerCase().includes('amazon') || art.toLowerCase().includes('amazon');
         if (!dealId || !isAmazon || seenIds.has(dealId)) continue;
 
-        // Image: MUST have a genuine CDN image (photos, topics, attachments) - strictly no generic placeholders
+        // Image: MUST have a genuine CDN image (photos, topics, attachments) - strictly no merchant logos or generic placeholders
         const imgMatch =
           art.match(/src="(https:\/\/[^"]*(?:photos|topics|attachments)[^"]*)"/i) ||
           art.match(/id="image-[0-9]+"\s+src="([^"]+)"/i);
 
         if (!imgMatch) continue; // Skip if no real product thumbnail
         const imageUrl = imgMatch[1].replace(/&amp;/g, '&');
-        if (imageUrl.includes('placeholder') || imageUrl.includes('default.png')) continue;
-
-        seenIds.add(dealId);
-
-        // Title: Extract clean descriptive product name
-        const alts = [...art.matchAll(/alt="([^"]+)"/g)]
-          .map((m) => m[1])
-          .filter((a) => !a.toLowerCase().includes('icon') && !a.toLowerCase().includes('avatar') && a.length > 5);
-
-        const permalinkMatch = art.match(/data-permalink="deals\/([^"]+)"/i)?.[1];
-        let permalinkTitle = permalinkMatch ? permalinkMatch.replace(/-/g, ' ').trim() : '';
-        if (permalinkTitle.length > 5) {
-          permalinkTitle = permalinkTitle.charAt(0).toUpperCase() + permalinkTitle.slice(1);
+        if (
+          imageUrl.includes('placeholder') ||
+          imageUrl.includes('default.png') ||
+          imageUrl.includes('/merchants/') ||
+          imageUrl.includes('avatar')
+        ) {
+          continue;
         }
 
-        let title = alts[0] || permalinkTitle || 'Amazon Deal';
-        title = title.replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+        // Title: Extract from custom-card-title or clean alt
+        let title = '';
+        const cardTitleMatch = art.match(/<div class="[^"]*custom-card-title[^"]*"><a[^>]*>(.*?)<\/a>/s);
+        if (cardTitleMatch) {
+          title = cardTitleMatch[1].replace(/<[^>]+>/g, '').trim();
+        }
+        if (!title || title.length < 5 || title.toLowerCase().includes('icon')) {
+          const imgAltMatch = art.match(/id="image-[0-9]+"[^>]*alt="([^"]+)"/i) || art.match(/alt="([^"]+)"/i);
+          if (imgAltMatch && imgAltMatch[1].length > 5 && !imgAltMatch[1].toLowerCase().includes('icon')) {
+            title = imgAltMatch[1].trim();
+          }
+        }
+        if (!title || title.length < 5) continue;
+        title = title.replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+
+        const lowerT = title.toLowerCase();
+        // Skip quizzes, vouchers, answers
+        if (
+          lowerT.includes('funzone') ||
+          lowerT.includes('quiz') ||
+          lowerT.includes('contest') ||
+          lowerT.includes('answers') ||
+          lowerT.includes('voucher')
+        ) {
+          continue;
+        }
 
         // Price extraction
-        const priceText = art.match(/₹\s*([0-9,]+)/)?.[1];
-        const dealPrice = priceText ? parseInt(priceText.replace(/,/g, ''), 10) : 999;
+        const priceMatch = art.match(/₹\s*([0-9,]+)/);
+        let dealPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ''), 10) : 0;
+        if (dealPrice <= 0) continue;
 
-        // Discount extraction
-        const discountMatch = art.match(/([0-9]+)%\s*off/i);
-        const discountPercent = discountMatch ? parseInt(discountMatch[1], 10) : 40;
-        const originalPrice = Math.round(dealPrice / (1 - Math.min(discountPercent, 85) / 100));
+        // Discount & original price extraction
+        const origMatch = art.match(/line-through[^>]*>\s*₹\s*([0-9,]+)/);
+        let origPrice = origMatch ? parseInt(origMatch[1].replace(/,/g, ''), 10) : 0;
+        const discMatch = art.match(/\(([0-9]+)%\)/) || art.match(/([0-9]+)%\s*off/i);
+        let discountPercent = discMatch ? parseInt(discMatch[1], 10) : 0;
+
+        if (origPrice > dealPrice && discountPercent === 0) {
+          discountPercent = Math.round(((origPrice - dealPrice) / origPrice) * 100);
+        } else if (origPrice === 0 && discountPercent > 0) {
+          origPrice = Math.round(dealPrice / (1 - Math.min(discountPercent, 85) / 100));
+        } else if (origPrice === 0) {
+          origPrice = Math.round(dealPrice * 1.35);
+          discountPercent = 26;
+        }
+
+        seenIds.add(dealId);
 
         rawDeals.push({
           dealId,
           title,
           store: 'Amazon',
           price: dealPrice,
-          originalPrice,
+          originalPrice: origPrice,
           discountPercent,
           imageUrl,
           visitUrl: `https://visit.desidime.com/visit/home-get-deals-1/${dealId}`,
@@ -120,8 +150,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // Resolve Amazon ASINs from visit links concurrently (up to limit)
-    const candidates = rawDeals.slice(0, limit);
+    // Limit candidate resolutions to stay within Cloudflare Worker subrequest limit (max 50)
+    const maxResolutions = Math.min(limit, 35);
+    const candidates = rawDeals.slice(0, maxResolutions);
     const resolvedDeals: DesiDimeDealResult[] = [];
 
     await Promise.all(
@@ -159,78 +190,106 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }
 
         // Smart Category Classifier
-        const lowerTitle = item.title.toLowerCase();
+        const t = item.title.toLowerCase();
         let category = 'electronics';
 
         if (
-          lowerTitle.includes('shoe') ||
-          lowerTitle.includes('sneaker') ||
-          lowerTitle.includes('shirt') ||
-          lowerTitle.includes('t-shirt') ||
-          lowerTitle.includes('pant') ||
-          lowerTitle.includes('jeans') ||
-          lowerTitle.includes('dress') ||
-          lowerTitle.includes('jacket') ||
-          lowerTitle.includes('bag') ||
-          lowerTitle.includes('luggage') ||
-          lowerTitle.includes('trolley') ||
-          lowerTitle.includes('watch') ||
-          lowerTitle.includes('jewel') ||
-          lowerTitle.includes('gold') ||
-          lowerTitle.includes('sandal') ||
-          lowerTitle.includes('fashion') ||
-          lowerTitle.includes('footwear') ||
-          lowerTitle.includes('kurti') ||
-          lowerTitle.includes('ethnic')
-        ) {
-          category = 'shoes_fashion';
-        } else if (
-          lowerTitle.includes('cook') ||
-          lowerTitle.includes('kitchen') ||
-          lowerTitle.includes('kettle') ||
-          lowerTitle.includes('bottle') ||
-          lowerTitle.includes('fan') ||
-          lowerTitle.includes('mop') ||
-          lowerTitle.includes('cleaner') ||
-          lowerTitle.includes('bed') ||
-          lowerTitle.includes('mattress') ||
-          lowerTitle.includes('pillow') ||
-          lowerTitle.includes('chair') ||
-          lowerTitle.includes('furniture') ||
-          lowerTitle.includes('refrigerator') ||
-          lowerTitle.includes('fridge') ||
-          lowerTitle.includes('washing machine') ||
-          lowerTitle.includes('purifier') ||
-          lowerTitle.includes('ac') ||
-          lowerTitle.includes('air conditioner')
-        ) {
-          category = 'home_kitchen';
-        } else if (
-          lowerTitle.includes('dumbbell') ||
-          lowerTitle.includes('gym') ||
-          lowerTitle.includes('football') ||
-          lowerTitle.includes('badminton') ||
-          lowerTitle.includes('cricket') ||
-          lowerTitle.includes('yoga') ||
-          lowerTitle.includes('sport') ||
-          lowerTitle.includes('cycle')
+          t.includes('dumbbell') ||
+          t.includes('gym') ||
+          t.includes('football') ||
+          t.includes('badminton') ||
+          t.includes('cricket') ||
+          t.includes('yoga') ||
+          t.includes('sport') ||
+          t.includes('cycle') ||
+          t.includes('bicycle') ||
+          t.includes('creatine') ||
+          t.includes('whey') ||
+          t.includes('protein') ||
+          t.includes('shaker') ||
+          t.includes('running')
         ) {
           category = 'sports';
         } else if (
-          lowerTitle.includes('smartwatch') ||
-          lowerTitle.includes('earbuds') ||
-          lowerTitle.includes('earphone') ||
-          lowerTitle.includes('headphone') ||
-          lowerTitle.includes('charger') ||
-          lowerTitle.includes('powerbank') ||
-          lowerTitle.includes('cable') ||
-          lowerTitle.includes('mouse') ||
-          lowerTitle.includes('keyboard') ||
-          lowerTitle.includes('stand') ||
-          lowerTitle.includes('holder') ||
-          lowerTitle.includes('gadget')
+          t.includes('shoe') ||
+          t.includes('sneaker') ||
+          t.includes('shirt') ||
+          t.includes('t-shirt') ||
+          t.includes('pant') ||
+          t.includes('jeans') ||
+          t.includes('dress') ||
+          t.includes('jacket') ||
+          t.includes('bag') ||
+          t.includes('backpack') ||
+          t.includes('luggage') ||
+          t.includes('trolley') ||
+          t.includes('watch') ||
+          t.includes('jewel') ||
+          t.includes('gold') ||
+          t.includes('silver') ||
+          t.includes('sandal') ||
+          t.includes('fashion') ||
+          t.includes('footwear') ||
+          t.includes('kurti') ||
+          t.includes('ethnic') ||
+          t.includes('perfume') ||
+          t.includes('edt') ||
+          t.includes('edp') ||
+          t.includes('creme') ||
+          t.includes('cream') ||
+          t.includes('lotion') ||
+          t.includes('serum') ||
+          t.includes('shampoo') ||
+          t.includes('shaving') ||
+          t.includes('clothing') ||
+          t.includes('wallet')
+        ) {
+          category = 'shoes_fashion';
+        } else if (
+          t.includes('smartwatch') ||
+          t.includes('earbuds') ||
+          t.includes('earphone') ||
+          t.includes('headphone') ||
+          t.includes('buds') ||
+          t.includes('charger') ||
+          t.includes('powerbank') ||
+          t.includes('cable') ||
+          t.includes('mouse') ||
+          t.includes('keyboard') ||
+          t.includes('dock') ||
+          t.includes('stand') ||
+          t.includes('holder') ||
+          t.includes('lens') ||
+          t.includes('tripod') ||
+          t.includes('gimbal') ||
+          t.includes('gadget')
         ) {
           category = 'gadgets';
+        } else if (
+          t.includes('cook') ||
+          t.includes('kitchen') ||
+          t.includes('kettle') ||
+          t.includes('bottle') ||
+          t.includes('fan') ||
+          t.includes('mop') ||
+          t.includes('cleaner') ||
+          t.includes('bed') ||
+          t.includes('mattress') ||
+          t.includes('pillow') ||
+          t.includes('chair') ||
+          t.includes('furniture') ||
+          t.includes('refrigerator') ||
+          t.includes('fridge') ||
+          t.includes('washing machine') ||
+          t.includes('purifier') ||
+          t.includes('ac ') ||
+          t.includes('air conditioner') ||
+          t.includes('blender') ||
+          t.includes('mixer') ||
+          t.includes('microwave') ||
+          t.includes('oven')
+        ) {
+          category = 'home_kitchen';
         } else {
           category = 'electronics';
         }
@@ -247,7 +306,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           ratingsCount: 520,
           imageUrl: item.imageUrl,
           asin,
-          amazonUrl: cleanAmazonUrl || (asin ? `https://www.amazon.in/dp/${asin}?tag=${targetTag}` : null),
+          amazonUrl:
+            cleanAmazonUrl ||
+            (asin
+              ? `https://www.amazon.in/dp/${asin}?tag=${targetTag}`
+              : `https://www.amazon.in/s?k=${encodeURIComponent(item.title)}&tag=${targetTag}`),
           category,
           source: 'DesiDime Live FPD',
           isLootDeal,
