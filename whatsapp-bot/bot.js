@@ -1,6 +1,8 @@
 import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
+import http from 'http';
 import { Jimp } from 'jimp';
 import fs from 'fs';
 import path from 'path';
@@ -59,6 +61,66 @@ function formatMessage(deal) {
 }
 
 const CHANNEL_JID = '120363414138647022@newsletter';
+let latestQrDataUrl = null;
+let isConnected = false;
+
+// Cloud Web Server for Render/Railway with live status & Web QR Code
+const PORT = process.env.PORT || 3000;
+http
+  .createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    if (isConnected) {
+      res.end(`<!doctype html>
+<html>
+  <head><title>Mizodeals Bot — 24/7 Cloud Active</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="font-family:system-ui,sans-serif;text-align:center;padding:40px 20px;background:#FAF9F5;color:#1c1917;">
+    <div style="max-width:480px;margin:auto;background:white;padding:30px;border-radius:24px;border:1px solid #EAE6DF;box-shadow:0 10px 25px -5px rgba(0,0,0,0.05);">
+      <div style="font-size:42px;margin-bottom:12px;">✅</div>
+      <h2 style="color:#16a34a;margin:0 0 10px 0;">Mizodeals Bot Is Running 24/7!</h2>
+      <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
+      <div style="margin-top:20px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;font-size:12px;color:#15803d;font-weight:600;">
+        ⚡ Rotating Auto-Harvest: Telegram Deals &bull; DealsMagnet &bull; IFS
+      </div>
+      <p style="font-size:11px;color:#a8a29e;margin-top:16px;">Checking and posting high-discount loot deals every 30 minutes.</p>
+    </div>
+  </body>
+</html>`);
+    } else if (latestQrDataUrl) {
+      res.end(`<!doctype html>
+<html>
+  <head><title>Scan QR Code — Mizodeals Bot</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="font-family:system-ui,sans-serif;text-align:center;padding:40px 20px;background:#FAF9F5;color:#1c1917;">
+    <div style="max-width:440px;margin:auto;background:white;padding:30px;border-radius:24px;border:1px solid #EAE6DF;box-shadow:0 10px 25px -5px rgba(0,0,0,0.05);">
+      <h2 style="margin:0 0 8px 0;color:#ea580c;">📲 Scan QR Code</h2>
+      <p style="font-size:13px;color:#78716c;margin:0 0 20px 0;">Open WhatsApp &gt; Settings/Menu &gt; <b>Linked Devices &gt; Link a Device</b></p>
+      <img src="${latestQrDataUrl}" style="width:240px;height:240px;border:4px solid #ea580c;border-radius:16px;padding:6px;background:white;" alt="WhatsApp QR Code" />
+      <p style="font-size:11px;color:#a8a29e;margin-top:16px;">This page will automatically refresh once connected.</p>
+      <script>setTimeout(() => location.reload(), 4000);</script>
+    </div>
+  </body>
+</html>`);
+    } else {
+      res.end(`<!doctype html>
+<html>
+  <head><title>Mizodeals Bot Starting</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="font-family:system-ui,sans-serif;text-align:center;padding:50px 20px;background:#FAF9F5;">
+    <h3>⏳ Mizodeals Bot Starting Up...</h3>
+    <p style="font-size:13px;color:#78716c;">Connecting to WhatsApp network, please wait a few seconds...</p>
+    <script>setTimeout(() => location.reload(), 3000);</script>
+  </body>
+</html>`);
+    }
+  })
+  .listen(PORT, () => {
+    console.log(`🌐 Web status server listening on port ${PORT}`);
+  });
+
+// Keep Render Free Tier awake
+if (process.env.RENDER_EXTERNAL_URL) {
+  setInterval(() => {
+    fetch(process.env.RENDER_EXTERNAL_URL).catch(() => {});
+  }, 14 * 60 * 1000);
+}
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
@@ -82,9 +144,14 @@ async function startBot() {
       console.log('   (WhatsApp > Settings/Menu > Linked Devices > Link a Device)');
       console.log('======================================================\n');
       qrcode.generate(qr, { small: true });
+      try {
+        latestQrDataUrl = await QRCode.toDataURL(qr);
+      } catch (e) {}
+      isConnected = false;
     }
 
     if (connection === 'close') {
+      isConnected = false;
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       console.log(`Connection closed (${statusCode}). Reconnecting: ${shouldReconnect}`);
@@ -92,6 +159,8 @@ async function startBot() {
         setTimeout(startBot, 4000);
       }
     } else if (connection === 'open') {
+      isConnected = true;
+      latestQrDataUrl = null;
       console.log('\n======================================================');
       console.log('✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
       console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);

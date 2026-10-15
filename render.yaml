@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: mizodeals-whatsapp-bot
+    runtime: node
+    rootDir: whatsapp-bot
+    buildCommand: npm install
+    startCommand: node bot.js
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
