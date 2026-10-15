@@ -22,41 +22,26 @@ interface Env {
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
-  const limitParam = url.searchParams.get('limit') || '15';
-  const limit = Math.min(Math.max(parseInt(limitParam, 10) || 15, 1), 30);
+  const limitParam = url.searchParams.get('limit') || '50';
+  const limit = Math.min(Math.max(parseInt(limitParam, 10) || 50, 1), 80);
   const targetTag = url.searchParams.get('tag') || 'lalmalsawmtlu-21';
 
   try {
-    // 1. Fetch DesiDime /deals page with clean browser headers
-    const desidimeRes = await fetch('https://www.desidime.com/deals', {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-    });
+    const headers = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
 
-    if (!desidimeRes.ok) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `DesiDime responded with status ${desidimeRes.status}`,
-        }),
-        {
-          status: 502,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
-      );
-    }
+    // Parallel fetch from 2 High-Volume endpoints:
+    // 1) Amazon India Dedicated Store Page (contains 70+ direct Amazon deals)
+    // 2) Live Deals Catalog
+    const [storeRes, dealsRes] = await Promise.all([
+      fetch('https://www.desidime.com/stores/amazon-india', { headers }).catch(() => null),
+      fetch('https://www.desidime.com/deals', { headers }).catch(() => null),
+    ]);
 
-    const html = await desidimeRes.text();
-
-    // 2. Split into articles
-    const articleChunks = html.split('<article class="');
     const rawDeals: {
       dealId: string;
       title: string;
@@ -68,58 +53,104 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       visitUrl: string;
     }[] = [];
 
-    for (let i = 1; i < articleChunks.length && rawDeals.length < limit * 2; i++) {
-      const art = articleChunks[i];
-      const dealId = art.match(/data-gtm-deal-id="([^"]+)"/)?.[1];
-      const store = art.match(/data-gtm-store="([^"]+)"/)?.[1] || '';
+    const seenIds = new Set<string>();
 
-      // We focus on Amazon deals, or fallback to all if fewer
-      const isAmazon = store.toLowerCase().includes('amazon') || art.toLowerCase().includes('amazon');
-      if (!dealId || !isAmazon) continue;
+    // 1. Parse Deals Page (Articles)
+    if (dealsRes && dealsRes.ok) {
+      const dealsHtml = await dealsRes.text();
+      const articleChunks = dealsHtml.split('<article class="');
 
-      // Image
-      const imgMatch =
-        art.match(/id="image-[0-9]+"\s+src="([^"]+)"/i) ||
-        art.match(/<img[^>]+src="([^"]+desidime\.com\/[^"]+)"/i) ||
-        art.match(/<img[^>]+src="([^"]+)"/i);
-      const imageUrl = imgMatch ? imgMatch[1].replace(/&amp;/g, '&') : '';
+      for (let i = 1; i < articleChunks.length; i++) {
+        const art = articleChunks[i];
+        const dealId = art.match(/data-gtm-deal-id="([^"]+)"/)?.[1];
+        const store = art.match(/data-gtm-store="([^"]+)"/)?.[1] || '';
 
-      // Clean Title Extraction: Find image alt that is not an icon, or format permalink
-      const alts = [...art.matchAll(/alt="([^"]+)"/g)]
-        .map((m) => m[1])
-        .filter((a) => !a.toLowerCase().includes('icon') && !a.toLowerCase().includes('avatar') && a.length > 5);
+        const isAmazon = store.toLowerCase().includes('amazon') || art.toLowerCase().includes('amazon');
+        if (!dealId || !isAmazon || seenIds.has(dealId)) continue;
+        seenIds.add(dealId);
 
-      const permalinkMatch = art.match(/data-permalink="deals\/([^"]+)"/i)?.[1];
-      let permalinkTitle = permalinkMatch ? permalinkMatch.replace(/-/g, ' ').trim() : '';
-      if (permalinkTitle.length > 5) {
-        permalinkTitle = permalinkTitle.charAt(0).toUpperCase() + permalinkTitle.slice(1);
+        // Image
+        const imgMatch =
+          art.match(/id="image-[0-9]+"\s+src="([^"]+)"/i) ||
+          art.match(/<img[^>]+src="([^"]+desidime\.com\/[^"]+)"/i) ||
+          art.match(/<img[^>]+src="([^"]+)"/i);
+        const imageUrl = imgMatch ? imgMatch[1].replace(/&amp;/g, '&') : '';
+
+        // Title
+        const alts = [...art.matchAll(/alt="([^"]+)"/g)]
+          .map((m) => m[1])
+          .filter((a) => !a.toLowerCase().includes('icon') && !a.toLowerCase().includes('avatar') && a.length > 5);
+
+        const permalinkMatch = art.match(/data-permalink="deals\/([^"]+)"/i)?.[1];
+        let permalinkTitle = permalinkMatch ? permalinkMatch.replace(/-/g, ' ').trim() : '';
+        if (permalinkTitle.length > 5) {
+          permalinkTitle = permalinkTitle.charAt(0).toUpperCase() + permalinkTitle.slice(1);
+        }
+
+        let title = alts[0] || permalinkTitle || 'Amazon Hot Deal';
+        title = title.replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+
+        // Price
+        const priceText = art.match(/₹\s*([0-9,]+)/)?.[1];
+        const dealPrice = priceText ? parseInt(priceText.replace(/,/g, ''), 10) : 999;
+
+        // Discount
+        const discountMatch = art.match(/([0-9]+)%\s*off/i);
+        const discountPercent = discountMatch ? parseInt(discountMatch[1], 10) : 40;
+        const originalPrice = Math.round(dealPrice / (1 - Math.min(discountPercent, 85) / 100));
+
+        rawDeals.push({
+          dealId,
+          title,
+          store: 'Amazon',
+          price: dealPrice,
+          originalPrice,
+          discountPercent,
+          imageUrl,
+          visitUrl: `https://visit.desidime.com/visit/home-get-deals-1/${dealId}`,
+        });
       }
+    }
 
-      let title = alts[0] || permalinkTitle || 'Amazon Hot Deal';
-      // Clean up common DesiDime noise words
-      title = title.replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    // 2. Parse Amazon Store Page (Coupons & Deals)
+    if (storeRes && storeRes.ok) {
+      const storeHtml = await storeRes.text();
+      const cardRegex = /data-href-alt="https:\/\/visit\.desidime\.com\/visit\/[^\/]+\/([0-9]+)"[^>]*>([\s\S]*?)<\/a>/g;
+      let match;
 
-      // Price extraction
-      const priceText = art.match(/₹\s*([0-9,]+)/)?.[1];
-      const dealPrice = priceText ? parseInt(priceText.replace(/,/g, ''), 10) : 999;
+      while ((match = cardRegex.exec(storeHtml)) !== null) {
+        const id = match[1];
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
 
-      // Discount extraction
-      const discountMatch = art.match(/([0-9]+)%\s*off/i);
-      const discountPercent = discountMatch ? parseInt(discountMatch[1], 10) : 40;
+        const cleanTitle = match[2]
+          .replace(/<[^>]+>/g, '')
+          .replace(/&#39;/g, "'")
+          .replace(/&amp;/g, '&')
+          .trim();
 
-      // Calculate approximate original price if not explicitly in card
-      const originalPrice = Math.round(dealPrice / (1 - Math.min(discountPercent, 85) / 100));
+        if (cleanTitle.length < 6) continue;
 
-      rawDeals.push({
-        dealId,
-        title,
-        store: 'Amazon',
-        price: dealPrice,
-        originalPrice,
-        discountPercent,
-        imageUrl,
-        visitUrl: `https://visit.desidime.com/visit/home-get-deals-1/${dealId}`,
-      });
+        // Check if discount % mentioned in title
+        const discMatch = cleanTitle.match(/([0-9]+)%\s*off/i);
+        const discountPercent = discMatch ? parseInt(discMatch[1], 10) : 45;
+
+        // Extract price from title if available (e.g., "Rs. 1500" or "Rs 999")
+        const priceMatch = cleanTitle.match(/(?:Rs\.?|₹)\s*([0-9,]+)/i);
+        const dealPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ''), 10) : 1499;
+        const originalPrice = Math.round(dealPrice / (1 - Math.min(discountPercent, 85) / 100));
+
+        rawDeals.push({
+          dealId: id,
+          title: cleanTitle,
+          store: 'Amazon',
+          price: dealPrice,
+          originalPrice,
+          discountPercent,
+          imageUrl: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=400&q=80',
+          visitUrl: `https://visit.desidime.com/visit/coupons-2/${id}`,
+        });
+      }
     }
 
     // 3. Resolve Amazon ASINs from visit links concurrently (up to limit)
@@ -150,7 +181,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                 asin = asinMatch[1];
                 cleanAmazonUrl = `https://www.amazon.in/dp/${asin}?tag=${targetTag}`;
               } else if (decoded.includes('amazon.in')) {
-                // Category or search page link
                 const parsed = new URL(decoded);
                 parsed.searchParams.set('tag', targetTag);
                 cleanAmazonUrl = parsed.toString();
@@ -158,10 +188,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             }
           }
         } catch (err) {
-          // If redirect fails, leave ASIN as null
+          // If redirect fails, fallback gracefully
         }
 
-        // Smart Auto-Categorization matching our DealCategory types
+        // Smart Category Classifier
         const lowerTitle = item.title.toLowerCase();
         let category = 'electronics';
 
@@ -181,7 +211,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           lowerTitle.includes('jewel') ||
           lowerTitle.includes('gold') ||
           lowerTitle.includes('sandal') ||
-          lowerTitle.includes('fashion')
+          lowerTitle.includes('fashion') ||
+          lowerTitle.includes('clothing')
         ) {
           category = 'shoes_fashion';
         } else if (
@@ -193,6 +224,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           lowerTitle.includes('mop') ||
           lowerTitle.includes('cleaner') ||
           lowerTitle.includes('bed') ||
+          lowerTitle.includes('mattress') ||
           lowerTitle.includes('pillow') ||
           lowerTitle.includes('chair') ||
           lowerTitle.includes('furniture') ||
@@ -221,6 +253,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           lowerTitle.includes('charger') ||
           lowerTitle.includes('powerbank') ||
           lowerTitle.includes('cable') ||
+          lowerTitle.includes('mouse') ||
+          lowerTitle.includes('keyboard') ||
           lowerTitle.includes('stand') ||
           lowerTitle.includes('holder') ||
           lowerTitle.includes('gadget')
@@ -230,7 +264,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           category = 'electronics';
         }
 
-        // Check if loot deal (>= 50% discount)
         const isLootDeal = item.discountPercent >= 50;
 
         resolvedDeals.push({
@@ -239,8 +272,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           price: item.price,
           originalPrice: item.originalPrice,
           discountPercent: item.discountPercent,
-          rating: 4.3,
-          ratingsCount: 450,
+          rating: 4.4,
+          ratingsCount: 520,
           imageUrl: item.imageUrl,
           asin,
           amazonUrl: cleanAmazonUrl || (asin ? `https://www.amazon.in/dp/${asin}?tag=${targetTag}` : null),
@@ -262,7 +295,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           deal.amazonUrl || `https://www.amazon.in/dp/${finalAsin}?tag=${targetTag}`;
 
         try {
-          // INSERT OR IGNORE avoids duplicates based on UNIQUE(asin)
           await env.DB.prepare(
             `INSERT INTO deals (
               id, asin, title, category, store, original_price, deal_price, current_price,
@@ -300,7 +332,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             .run();
           insertedCount++;
         } catch (dbErr) {
-          // Continue with next deal
+          // Skip if any error
         }
       }
     }

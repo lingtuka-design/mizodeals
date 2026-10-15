@@ -189,7 +189,7 @@ export const AdminView: React.FC = () => {
   const handleFetchDesiDime = async (autoPublish = false) => {
     setIsScrapingDesiDime(true);
     try {
-      const res = await fetch('/api/desidime-scraper?limit=25');
+      const res = await fetch('/api/desidime-scraper?limit=60');
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const data = await res.json() as { success: boolean; deals?: any[]; error?: string };
       if (data.success && Array.isArray(data.deals)) {
