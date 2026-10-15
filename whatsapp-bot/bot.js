@@ -221,19 +221,32 @@ async function checkAndPostDeals(sock, channelJid) {
 
     const postedIds = getPostedDealIds();
 
-    // Prioritize top loot deals (50%+ off or marked isLootDeal)
-    // Filter out both deal ID and ASIN so product duplicates are 100% prevented
-    const newDeals = data.deals.filter(
-      (d) =>
-        !postedIds.has(d.id) &&
-        (!d.asin || !postedIds.has(d.asin)) &&
-        (d.isLootDeal || d.discountPercent >= 50)
-    );
+    // Sort deals by highest discount first so top loot deals get prioritized
+    newDeals.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
-    console.log(`Found ${newDeals.length} unposted loot deals available.`);
+    // Multi-Category Diversity Selector: Pick 3 top deals across DIFFERENT categories
+    const toPost = [];
+    const seenCategories = new Set();
 
-    // To prevent channel spam, post max 1-2 per 30 minutes
-    const toPost = newDeals.slice(0, 2);
+    // Round 1: Pick top deals from unique categories (e.g. 1 Electronics/Gadget, 1 Shoes/Fashion, 1 Home/Kitchen)
+    for (const deal of newDeals) {
+      if (toPost.length >= 3) break;
+      const cat = deal.category || 'general';
+      if (!seenCategories.has(cat)) {
+        seenCategories.add(cat);
+        toPost.push(deal);
+      }
+    }
+
+    // Round 2: If fewer than 3 categories were available, fill remaining slots with highest discounts
+    for (const deal of newDeals) {
+      if (toPost.length >= 3) break;
+      if (!toPost.includes(deal)) {
+        toPost.push(deal);
+      }
+    }
+
+    console.log(`Selected ${toPost.length} diverse loot deals across categories: [${toPost.map((d) => d.category).join(', ')}]`);
 
     for (const deal of toPost) {
       const caption = formatMessage(deal);
