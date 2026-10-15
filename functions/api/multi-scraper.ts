@@ -158,16 +158,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
             // Resolve ASIN and clean affiliate URL
             const { asin, cleanUrl } = await resolveAmazonUrl(rawAmznUrl, targetTag);
-            if (asin) {
-              if (seenAsins.has(asin)) continue;
-              seenAsins.add(asin);
-              if (!imageUrl) {
-                imageUrl = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
-              }
-            } else {
-              imageUrl =
-                imageUrl ||
-                'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80';
+            // CRITICAL: Only accept real individual product deals with a valid 10-char Amazon ASIN!
+            // Skip generic category/store search banner links (like "Winterwears", "Wildcraft Bags From 371", etc.)
+            if (!asin || !/^[A-Z0-9]{10}$/i.test(asin)) {
+              continue;
+            }
+            if (seenAsins.has(asin)) continue;
+            seenAsins.add(asin);
+
+            // Always use the real Amazon CDN product thumbnail for this exact ASIN
+            if (!imageUrl || imageUrl.includes('unsplash.com')) {
+              imageUrl = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
             }
 
             const category = classifyCategory(title);
@@ -334,8 +335,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   if (shouldAutoPublish && env.DB && collectedDeals.length > 0) {
     const nowIso = new Date().toISOString();
     for (const deal of collectedDeals) {
+      if (!deal.asin || deal.imageUrl.includes('photo-1523275335684-37898b6baf30')) {
+        continue;
+      }
       try {
-        const finalAsin = deal.asin || `ASIN-${deal.dealId}`;
+        const finalAsin = deal.asin;
         await env.DB.prepare(
           `INSERT INTO deals (
             id, asin, title, category, store, original_price, deal_price, current_price,

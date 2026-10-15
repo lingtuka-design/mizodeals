@@ -221,6 +221,16 @@ async function checkAndPostDeals(sock, channelJid) {
 
     const postedIds = getPostedDealIds();
 
+    const newDeals = data.deals.filter(
+      (d) =>
+        !postedIds.has(d.id) &&
+        (!d.asin || !postedIds.has(d.asin)) &&
+        (d.isLootDeal || d.discountPercent >= 50) &&
+        !d.imageUrl?.includes('photo-1523275335684-37898b6baf30')
+    );
+
+    console.log(`Found ${newDeals.length} unposted loot deals available.`);
+
     // Sort deals by highest discount first so top loot deals get prioritized
     newDeals.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
