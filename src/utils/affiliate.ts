@@ -1,4 +1,4 @@
-import { AFFILIATE_TAG } from '../config/constants';
+import { AFFILIATE_TAG, SITE_URL } from '../config/constants';
 import type { Deal } from '../types';
 
 /**
@@ -35,7 +35,16 @@ export function ensureAffiliateTag(url: string): string {
 }
 
 /**
+ * Builds the canonical Mizodeals landing page URL for a deal
+ */
+export function getDealLandingUrl(deal: Deal): string {
+  const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : SITE_URL;
+  return `${origin}/deals/${deal.id}`;
+}
+
+/**
  * Generates high-converting pre-filled WhatsApp share copy
+ * Uses Mizodeals landing bridge URL to protect Amazon Associates account from dark referrer bans
  */
 export function generateWhatsAppDealShareText(deal: Deal): string {
   const savings = deal.originalPrice - deal.dealPrice;
@@ -43,6 +52,8 @@ export function generateWhatsAppDealShareText(deal: Deal): string {
   const lootHeader = deal.isLootDeal 
     ? '🔥 *LOOT DEAL ALERT!* 🔥\n' 
     : '⚡ *AMAZON PRICE DROP!* ⚡\n';
+
+  const landingUrl = getDealLandingUrl(deal);
 
   return (
     `${lootHeader}` +
@@ -53,7 +64,7 @@ export function generateWhatsAppDealShareText(deal: Deal): string {
     `⭐ Rating: ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews)\n` +
     `${deal.couponText ? `🎟️ Coupon: ${deal.couponText}\n` : ''}` +
     `\n` +
-    `👉 *Buy Now on Amazon:* ${deal.affiliateUrl}\n\n` +
+    `👉 *Enna leh Leina (Deal Link):*\n${landingUrl}\n\n` +
     `📲 _Shared via Mizodeals • Curated deals for Mizoram & NE_`
   );
 }

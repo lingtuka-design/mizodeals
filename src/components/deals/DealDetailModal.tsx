@@ -15,7 +15,7 @@ import {
 import type { Deal } from '../../types';
 import { STORE_BADGES } from '../../config/constants';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../../utils/formatters';
-import { shareDealToWhatsApp, generateWhatsAppDealShareText } from '../../utils/affiliate';
+import { shareDealToWhatsApp, generateWhatsAppDealShareText, getDealLandingUrl } from '../../utils/affiliate';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { useToast } from '../common/Toast';
 
@@ -44,8 +44,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const storeBadge = STORE_BADGES[deal.store] || STORE_BADGES.amazon;
 
   const handleCopyLink = async () => {
-    const success = await copyTextToClipboard(deal.affiliateUrl);
-    if (success) showToast('Affiliate deal link copied!', 'success');
+    const success = await copyTextToClipboard(getDealLandingUrl(deal));
+    if (success) showToast('Mizodeals link copied!', 'success');
   };
 
   const handleCopyWhatsAppCopy = async () => {

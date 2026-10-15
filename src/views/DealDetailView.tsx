@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
 import { useData } from '../context/DataContext';
 import { STORE_BADGES } from '../config/constants';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../utils/formatters';
-import { shareDealToWhatsApp, generateWhatsAppDealShareText } from '../utils/affiliate';
+import { shareDealToWhatsApp, generateWhatsAppDealShareText, getDealLandingUrl } from '../utils/affiliate';
 import { isLootDeal, isDealExpired, formatDealTime } from '../utils/dealLogic';
 import { PriceHistoryChart } from '../components/deals/PriceHistoryChart';
 import { PriceAlertModal } from '../components/common/PriceAlertModal';
 import { DealCard } from '../components/deals/DealCard';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useToast } from '../components/common/Toast';
+import type { Deal } from '../types';
 import { 
   ArrowLeft, 
   ExternalLink, 
@@ -31,8 +32,42 @@ export const DealDetailView: React.FC = () => {
   const { isBookmarked, toggleBookmark } = useBookmarks();
   const { showToast } = useToast();
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [fetchedDeal, setFetchedDeal] = useState<Deal | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const deal = deals.find((d) => d.id === id);
+  const currentId = id?.toLowerCase() || '';
+  const initialDeal = deals.find(
+    (d) => d.id.toLowerCase() === currentId || d.asin.toLowerCase() === currentId
+  );
+  const deal = initialDeal || fetchedDeal;
+
+  useEffect(() => {
+    if (!deal && currentId) {
+      setIsSearching(true);
+      fetch('/api/deals?status=all&limit=100')
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((data: any) => {
+          if (data?.success && Array.isArray(data.deals)) {
+            const match = data.deals.find(
+              (d: any) =>
+                d.id?.toLowerCase() === currentId || d.asin?.toLowerCase() === currentId
+            );
+            if (match) setFetchedDeal(match);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setIsSearching(false));
+    }
+  }, [currentId, deal]);
+
+  if (isSearching) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-24 text-center">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-stone-800 border-t-transparent mb-4"></div>
+        <p className="text-sm font-medium text-stone-600">Loading deal details...</p>
+      </div>
+    );
+  }
 
   if (!deal) {
     return (
@@ -62,8 +97,8 @@ export const DealDetailView: React.FC = () => {
     .slice(0, 4);
 
   const handleCopyLink = async () => {
-    const success = await copyTextToClipboard(deal.affiliateUrl);
-    if (success) showToast('Affiliate deal link copied!', 'success');
+    const success = await copyTextToClipboard(getDealLandingUrl(deal));
+    if (success) showToast('Mizodeals link copied!', 'success');
   };
 
   const handleCopyWhatsAppCopy = async () => {

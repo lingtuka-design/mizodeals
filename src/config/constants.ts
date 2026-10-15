@@ -1,4 +1,5 @@
 export const AFFILIATE_TAG = 'lalmalsawmtlu-21';
+export const SITE_URL = 'https://mizodeals.pages.dev';
 
 export const SITE_NAME = 'Mizodeals';
 export const SITE_TAGLINE = 'Curated Amazon Deals & Buying Guides for Mizoram';
