@@ -64,9 +64,9 @@ export const HomeView: React.FC = () => {
     return deals.filter((deal) => !isDealExpired(deal));
   }, [deals]);
 
-  // Featured Hot Loot Deals (Top 3 for Hero Spotlight)
+  // Featured Hot Loot Deals (Top Loot Spotlight - swipeable carousel on mobile, responsive grid on desktop)
   const topLootDeals = useMemo(() => {
-    return activeDeals.filter(isLootDeal).slice(0, 3);
+    return activeDeals.filter(isLootDeal).slice(0, 6);
   }, [activeDeals]);
 
   // Category counts calculation based on active deals
@@ -209,13 +209,13 @@ export const HomeView: React.FC = () => {
           </div>
         </div>
 
-        {/* Buying Guides News Headlines & Mobile Swipe Carousel within this card */}
-        <HeroBuyingGuides blogs={blogs} />
+        {/* Buying Guides News Headlines & Mobile Swipe Carousel (Temporarily hidden until articles are written) */}
+        {/* <HeroBuyingGuides blogs={blogs} /> */}
       </section>
 
-      {/* 1. HOT LOOT DEALS SPOTLIGHT (Feature 1: Top of Homepage) */}
+      {/* 1. HOT LOOT DEALS SPOTLIGHT (Feature 1: Top of Homepage - Swipeable on mobile) */}
       {topLootDeals.length > 0 && (
-        <section className="bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border border-orange-200/80 rounded-3xl p-5 sm:p-6 space-y-4">
+        <section className="bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border border-orange-200/80 rounded-3xl p-4 sm:p-6 space-y-3.5 sm:space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="p-1.5 bg-orange-600 text-white rounded-xl shadow-xs">
@@ -230,23 +230,29 @@ export const HomeView: React.FC = () => {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
-              className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 shrink-0"
-            >
-              <span>View All Loots</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-orange-600 font-bold md:hidden flex items-center gap-1 bg-orange-100/80 px-2 py-0.5 rounded-full">
+                Swipe &rarr;
+              </span>
+              <button
+                type="button"
+                onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
+                className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 shrink-0"
+              >
+                <span>View All Loots</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Swipeable container on mobile (horizontal swipe with snap), 3-col grid on desktop */}
+          <div className="flex md:grid md:grid-cols-3 gap-3.5 sm:gap-4 overflow-x-auto md:overflow-x-visible pb-2.5 md:pb-0 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-1 px-1 sm:mx-0 sm:px-0">
             {topLootDeals.map((deal) => {
               const storeBadge = STORE_BADGES[deal.store] || STORE_BADGES.amazon;
               return (
                 <div
                   key={deal.id}
-                  className="bg-white border border-[#EAE6DF] hover:border-orange-300 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+                  className="w-[82vw] max-w-[290px] sm:w-[320px] md:w-auto shrink-0 snap-start bg-white border border-[#EAE6DF] hover:border-orange-300 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -263,12 +269,17 @@ export const HomeView: React.FC = () => {
                       href={deal.affiliateUrl}
                       target="_blank"
                       rel="noopener noreferrer nofollow"
-                      className="aspect-16/10 rounded-xl overflow-hidden bg-[#FAF9F5] mb-3 block cursor-pointer"
+                      className="aspect-16/10 rounded-xl overflow-hidden bg-[#FAF9F5] mb-3 block cursor-pointer border border-[#EAE6DF]/60"
                       title={`Open ${deal.title} on ${storeBadge.name}`}
                     >
                       <img
                         src={deal.imageUrl}
                         alt={deal.title}
+                        onError={(e) => {
+                          if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
+                            e.currentTarget.src = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
+                          }
+                        }}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     </a>
