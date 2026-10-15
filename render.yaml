@@ -3,7 +3,7 @@ services:
     name: mizodeals-whatsapp-bot
     runtime: node
     rootDir: whatsapp-bot
-    buildCommand: npm install
+    buildCommand: npm install --legacy-peer-deps
     startCommand: node bot.js
     plan: free
     autoDeploy: true
