@@ -53,6 +53,8 @@ function formatMessage(deal) {
   );
 }
 
+const CHANNEL_JID = '120363414138647022@newsletter';
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
@@ -64,7 +66,7 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  let channelJid = null;
+  let isChecking = false;
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -78,31 +80,33 @@ async function startBot() {
     }
 
     if (connection === 'close') {
-      const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log('Connection closed. Reconnecting:', shouldReconnect);
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      console.log(`Connection closed (${statusCode}). Reconnecting: ${shouldReconnect}`);
       if (shouldReconnect) {
-        startBot();
+        setTimeout(startBot, 4000);
       }
     } else if (connection === 'open') {
-      console.log('\n✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
-      console.log('Resolving channel details...');
+      console.log('\n======================================================');
+      console.log('✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
+      console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);
+      console.log('======================================================\n');
 
-      try {
-        const metadata = await sock.newsletterMetadata('invite', CHANNEL_INVITE_CODE);
-        channelJid = metadata.id;
-        console.log(`📢 Channel Found: "${metadata.name}" (ID: ${channelJid})`);
+      setTimeout(async () => {
+        if (!isChecking) {
+          isChecking = true;
+          await checkAndPostDeals(sock, CHANNEL_JID);
+          isChecking = false;
+        }
+      }, 3000);
 
-        // Run immediate check
-        await checkAndPostDeals(sock, channelJid);
-
-        // Schedule periodic check every 15 minutes
-        setInterval(() => {
-          checkAndPostDeals(sock, channelJid);
-        }, 15 * 60 * 1000);
-      } catch (err) {
-        console.error('Failed to resolve channel metadata:', err.message);
-      }
+      setInterval(async () => {
+        if (!isChecking) {
+          isChecking = true;
+          await checkAndPostDeals(sock, CHANNEL_JID);
+          isChecking = false;
+        }
+      }, 15 * 60 * 1000);
     }
   });
 }
