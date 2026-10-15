@@ -138,21 +138,14 @@ async function checkAndPostDeals(sock, channelJid) {
       console.log(`Posting: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
       try {
-        if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
-          await sock.sendMessage(channelJid, {
-            image: { url: deal.imageUrl },
-            caption: caption,
-          });
-        } else {
-          await sock.sendMessage(channelJid, {
-            text: caption,
-          });
-        }
+        await sock.sendMessage(channelJid, {
+          text: caption,
+        });
 
         recordPostedDealId(deal.id);
-        console.log(`✅ Posted successfully: ${deal.id}`);
+        console.log(`✅ Posted successfully: ${deal.id} - ${deal.title.slice(0, 30)}`);
 
-        // Wait 10 seconds between posts
+        // Wait 10 seconds between posts to keep channel clean
         await new Promise((resolve) => setTimeout(resolve, 10000));
       } catch (postErr) {
         console.error(`Failed to post deal ${deal.id}:`, postErr.message);
