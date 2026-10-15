@@ -1,6 +1,7 @@
 import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
+import { Jimp } from 'jimp';
 import fs from 'fs';
 import path from 'path';
 
@@ -135,15 +136,38 @@ async function checkAndPostDeals(sock, channelJid) {
 
     for (const deal of toPost) {
       const caption = formatMessage(deal);
+      const dealUrl = `https://mizodeals.pages.dev/deals/${deal.id}`;
       console.log(`Posting: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
       try {
-        await sock.sendMessage(channelJid, {
-          text: caption,
-        });
+        let linkPreview = undefined;
+        if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
+          try {
+            const img = await Jimp.read(deal.imageUrl);
+            img.resize({ w: 200, h: 200 });
+            const thumbBuffer = await img.getBuffer('image/jpeg');
+            const savings = deal.originalPrice - deal.dealPrice;
+            const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
+            linkPreview = {
+              'matched-text': dealUrl,
+              title: deal.title,
+              description: `Deal Price: ${formatINR(deal.dealPrice)} ~${formatINR(deal.originalPrice)}~${savingsText} (${deal.discountPercent}% OFF)`,
+              jpegThumbnail: thumbBuffer,
+            };
+          } catch (imgErr) {
+            console.log(`Thumbnail buffer skipped for ${deal.id}:`, imgErr.message);
+          }
+        }
+
+        const msgPayload = { text: caption };
+        if (linkPreview) {
+          msgPayload.linkPreview = linkPreview;
+        }
+
+        await sock.sendMessage(channelJid, msgPayload);
 
         recordPostedDealId(deal.id);
-        console.log(`✅ Posted successfully: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        console.log(`✅ Posted successfully with thumbnail: ${deal.id} - ${deal.title.slice(0, 30)}`);
 
         // Wait 10 seconds between posts to keep channel clean
         await new Promise((resolve) => setTimeout(resolve, 10000));
