@@ -3,6 +3,7 @@ import { useData } from '../context/DataContext';
 import { useToast } from '../components/common/Toast';
 import type { Deal, BlogPost, DealCategory, StoreType } from '../types';
 import { buildAffiliateUrl, generateWhatsAppDealShareText, shareDealToWhatsApp } from '../utils/affiliate';
+import { WHATSAPP_CHANNEL_URL, WHATSAPP_CHANNEL_NAME } from '../config/constants';
 import { formatINR, copyTextToClipboard } from '../utils/formatters';
 import { 
   Lock, 
@@ -124,6 +125,8 @@ export const AdminView: React.FC = () => {
 
   // WhatsApp Broadcast Helper State
   const [selectedBroadcastDealId, setSelectedBroadcastDealId] = useState<string>(deals[0]?.id || '');
+  const [broadcastFilter, setBroadcastFilter] = useState<'loot' | 'all' | 'electronics' | 'shoes_fashion' | 'home_kitchen' | 'gadgets'>('loot');
+  const [broadcastSearch, setBroadcastSearch] = useState('');
 
   // DesiDime Scraper State
   const [isScrapingDesiDime, setIsScrapingDesiDime] = useState(false);
@@ -446,7 +449,17 @@ export const AdminView: React.FC = () => {
     return d.title.toLowerCase().includes(term) || d.asin.toLowerCase().includes(term) || d.category.includes(term);
   });
 
-  const broadcastDeal = deals.find((d) => d.id === selectedBroadcastDealId) || deals[0];
+  const broadcastCandidateDeals = deals.filter((d) => {
+    if (broadcastFilter === 'loot' && !d.isLootDeal && d.discountPercent < 50) return false;
+    if (broadcastFilter !== 'all' && broadcastFilter !== 'loot' && d.category !== broadcastFilter) return false;
+    if (broadcastSearch) {
+      const q = broadcastSearch.toLowerCase();
+      return d.title.toLowerCase().includes(q) || d.asin.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const broadcastDeal = deals.find((d) => d.id === selectedBroadcastDealId) || broadcastCandidateDeals[0] || deals[0];
 
   // If not authenticated, show PIN gate
   if (!isAuthenticated) {
@@ -717,11 +730,15 @@ export const AdminView: React.FC = () => {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            onClick={() => shareDealToWhatsApp(deal)}
-                            className="p-1.5 text-[#128C7E] hover:bg-[#25D366]/10 rounded-lg transition-colors"
-                            title="Share on WhatsApp"
+                            onClick={() => {
+                              shareDealToWhatsApp(deal);
+                              showToast('Opening WhatsApp to post to Channel...', 'success');
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[#0b6338] bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/30 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                            title="Post to WhatsApp Channel"
                           >
-                            <Share2 className="w-3.5 h-3.5" />
+                            <MessageCircle className="w-3.5 h-3.5 text-[#128C7E]" />
+                            <span className="hidden sm:inline">Post Channel</span>
                           </button>
                           <a
                             href={deal.affiliateUrl}
@@ -1011,90 +1028,293 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: WHATSAPP BROADCAST HELPER */}
+      {/* TAB 3: WHATSAPP CHANNEL BROADCAST HUB */}
       {activeTab === 'whatsapp' && (
-        <div className="bg-white border border-[#EAE6DF] rounded-3xl p-6 sm:p-8 space-y-6">
-          <div>
-            <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-[#25D366]" />
-              WhatsApp Viral Broadcast Generator
-            </h3>
-            <p className="text-xs text-stone-500 mt-1">
-              Select any deal to preview the pre-formatted viral WhatsApp post with prices, emojis, discount %, and your affiliate tag.
-            </p>
+        <div className="space-y-6">
+          {/* Channel Info & Strategy Banner */}
+          <div className="bg-emerald-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden border border-emerald-900 shadow-md">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#25D366]/20 border border-[#25D366]/40 text-[#25D366] text-xs font-bold rounded-full mb-2">
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>Official WhatsApp Channel Connected</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                  {WHATSAPP_CHANNEL_NAME}
+                </h3>
+                <p className="text-xs sm:text-sm text-emerald-200/90 mt-1 max-w-xl leading-relaxed">
+                  Scrape thar zing atanga deal tha leh tlawm zualte chauh heta tang hian 1-click-in i WhatsApp Channel-ah broadcast rawh le.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={WHATSAPP_CHANNEL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-extrabold text-xs rounded-xl shadow-sm transition-all"
+                >
+                  <span>Open Channel in App</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-emerald-800/60 flex items-center gap-2 text-xs text-emerald-300/80">
+              <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+              <span>
+                <strong>Channel Strategy:</strong> Ni khatah deals tha ber ber 3–6 chauh post thin la, channel a thianghlim ang a, subscriber-te'n notification an ngaihven zual ang.
+              </span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                Select Deal to Broadcast:
-              </label>
-              <select
-                value={selectedBroadcastDealId}
-                onChange={(e) => setSelectedBroadcastDealId(e.target.value)}
-                className="w-full p-3 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl text-xs font-semibold text-stone-900 cursor-pointer"
+          {/* Filtering Bar */}
+          <div className="bg-white border border-[#EAE6DF] rounded-2xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scroll-bar-hide">
+              <button
+                type="button"
+                onClick={() => setBroadcastFilter('loot')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                  broadcastFilter === 'loot'
+                    ? 'bg-orange-600 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
               >
-                {deals.map((deal) => (
-                  <option key={deal.id} value={deal.id}>
-                    [{deal.discountPercent}% OFF] {deal.title.substring(0, 60)}...
-                  </option>
-                ))}
-              </select>
+                <Flame className="w-3.5 h-3.5 text-amber-300 fill-current" />
+                <span>🔥 Top Loot Deals (50%+ OFF)</span>
+              </button>
 
-              {broadcastDeal && (
-                <div className="mt-4 p-4 bg-[#FAF9F5] border border-[#EAE6DF] rounded-2xl flex items-center gap-3">
-                  <img
-                    src={broadcastDeal.imageUrl}
-                    alt=""
-                    className="w-14 h-14 object-cover rounded-xl border border-stone-200"
-                  />
-                  <div>
-                    <h4 className="text-xs font-bold text-stone-900 line-clamp-1">{broadcastDeal.title}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm font-extrabold text-stone-900">{formatINR(broadcastDeal.dealPrice)}</span>
-                      <span className="text-xs text-stone-400 line-through">{formatINR(broadcastDeal.originalPrice)}</span>
-                      <span className="text-xs font-bold text-emerald-700">{broadcastDeal.discountPercent}% OFF</span>
-                    </div>
-                  </div>
+              <button
+                type="button"
+                onClick={() => setBroadcastFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  broadcastFilter === 'all'
+                    ? 'bg-stone-900 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                All Deals ({deals.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBroadcastFilter('electronics')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  broadcastFilter === 'electronics'
+                    ? 'bg-stone-900 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                Electronics
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBroadcastFilter('shoes_fashion')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  broadcastFilter === 'shoes_fashion'
+                    ? 'bg-stone-900 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                Fashion
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBroadcastFilter('home_kitchen')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  broadcastFilter === 'home_kitchen'
+                    ? 'bg-stone-900 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                Home
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBroadcastFilter('gadgets')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  broadcastFilter === 'gadgets'
+                    ? 'bg-stone-900 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                Gadgets
+              </button>
+            </div>
+
+            <div className="relative w-full md:w-64">
+              <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search deals to post..."
+                value={broadcastSearch}
+                onChange={(e) => setBroadcastSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
+            </div>
+          </div>
+
+          {/* Main 2-Column Broadcast Workspace */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left 7 Columns: Candidate Deals List */}
+            <div className="lg:col-span-7 space-y-3 max-h-[750px] overflow-y-auto pr-1">
+              <div className="flex items-center justify-between text-xs font-bold text-stone-500 px-1">
+                <span>Showing {broadcastCandidateDeals.length} Candidate Deals</span>
+                <span>Click &quot;1-Click Broadcast&quot; to send directly</span>
+              </div>
+
+              {broadcastCandidateDeals.length === 0 ? (
+                <div className="p-8 text-center bg-white border border-[#EAE6DF] rounded-2xl">
+                  <p className="text-xs text-stone-500">No deals matched your filter.</p>
                 </div>
+              ) : (
+                broadcastCandidateDeals.map((deal) => {
+                  const isSelected = broadcastDeal?.id === deal.id;
+                  return (
+                    <div
+                      key={deal.id}
+                      onClick={() => setSelectedBroadcastDealId(deal.id)}
+                      className={`p-3.5 bg-white border rounded-2xl flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-emerald-600 ring-2 ring-emerald-500/20 shadow-sm'
+                          : 'border-[#EAE6DF] hover:border-stone-400 hover:shadow-2xs'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={deal.imageUrl}
+                          alt=""
+                          className="w-14 h-14 object-contain rounded-xl border border-stone-200 bg-white shrink-0 p-1"
+                        />
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-stone-900 truncate" title={deal.title}>
+                            {deal.title}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-extrabold text-stone-900">{formatINR(deal.dealPrice)}</span>
+                            <span className="text-[11px] text-stone-400 line-through">{formatINR(deal.originalPrice)}</span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md">
+                              {deal.discountPercent}% OFF
+                            </span>
+                            {deal.isLootDeal && (
+                              <span className="text-[9px] font-bold text-orange-800 bg-orange-100 px-1.5 py-0.2 rounded-md">
+                                LOOT
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-stone-400 capitalize mt-0.5 block">
+                            {deal.category.replace('_', ' ')} • {deal.verifiedAt}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            shareDealToWhatsApp(deal);
+                            showToast('Opening WhatsApp Channel...', 'success');
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-bold text-xs rounded-xl shadow-2xs transition-all cursor-pointer"
+                          title="Open WhatsApp to Post this Deal"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>1-Click Post</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const text = generateWhatsAppDealShareText(deal);
+                            await copyTextToClipboard(text);
+                            showToast('Caption copied to clipboard!', 'success');
+                          }}
+                          className="p-1.5 text-stone-500 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors border border-[#EAE6DF]"
+                          title="Copy WhatsApp Caption"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
 
-            {/* Broadcast Copy Preview */}
-            {broadcastDeal && (
-              <div className="space-y-3">
-                <label className="block text-xs font-semibold text-stone-700">
-                  Broadcast Copy Preview:
-                </label>
-                <div className="p-4 bg-[#075E54]/5 border border-[#25D366]/30 rounded-2xl font-mono text-xs text-stone-800 whitespace-pre-wrap leading-relaxed">
-                  {generateWhatsAppDealShareText(broadcastDeal)}
+            {/* Right 5 Columns: WhatsApp Chat Bubble Live Preview */}
+            <div className="lg:col-span-5 bg-white border border-[#EAE6DF] rounded-3xl p-5 sm:p-6 space-y-4 sticky top-6 shadow-2xs">
+              <div className="flex items-center justify-between pb-3 border-b border-[#EAE6DF]">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center text-white">
+                    <MessageCircle className="w-4 h-4 fill-current" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-stone-900">WhatsApp Post Preview</h4>
+                    <p className="text-[10px] text-stone-500">Live preview with Mizodeals Bridge URL</p>
+                  </div>
                 </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => shareDealToWhatsApp(broadcastDeal)}
-                    className="flex-1 py-2.5 px-4 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Send to WhatsApp Now</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const text = generateWhatsAppDealShareText(broadcastDeal);
-                      await copyTextToClipboard(text);
-                      showToast('WhatsApp copy copied!', 'success');
-                    }}
-                    className="py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs rounded-xl border border-[#EAE6DF] transition-colors flex items-center gap-1.5"
-                  >
-                    <Copy className="w-4 h-4" />
-                    <span>Copy Text</span>
-                  </button>
-                </div>
+                {broadcastDeal && (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    {broadcastDeal.discountPercent}% OFF
+                  </span>
+                )}
               </div>
-            )}
+
+              {broadcastDeal ? (
+                <>
+                  {/* WhatsApp Native Bubble Simulation */}
+                  <div className="bg-[#EFEAE2] p-4 rounded-2xl border border-stone-200">
+                    <div className="bg-white rounded-2xl p-3.5 shadow-xs border border-stone-100 space-y-3">
+                      <img
+                        src={broadcastDeal.imageUrl}
+                        alt=""
+                        className="w-full h-44 object-contain rounded-xl bg-stone-50 p-2 border border-stone-100"
+                      />
+                      <div className="font-sans text-xs text-stone-900 whitespace-pre-wrap leading-relaxed">
+                        {generateWhatsAppDealShareText(broadcastDeal)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Broadcast Actions */}
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        shareDealToWhatsApp(broadcastDeal);
+                        showToast('Opening WhatsApp to post to Channel...', 'success');
+                      }}
+                      className="w-full py-3 px-4 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Post Selected Deal to WhatsApp Channel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const text = generateWhatsAppDealShareText(broadcastDeal);
+                        await copyTextToClipboard(text);
+                        showToast('WhatsApp deal text copied!', 'success');
+                      }}
+                      className="w-full py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs rounded-xl border border-[#EAE6DF] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Copy className="w-4 h-4" />
+                      <span>Copy Full Caption with Link</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="py-12 text-center text-xs text-stone-400">
+                  Select a deal to preview the broadcast.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
