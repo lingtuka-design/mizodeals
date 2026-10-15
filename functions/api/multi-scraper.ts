@@ -400,7 +400,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             deal.amazonUrl,
             'active',
             deal.isLootDeal ? 1 : 0,
-            deal.couponText || (deal.discountPercent >= 55 ? '🔥 Man Tlahniam Nasa!' : null),
+            deal.couponText || (deal.discountPercent >= 55 ? '🔥 Price Tlahniam Nasa!' : null),
             `Curated from ${deal.source}. 100% genuine Amazon India deal verified with ${deal.discountPercent}% OFF.`,
             nowIso,
             nowIso,
