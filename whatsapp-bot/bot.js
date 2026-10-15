@@ -226,10 +226,14 @@ async function checkAndPostDeals(sock, channelJid) {
         !postedIds.has(d.id) &&
         (!d.asin || !postedIds.has(d.asin)) &&
         (d.isLootDeal || d.discountPercent >= 50) &&
-        !d.imageUrl?.includes('photo-1523275335684-37898b6baf30')
+        d.imageUrl &&
+        d.imageUrl.startsWith('http') &&
+        d.imageUrl.length > 15 &&
+        !d.imageUrl.includes('unsplash.com') &&
+        !d.imageUrl.includes('photo-1523275335684-37898b6baf30')
     );
 
-    console.log(`Found ${newDeals.length} unposted loot deals available.`);
+    console.log(`Found ${newDeals.length} unposted loot deals available with valid photos.`);
 
     // Sort deals by highest discount first so top loot deals get prioritized
     newDeals.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
@@ -259,34 +263,44 @@ async function checkAndPostDeals(sock, channelJid) {
     console.log(`Selected ${toPost.length} diverse loot deals across categories: [${toPost.map((d) => d.category).join(', ')}]`);
 
     for (const deal of toPost) {
+      // User rule: Thlalak awm lo lak loh ni bawk se (strictly require valid authentic photo)
+      if (!deal.imageUrl || !deal.imageUrl.startsWith('http') || deal.imageUrl.includes('unsplash.com')) {
+        console.log(`[SKIP] Deal ${deal.id} has no valid authentic product picture.`);
+        continue;
+      }
+
       const caption = formatMessage(deal);
       const dealUrl = `https://mizodeals.pages.dev/deals/${deal.id}`;
       console.log(`Posting: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
       try {
         let linkPreview = undefined;
-        if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
-          try {
-            const img = await Jimp.read(deal.imageUrl);
-            img.resize({ w: 200, h: 200 });
-            const thumbBuffer = await img.getBuffer('image/jpeg');
-            const savings = deal.originalPrice - deal.dealPrice;
-            const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
-            linkPreview = {
-              'matched-text': dealUrl,
-              title: deal.title,
-              description: `Deal Price: ${formatINR(deal.dealPrice)} ~${formatINR(deal.originalPrice)}~${savingsText} (${deal.discountPercent}% OFF)`,
-              jpegThumbnail: thumbBuffer,
-            };
-          } catch (imgErr) {
-            console.log(`Thumbnail buffer skipped for ${deal.id}:`, imgErr.message);
-          }
+        try {
+          const img = await Jimp.read(deal.imageUrl);
+          img.resize({ w: 200, h: 200 });
+          const thumbBuffer = await img.getBuffer('image/jpeg');
+          const savings = deal.originalPrice - deal.dealPrice;
+          const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
+          linkPreview = {
+            'matched-text': dealUrl,
+            title: deal.title,
+            description: `Deal Price: ${formatINR(deal.dealPrice)} ~${formatINR(deal.originalPrice)}~${savingsText} (${deal.discountPercent}% OFF)`,
+            jpegThumbnail: thumbBuffer,
+          };
+        } catch (imgErr) {
+          console.log(`[SKIP] Deal ${deal.id} photo failed to load (${deal.imageUrl}):`, imgErr.message);
+          continue; // Strictly skip deals where image is not loadable
         }
 
-        const msgPayload = { text: caption };
-        if (linkPreview) {
-          msgPayload.linkPreview = linkPreview;
+        if (!linkPreview || !linkPreview.jpegThumbnail) {
+          console.log(`[SKIP] Thumbnail buffer missing for deal ${deal.id}`);
+          continue;
         }
+
+        const msgPayload = {
+          text: caption,
+          linkPreview,
+        };
 
         await sock.sendMessage(channelJid, msgPayload);
 

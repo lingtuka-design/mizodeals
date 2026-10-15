@@ -149,6 +149,11 @@ export const DealDetailView: React.FC = () => {
             <img
               src={deal.imageUrl}
               alt={deal.title}
+              onError={(e) => {
+                if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
+                  e.currentTarget.src = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
+                }
+              }}
               className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isExpired ? 'opacity-80 grayscale-[20%]' : ''}`}
             />
             {isExpired ? (

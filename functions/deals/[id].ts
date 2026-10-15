@@ -69,7 +69,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   const ogTitle = `${deal.title} — ${formattedDealPrice} (${discountText})`;
   const ogDescription = `Deal Price: ${formattedDealPrice} ~${formattedOrigPrice}~${savingsText} | ⭐ ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews). Exclusive Amazon deal curated on Mizodeals.`;
-  const ogImage = deal.imageUrl || 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=1200&q=80';
+  const ogImage =
+    deal.asin && (!deal.imageUrl || deal.imageUrl.includes('unsplash.com'))
+      ? `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`
+      : deal.imageUrl || 'https://mizodeals.pages.dev/og-image.jpg';
   const pageTitle = `${deal.title} — Mizodeals`;
 
   return new HTMLRewriter()

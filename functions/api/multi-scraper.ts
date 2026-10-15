@@ -55,7 +55,9 @@ async function resolveAmazonUrl(rawUrl: string, targetTag: string): Promise<{ as
       resolvedUrl = headRes.url || rawUrl;
     }
 
-    const asinMatch = resolvedUrl.match(/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+    const asinMatch =
+      resolvedUrl.match(/(?:dp|gp\/product|product)\/([A-Z0-9]{10})/i) ||
+      resolvedUrl.match(/(?:ASIN|asin)=([A-Z0-9]{10})/i);
     if (asinMatch && asinMatch[1]) {
       const asin = asinMatch[1].toUpperCase();
       return {
@@ -171,6 +173,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               imageUrl = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
             }
 
+            // Strictly skip any deal with missing or empty image URL
+            if (!imageUrl || !imageUrl.startsWith('http') || imageUrl.trim().length < 15) {
+              continue;
+            }
+
             const category = classifyCategory(title);
 
             collectedDeals.push({
@@ -223,11 +230,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const discountMatch = title.match(/(\d+)%\s*off/i) || block.match(/(\d+)%\s*off/i);
             let discountPercent = discountMatch ? parseInt(discountMatch[1], 10) : 40;
 
-            // Image
+            // Image - strictly require genuine product thumbnail from DealsMagnet
             const imgMatch = block.match(/data-src="([^"]+)"/i) || block.match(/src="([^"]+\.jpg)"/i);
-            const imageUrl = imgMatch
-              ? imgMatch[1]
-              : 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=600&q=80';
+            if (!imgMatch || !imgMatch[1] || !imgMatch[1].startsWith('http')) {
+              continue; // Skip deals with no authentic product picture
+            }
+            const imageUrl = imgMatch[1];
 
             // Prices
             const discPriceMatch = block.match(/DiscountedPrice[^>]*>\s*₹?\s*([\d,]+)/i);
@@ -279,7 +287,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
-  // SOURCE 3: INDIAFREESTUFF (WITH FALLBACK)
+  // ==========================================
+  // SOURCE 3: INDIAFREESTUFF (AUTHENTIC ONLY)
   // ==========================================
   if (!filterSource || filterSource === 'all' || filterSource === 'ifs') {
     if (collectedDeals.length < limit) {
@@ -292,32 +301,43 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         });
         if (ifsRes.ok) {
           const html = await ifsRes.text();
-          // If not blocked by Cloudflare challenge
-          if (!html.includes('Just a moment...')) {
-            const matches = html.match(/<a[^>]*class="[^"]*deal-title[^"]*"[^>]*>([\s\S]*?)<\/a>/gi) || [];
-            for (const item of matches.slice(0, 10)) {
-              const title = item.replace(/<[^>]+>/g, '').trim();
-              if (!title) continue;
-              const asin = `IFS${Date.now().toString().slice(-8)}`;
-              if (seenAsins.has(asin)) continue;
+          // Strictly skip if challenged or blocked
+          if (!html.includes('Just a moment...') && !html.includes('cf-browser-verification')) {
+            const dealArticles = html.split('<article');
+            for (let i = 1; i < dealArticles.length; i++) {
+              if (collectedDeals.length >= limit) break;
+              const article = dealArticles[i];
+              const titleMatch = article.match(/class="[^"]*deal-title[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
+              if (!titleMatch) continue;
+              const title = titleMatch[1].replace(/<[^>]+>/g, '').trim();
+
+              const imgMatch = article.match(/<img[^>]+src="([^"]+)"/i) || article.match(/data-src="([^"]+)"/i);
+              if (!imgMatch || !imgMatch[1] || !imgMatch[1].startsWith('http') || imgMatch[1].includes('unsplash.com')) {
+                continue; // Strictly reject any deal lacking authentic product photo
+              }
+              const imageUrl = imgMatch[1];
+
+              const linkMatch = article.match(/href="([^"]*(?:amzn\.to|amazon\.in)[^"]*)"/i);
+              if (!linkMatch) continue;
+              const { asin, cleanUrl } = await resolveAmazonUrl(linkMatch[1], targetTag);
+              if (!asin || seenAsins.has(asin)) continue;
               seenAsins.add(asin);
 
               collectedDeals.push({
                 dealId: `ifs-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
                 title,
-                price: 599,
-                originalPrice: 1499,
-                discountPercent: 60,
+                price: 999,
+                originalPrice: 1999,
+                discountPercent: 50,
                 rating: 4.3,
                 ratingsCount: 1840,
-                imageUrl:
-                  'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80',
+                imageUrl,
                 asin,
-                amazonUrl: `https://www.amazon.in/s?k=${encodeURIComponent(title.slice(0, 40))}&tag=${targetTag}`,
+                amazonUrl: cleanUrl,
                 category: classifyCategory(title),
                 source: 'IndiaFreeStuff',
                 isLootDeal: true,
-                couponText: '🎟️ IFS Curated Loot',
+                couponText: '⚡ Curated Loot',
               });
             }
           }
@@ -335,7 +355,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   if (shouldAutoPublish && env.DB && collectedDeals.length > 0) {
     const nowIso = new Date().toISOString();
     for (const deal of collectedDeals) {
-      if (!deal.asin || deal.imageUrl.includes('photo-1523275335684-37898b6baf30')) {
+      // STRICT VERIFICATION GATE:
+      // 1. Must have authentic ASIN
+      // 2. Must have valid product image starting with http
+      // 3. Must NOT have any Unsplash or stock placeholder images
+      if (
+        !deal.asin ||
+        !deal.imageUrl ||
+        !deal.imageUrl.startsWith('http') ||
+        deal.imageUrl.length < 15 ||
+        deal.imageUrl.includes('unsplash.com') ||
+        deal.imageUrl.includes('photo-1523275335684-37898b6baf30')
+      ) {
         continue;
       }
       try {
