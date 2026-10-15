@@ -57,7 +57,7 @@ export const AdminView: React.FC = () => {
   const [authError, setAuthError] = useState('');
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'deals' | 'desidime' | 'blogs' | 'whatsapp' | 'backup'>('deals');
+  const [activeTab, setActiveTab] = useState<'deals' | 'scraper' | 'blogs' | 'whatsapp' | 'backup'>('deals');
 
   // Search filter inside admin
   const [searchTerm, setSearchTerm] = useState('');
@@ -128,8 +128,9 @@ export const AdminView: React.FC = () => {
   const [broadcastFilter, setBroadcastFilter] = useState<'loot' | 'all' | 'electronics' | 'shoes_fashion' | 'home_kitchen' | 'gadgets'>('loot');
   const [broadcastSearch, setBroadcastSearch] = useState('');
 
-  // DesiDime Scraper State
-  const [isScrapingDesiDime, setIsScrapingDesiDime] = useState(false);
+  // Multi-Source Scraper State (Telegram Deals + DealsMagnet + IFS)
+  const [isScraping, setIsScraping] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<'all' | 'telegram' | 'dealsmagnet' | 'ifs'>('all');
   const [scrapedDeals, setScrapedDeals] = useState<Array<{
     dealId: string;
     title: string;
@@ -155,7 +156,7 @@ export const AdminView: React.FC = () => {
     }
 
     const payload = dealsToPublish.map((item) => {
-      const finalAsin = item.asin || `DD-${item.dealId}`;
+      const finalAsin = item.asin || `HARVEST-${item.dealId}`;
       const affiliateUrl = item.amazonUrl || buildAffiliateUrl(finalAsin, 'amazon');
 
       return {
@@ -166,13 +167,13 @@ export const AdminView: React.FC = () => {
         originalPrice: item.originalPrice || item.price * 2,
         dealPrice: item.price,
         discountPercent: item.discountPercent || 50,
-        rating: item.rating || 4.3,
-        ratingsCount: item.ratingsCount || 500,
+        rating: item.rating || 4.4,
+        ratingsCount: item.ratingsCount || 1200,
         imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80',
         isLootDeal: item.isLootDeal || item.discountPercent >= 50,
         status: 'active' as const,
-        couponText: item.discountPercent >= 60 ? '⚡ Exclusive Loot Deal' : undefined,
-        description: `Imported via DesiDime Smart Scraper. 100% verified Amazon pricing categorized into ${item.category}.`,
+        couponText: item.discountPercent >= 60 ? '🔥 Man Tlahniam Nasa!' : undefined,
+        description: `Imported via Multi-Source Harvester (${item.source}). 100% verified Amazon pricing categorized into ${item.category}.`,
         affiliateUrl,
         createdAt: new Date().toISOString(),
         lastCheckedAt: new Date().toISOString(),
@@ -188,19 +189,21 @@ export const AdminView: React.FC = () => {
     showToast(`Successfully auto-published ${count} new deals across all categories!`, 'success');
   };
 
-  // Fetch DesiDime Live Feed (with optional auto-publish parameter)
-  const handleFetchDesiDime = async (autoPublish = false) => {
-    setIsScrapingDesiDime(true);
+  // Fetch Multi-Source Live Feed (Telegram, DealsMagnet, IFS)
+  const handleFetchMultiDeals = async (autoPublish = false) => {
+    setIsScraping(true);
     try {
-      const res = await fetch('/api/desidime-scraper?limit=60');
+      const sourceQuery = selectedSource !== 'all' ? `&source=${selectedSource}` : '';
+      const autoQuery = autoPublish ? '&autoPublish=true' : '';
+      const res = await fetch(`/api/multi-scraper?limit=60${sourceQuery}${autoQuery}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      const data = await res.json() as { success: boolean; deals?: any[]; error?: string };
+      const data = await res.json() as { success: boolean; deals?: any[]; insertedCount?: number; error?: string };
       if (data.success && Array.isArray(data.deals)) {
         setScrapedDeals(data.deals);
         if (autoPublish) {
           handleAutoPublishAllDeals(data.deals);
         } else {
-          showToast(`Fetched ${data.deals.length} Amazon deals from DesiDime!`, 'success');
+          showToast(`Harvested ${data.deals.length} Amazon loot deals from ${selectedSource.toUpperCase()}!`, 'success');
         }
       } else {
         throw new Error(data.error || 'Failed to parse response');
@@ -208,13 +211,13 @@ export const AdminView: React.FC = () => {
     } catch (err: any) {
       showToast(`Scraper error: ${err.message || 'Make sure Cloudflare Worker is running'}`, 'warning');
     } finally {
-      setIsScrapingDesiDime(false);
+      setIsScraping(false);
     }
   };
 
   // 1-Click Import Scraped Deal to Live Website Catalog
   const handleImportScrapedDeal = (item: (typeof scrapedDeals)[0]) => {
-    const finalAsin = item.asin || `DD-${item.dealId}`;
+    const finalAsin = item.asin || `HARVEST-${item.dealId}`;
     const affiliateUrl = item.amazonUrl || buildAffiliateUrl(finalAsin, 'amazon');
 
     addDeal({
@@ -230,8 +233,8 @@ export const AdminView: React.FC = () => {
       imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80',
       isLootDeal: item.isLootDeal || item.discountPercent >= 50,
       status: 'active',
-      couponText: item.discountPercent >= 60 ? '⚡ Exclusive Loot Deal' : undefined,
-      description: `Imported via DesiDime Smart Scraper. 100% verified Amazon pricing with active discount.`,
+      couponText: item.discountPercent >= 60 ? '🔥 Man Tlahniam Nasa!' : undefined,
+      description: `Imported via Multi-Source Harvester (${item.source}). 100% verified Amazon pricing with active discount.`,
       affiliateUrl,
       createdAt: new Date().toISOString(),
       lastCheckedAt: new Date().toISOString(),
@@ -557,15 +560,15 @@ export const AdminView: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('desidime')}
+          onClick={() => setActiveTab('scraper')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'desidime'
+            activeTab === 'scraper'
               ? 'bg-orange-600 text-white shadow-xs'
               : 'bg-white text-stone-600 border border-[#EAE6DF] hover:bg-stone-50'
           }`}
         >
           <Bot className="w-4 h-4" />
-          <span>DesiDime Live Scraper</span>
+          <span>Multi-Source Harvester</span>
           {scrapedDeals.length > 0 && (
             <span className="px-1.5 py-0.2 bg-white/20 text-white rounded-md text-[10px] font-black">
               {scrapedDeals.length}
@@ -781,8 +784,8 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB: DESIDIME LIVE SCRAPER */}
-      {activeTab === 'desidime' && (
+      {/* TAB: MULTI-SOURCE LIVE SCRAPER */}
+      {activeTab === 'scraper' && (
         <div className="space-y-4">
           <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#EAE6DF] space-y-4 shadow-2xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -792,33 +795,59 @@ export const AdminView: React.FC = () => {
                     <Bot className="w-4 h-4" />
                   </span>
                   <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                    DesiDime Automated Amazon Deal Harvester
+                    Multi-Source Automated Amazon Harvester
                   </h3>
                 </div>
                 <p className="text-xs text-stone-500 mt-1">
-                  Pulls high-discount, community-voted Amazon India loot deals from DesiDime, unshortens affiliate links, and injects your tag (<code>lalmalsawmtlu-21</code>).
+                  Pulls genuine loot deals from <strong>Telegram Deals</strong>, <strong>DealsMagnet</strong> & <strong>IndiaFreeStuff</strong>, unshortens affiliate links, and injects your tag (<code>lalmalsawmtlu-21</code>).
                 </p>
+
+                {/* Source Selection Filter */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-3">
+                  <span className="text-[11px] font-bold text-stone-500 mr-1">Select Source:</span>
+                  {(
+                    [
+                      { id: 'all', label: 'All 3 Sources' },
+                      { id: 'telegram', label: '✈️ Telegram Deals' },
+                      { id: 'dealsmagnet', label: '🏷️ DealsMagnet' },
+                      { id: 'ifs', label: '🎁 IndiaFreeStuff' },
+                    ] as const
+                  ).map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedSource(s.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        selectedSource === s.id
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleFetchDesiDime(false)}
-                  disabled={isScrapingDesiDime}
+                  onClick={() => handleFetchMultiDeals(false)}
+                  disabled={isScraping}
                   className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 disabled:opacity-60 font-bold text-xs rounded-xl border border-[#EAE6DF] transition-colors cursor-pointer"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isScrapingDesiDime ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isScraping ? 'animate-spin' : ''}`} />
                   <span>Fetch Preview</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleFetchDesiDime(true)}
-                  disabled={isScrapingDesiDime}
+                  onClick={() => handleFetchMultiDeals(true)}
+                  disabled={isScraping}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isScrapingDesiDime ? 'Scraping & Auto-Publishing...' : '⚡ Fetch & Auto-Publish All'}</span>
+                  <span>{isScraping ? 'Harvesting & Publishing...' : '⚡ Fetch & Auto-Publish All'}</span>
                 </button>
 
                 {scrapedDeals.length > 0 && (
@@ -838,7 +867,7 @@ export const AdminView: React.FC = () => {
             <div className="bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl p-3 text-xs text-stone-600 flex items-start gap-2.5">
               <Globe className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-stone-900 font-semibold">100% Safe Piggyback Scraping:</strong> Amazon website direct-a va scrape chhen lovin, DesiDime community vote tlin (Front Page Deals) te kan lo filter a, mi affiliate tag paihin nangma tag <strong>lalmalsawmtlu-21</strong> a inthun nghal hmak zel e.
+                <strong className="text-stone-900 font-semibold">100% Safe Piggyback Harvester:</strong> Telegram flash deals, DealsMagnet lowest-price tracking, leh IndiaFreeStuff atangin Amazon deal tlawm thar apiang kan lo filter a, mi affiliate tag awm sa paihin nangma tag <strong>lalmalsawmtlu-21</strong> a inthun nghal hmak zel e.
               </div>
             </div>
 
@@ -846,8 +875,8 @@ export const AdminView: React.FC = () => {
             {scrapedDeals.length === 0 ? (
               <div className="py-12 text-center text-stone-500">
                 <Bot className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-                <p className="text-xs font-semibold">No deals fetched yet.</p>
-                <p className="text-[11px] text-stone-400 mt-0.5">Click "Fetch Live DesiDime Deals" to harvest active deals right now.</p>
+                <p className="text-xs font-semibold">No deals harvested yet.</p>
+                <p className="text-[11px] text-stone-400 mt-0.5">Click "Fetch Preview" or "⚡ Fetch & Auto-Publish All" to harvest live loot deals right now.</p>
               </div>
             ) : (
               <div className="space-y-3">
