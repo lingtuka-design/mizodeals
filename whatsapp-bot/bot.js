@@ -101,13 +101,14 @@ async function startBot() {
         }
       }, 3000);
 
+      console.log('⏰ Auto-post timer scheduled: Every 30 minutes');
       setInterval(async () => {
         if (!isChecking) {
           isChecking = true;
           await checkAndPostDeals(sock, CHANNEL_JID);
           isChecking = false;
         }
-      }, 15 * 60 * 1000);
+      }, 30 * 60 * 1000);
     }
   });
 }
