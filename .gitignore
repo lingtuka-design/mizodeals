@@ -25,3 +25,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# WhatsApp Bot Session & Auth
+whatsapp-bot/auth_info/
+whatsapp-bot/posted_deals.json
