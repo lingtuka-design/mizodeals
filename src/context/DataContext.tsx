@@ -79,7 +79,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch latest live deals from Cloudflare D1 database on mount
   useEffect(() => {
     let isMounted = true;
-    fetch('/api/deals?status=all&limit=100')
+    fetch('/api/deals?status=all&limit=200')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch from D1');
         return res.json() as Promise<{ success: boolean; deals?: Deal[]; source?: string }>;

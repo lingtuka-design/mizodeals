@@ -8,10 +8,10 @@ import fs from 'fs';
 import path from 'path';
 
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
-const API_URL = 'https://mizodeals.pages.dev/api/deals?status=all&limit=100';
+const API_URL = 'https://mizodeals.pages.dev/api/deals?status=all&limit=200';
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
-const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'ifs', 'all'];
+const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'all'];
 let currentSourceIndex = 0;
 
 // Load already posted deal IDs and ASINs
@@ -214,7 +214,7 @@ async function checkAndPostDeals(sock, channelJid) {
 
   // Step 1: Auto-scrape from rotated source and auto-publish to D1 (no manual work needed)
   try {
-    const harvestUrl = `https://mizodeals.pages.dev/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=40`;
+    const harvestUrl = `https://mizodeals.pages.dev/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=80`;
     const harvestRes = await fetch(harvestUrl);
     if (harvestRes.ok) {
       const harvestData = await harvestRes.json();

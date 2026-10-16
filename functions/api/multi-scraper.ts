@@ -78,8 +78,8 @@ async function resolveAmazonUrl(rawUrl: string, targetTag: string): Promise<{ as
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
-  const limitParam = url.searchParams.get('limit') || '60';
-  const limit = Math.min(Math.max(parseInt(limitParam, 10) || 60, 5), 100);
+  const limitParam = url.searchParams.get('limit') || '80';
+  const limit = Math.min(Math.max(parseInt(limitParam, 10) || 80, 5), 150);
   const targetTag = url.searchParams.get('tag') || env.AMAZON_PARTNER_TAG || 'lalmalsawmtlu-21';
   const filterSource = url.searchParams.get('source'); // 'all', 'telegram', 'dealsmagnet', 'ifs'
   const shouldAutoPublish = url.searchParams.get('autoPublish') === 'true';
@@ -91,10 +91,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const seenAsins = new Set<string>();
 
   // ==========================================
-  // SOURCE 1: TELEGRAM PUBLIC DEALS HUBS
+  // SOURCE 1: TELEGRAM PUBLIC DEALS HUBS (7 ACTIVE VERIFIED CHANNELS)
   // ==========================================
   if (!filterSource || filterSource === 'all' || filterSource === 'telegram') {
-    const telegramChannels = ['dealbee', 'shopping_deals'];
+    const telegramChannels = [
+      'dealbee',
+      'deals_loot',
+      'amazon_flipkart_loots',
+      'looter_deals',
+      'online_loot_deals',
+      'dealsprime',
+      'loot_offers_india'
+    ];
     for (const ch of telegramChannels) {
       if (collectedDeals.length >= limit) break;
       try {
