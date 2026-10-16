@@ -12,7 +12,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const category = url.searchParams.get('category');
   const status = url.searchParams.get('status') || 'active';
   const isLoot = url.searchParams.get('loot');
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 250);
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
 
   if (!env.DB) {
     // Fallback to static seed deals if DB binding not available in dev

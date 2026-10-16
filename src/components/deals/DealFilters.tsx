@@ -91,12 +91,12 @@ export const DealFilters: React.FC<DealFiltersProps> = ({
           {/* Sort Dropdown */}
           <div className="relative">
             <select
-              value={filters.sort || 'discount_desc'}
+              value={filters.sort || 'newest'}
               onChange={(e) => onFilterChange({ sort: e.target.value as DealsFilterParams['sort'] })}
               className="appearance-none bg-white border border-[#EAE6DF] hover:border-stone-300 pl-8 pr-8 py-2.5 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer shadow-2xs"
             >
+              <option value="newest">Recently Verified / Newest</option>
               <option value="discount_desc">Highest Discount</option>
-              <option value="newest">Recently Verified</option>
               <option value="price_asc">Price: Low to High</option>
               <option value="price_desc">Price: High to Low</option>
               <option value="rating_desc">Top Customer Rated</option>

@@ -25,7 +25,7 @@ const indexRoute = createRoute({
     return {
       category: (search.category as DealCategory) || 'all',
       search: (search.search as string) || '',
-      sort: (search.sort as DealsFilterParams['sort']) || 'discount_desc',
+      sort: (search.sort as DealsFilterParams['sort']) || 'newest',
       lootOnly: search.lootOnly === true || search.lootOnly === 'true',
       priceRange: (search.priceRange as DealsFilterParams['priceRange']) || 'all',
     };

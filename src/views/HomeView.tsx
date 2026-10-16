@@ -66,7 +66,10 @@ export const HomeView: React.FC = () => {
 
   // Featured Hot Loot Deals (Top Loot Spotlight - swipeable carousel on mobile, responsive grid on desktop)
   const topLootDeals = useMemo(() => {
-    return activeDeals.filter(isLootDeal).slice(0, 6);
+    return [...activeDeals]
+      .filter(isLootDeal)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 6);
   }, [activeDeals]);
 
   // Category counts calculation based on active deals

@@ -4,7 +4,7 @@ import { INITIAL_DEALS } from '../data/deals';
 import { BLOG_POSTS } from '../data/blogs';
 import { buildAffiliateUrl, ensureAffiliateTag } from '../utils/affiliate';
 
-const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v5';
+const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v6';
 const STORAGE_BLOGS_KEY = 'mizodeals_all_blogs_v1';
 
 interface DataContextType {
@@ -27,11 +27,12 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [deals, setDeals] = useState<Deal[]>(() => {
     try {
-      // Clean up legacy v1..v4 caches to ensure instantaneous delivery of fresh catalog
+      // Clean up legacy v1..v5 caches to ensure instantaneous delivery of fresh catalog
       localStorage.removeItem('mizodeals_all_deals_v1');
       localStorage.removeItem('mizodeals_all_deals_v2');
       localStorage.removeItem('mizodeals_all_deals_v3');
       localStorage.removeItem('mizodeals_all_deals_v4');
+      localStorage.removeItem('mizodeals_all_deals_v5');
 
       const stored = localStorage.getItem(STORAGE_DEALS_KEY);
       if (stored) {
@@ -79,7 +80,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch latest live deals from Cloudflare D1 database on mount
   useEffect(() => {
     let isMounted = true;
-    fetch('/api/deals?status=all&limit=200')
+    fetch('/api/deals?status=all&limit=400')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch from D1');
         return res.json() as Promise<{ success: boolean; deals?: Deal[]; source?: string }>;
@@ -90,7 +91,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Prioritize freshly fetched D1 deals
             const d1Asins = new Set(data.deals!.map((d) => d.asin.toLowerCase()));
             const remainingLocal = prev.filter((d) => !d1Asins.has(d.asin.toLowerCase()));
-            return [...data.deals!, ...remainingLocal];
+            const merged = [...data.deals!, ...remainingLocal];
+            return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           });
         }
       })
