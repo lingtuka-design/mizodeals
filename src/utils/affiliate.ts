@@ -53,11 +53,23 @@ export function generateWhatsAppDealShareText(deal: Deal): string {
     ? '🔥 *PRICE TLAHNIAM NASA!* 🔥\n' 
     : '⚡ *PRICE TLAHNIAM!* ⚡\n';
 
+  const cleanTitle = (str: string) =>
+    str
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#8377;/g, '₹')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/buy\s+max\s+q(?:nty|ty)\s*:?/gi, '')
+      .replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '')
+      .trim();
+
+  const title = cleanTitle(deal.title);
   const landingUrl = getDealLandingUrl(deal);
 
   return (
     `${lootHeader}` +
-    `*${deal.title}*\n\n` +
+    `*${title}*\n\n` +
     `💰 Deal Price: *₹${deal.dealPrice.toLocaleString('en-IN')}*` +
     ` ~₹${deal.originalPrice.toLocaleString('en-IN')}~${savingsFormatted}\n` +
     `💥 Discount: *${deal.discountPercent}% OFF*\n` +

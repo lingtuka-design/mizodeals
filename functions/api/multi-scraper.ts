@@ -145,11 +145,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               .replace(/upto\s*\d+%\s*off\s*(?:on)?/gi, '')
               .replace(/\d+%\s*off\s*(?:on)?/gi, '')
               .replace(/coupon|apply|flat|deal|loot/gi, '')
+              .replace(/&amp;/g, '&')
+              .replace(/&quot;/g, '"')
+              .replace(/&#8377;/g, '₹')
+              .replace(/&#39;/g, "'")
+              .replace(/&nbsp;/g, ' ')
+              .replace(/buy\s+max\s+q(?:nty|ty)\s*:?/gi, '')
+              .replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '')
               .trim();
 
             if (title.length < 15) {
-              title = rawText.slice(0, 70).replace(/https?:\/\/\S+/gi, '').trim();
+              title = rawText.slice(0, 70).replace(/https?:\/\/\S+/gi, '').replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '').trim();
             }
+            title = title.replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '').trim();
             if (title.length > 90) {
               title = title.slice(0, 90) + '...';
             }

@@ -39,6 +39,21 @@ function formatINR(amount) {
   return '₹' + amount.toLocaleString('en-IN');
 }
 
+function cleanTitle(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#8377;/g, '₹')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/buy\s+max\s+q(?:nty|ty)\s*:?/gi, '')
+    .replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '')
+    .trim();
+}
+
 function formatMessage(deal) {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
@@ -46,11 +61,12 @@ function formatMessage(deal) {
     ? '🔥 *PRICE TLAHNIAM NASA!* 🔥\n'
     : '⚡ *PRICE TLAHNIAM!* ⚡\n';
 
+  const title = cleanTitle(deal.title);
   const dealUrl = `https://mizodeals.pages.dev/deals/${deal.id}`;
 
   return (
     `${lootHeader}` +
-    `*${deal.title}*\n\n` +
+    `*${title}*\n\n` +
     `💰 Deal Price: *${formatINR(deal.dealPrice)}* ~${formatINR(deal.originalPrice)}~${savingsText}\n` +
     `💥 Discount: *${deal.discountPercent}% OFF*\n` +
     `⭐ Rating: ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews)\n` +
@@ -274,38 +290,46 @@ async function checkAndPostDeals(sock, channelJid) {
       console.log(`Posting: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
       try {
-        let linkPreview = undefined;
+        let imgBuffer = null;
         try {
-          const img = await Jimp.read(deal.imageUrl);
-          img.resize({ w: 200, h: 200 });
-          const thumbBuffer = await img.getBuffer('image/jpeg');
-          const savings = deal.originalPrice - deal.dealPrice;
-          const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
-          linkPreview = {
-            'matched-text': dealUrl,
-            title: deal.title,
-            description: `Deal Price: ${formatINR(deal.dealPrice)} ~${formatINR(deal.originalPrice)}~${savingsText} (${deal.discountPercent}% OFF)`,
-            jpegThumbnail: thumbBuffer,
-          };
+          const imgRes = await fetch(deal.imageUrl, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            },
+          });
+          if (imgRes.ok) {
+            const arrayBuffer = await imgRes.arrayBuffer();
+            const buf = Buffer.from(arrayBuffer);
+            if (buf.length > 1000) {
+              imgBuffer = buf;
+            }
+          }
         } catch (imgErr) {
-          console.log(`[SKIP] Deal ${deal.id} photo failed to load (${deal.imageUrl}):`, imgErr.message);
-          continue; // Strictly skip deals where image is not loadable
+          console.log(`[SKIP] Deal ${deal.id} photo failed to fetch (${deal.imageUrl}):`, imgErr.message);
         }
 
-        if (!linkPreview || !linkPreview.jpegThumbnail) {
-          console.log(`[SKIP] Thumbnail buffer missing for deal ${deal.id}`);
+        if (!imgBuffer) {
+          console.log(`[SKIP] Valid image buffer could not be downloaded for ${deal.id}`);
           continue;
         }
 
-        const msgPayload = {
-          text: caption,
-          linkPreview,
-        };
-
-        await sock.sendMessage(channelJid, msgPayload);
-
-        recordPostedDeal(deal);
-        console.log(`✅ Posted successfully with thumbnail: ${deal.id} [${deal.asin || 'NO-ASIN'}] - ${deal.title.slice(0, 30)}`);
+        try {
+          // Send as FULL-SIZE photo post so thumbnail is large, crisp, and eye-catching!
+          await sock.sendMessage(channelJid, {
+            image: imgBuffer,
+            caption: caption,
+          });
+          recordPostedDeal(deal);
+          console.log(`📸 Posted FULL-SIZE image deal successfully: ${deal.id} [${deal.asin || 'NO-ASIN'}] - ${deal.title.slice(0, 30)}`);
+        } catch (mediaSendErr) {
+          console.warn(`Media post failed (${mediaSendErr.message}), trying text post fallback...`);
+          await sock.sendMessage(channelJid, {
+            text: caption,
+          });
+          recordPostedDeal(deal);
+          console.log(`✅ Posted text fallback: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        }
 
         // Wait 10 seconds between posts to keep channel clean
         await new Promise((resolve) => setTimeout(resolve, 10000));

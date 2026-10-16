@@ -61,21 +61,41 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return response;
   }
 
+  const cleanTitle = (str: string) =>
+    str
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#8377;/g, '₹')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/buy\s+max\s+q(?:nty|ty)\s*:?/gi, '')
+      .replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '')
+      .trim();
+
+  const title = cleanTitle(deal.title);
   const formattedDealPrice = '₹' + deal.dealPrice.toLocaleString('en-IN');
   const formattedOrigPrice = '₹' + deal.originalPrice.toLocaleString('en-IN');
   const discountText = `${deal.discountPercent}% OFF`;
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ₹${savings.toLocaleString('en-IN')})` : '';
 
-  const ogTitle = `${deal.title} — ${formattedDealPrice} (${discountText})`;
+  const ogTitle = `${title} — ${formattedDealPrice} (${discountText})`;
   const ogDescription = `Deal Price: ${formattedDealPrice} ~${formattedOrigPrice}~${savingsText} | ⭐ ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews). Exclusive Amazon deal curated on Mizodeals.`;
   const ogImage =
     deal.asin && (!deal.imageUrl || deal.imageUrl.includes('unsplash.com'))
       ? `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`
       : deal.imageUrl || 'https://mizodeals.pages.dev/og-image.jpg';
-  const pageTitle = `${deal.title} — Mizodeals`;
+  const pageTitle = `${title} — Mizodeals`;
 
   return new HTMLRewriter()
+    .on('head', {
+      element(el) {
+        el.append(
+          `<meta property="og:image:width" content="800" /><meta property="og:image:height" content="800" /><meta property="og:image:type" content="image/jpeg" />`,
+          { html: true }
+        );
+      },
+    })
     .on('title', {
       element(el) {
         el.setInnerContent(pageTitle);
