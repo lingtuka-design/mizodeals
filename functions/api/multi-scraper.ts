@@ -165,9 +165,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             if (title.length < 15) {
               title = rawText.slice(0, 70).replace(/https?:\/\/\S+/gi, '').replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '').trim();
             }
-            title = title.replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '').trim();
             if (title.length > 90) {
               title = title.slice(0, 90) + '...';
+            }
+
+            if (!title || title.length < 5 || /^(?:loot|deal|bigg?\s*lo+t)$/i.test(title)) {
+              continue;
             }
 
             // Extract Image if embedded
