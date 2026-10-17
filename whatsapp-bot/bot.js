@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
-const API_URL = 'https://mizodeals.pages.dev/api/deals?status=all&limit=200';
+const API_URL = 'https://mizodeals.com/api/deals?status=all&limit=200';
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'all'];
@@ -214,7 +214,7 @@ async function checkAndPostDeals(sock, channelJid) {
 
   // Step 1: Auto-scrape from rotated source and auto-publish to D1 (no manual work needed)
   try {
-    const harvestUrl = `https://mizodeals.pages.dev/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=80`;
+    const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=80`;
     const harvestRes = await fetch(harvestUrl);
     if (harvestRes.ok) {
       const harvestData = await harvestRes.json();
@@ -287,7 +287,7 @@ async function checkAndPostDeals(sock, channelJid) {
       }
 
       const caption = formatMessage(deal);
-      const dealUrl = `https://mizodeals.pages.dev/deals/${deal.id}`;
+      const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
       console.log(`Posting: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
       try {
