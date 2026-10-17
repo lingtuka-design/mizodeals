@@ -372,7 +372,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
         try {
           const img = await Jimp.read(deal.imageUrl);
-          img.resize({ w: 200, h: 200 });
+          img.resize({ w: 500, h: 350 });
           thumbBuffer = await img.getBuffer('image/jpeg');
         } catch (imgErr) {
           console.warn(`[THUMBNAIL FAILED] Deal ${deal.id} (${deal.imageUrl}):`, imgErr.message);
@@ -388,12 +388,25 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
 
       const savings = deal.originalPrice - deal.dealPrice;
       const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
+      const cleanTitleText = cleanTitle(deal.title);
+      const descriptionText = `Deal Price: ${formatINR(deal.dealPrice)} ~${formatINR(deal.originalPrice)}~${savingsText} (${deal.discountPercent}% OFF)`;
+
       const msgPayload = {
         text: caption,
+        contextInfo: {
+          externalAdReply: {
+            title: cleanTitleText,
+            body: descriptionText,
+            mediaType: 1,
+            thumbnail: thumbBuffer,
+            sourceUrl: dealUrl,
+            renderLargerThumbnail: true,
+          },
+        },
         linkPreview: {
           'matched-text': dealUrl,
-          title: cleanTitle(deal.title),
-          description: `Deal Price: ${formatINR(deal.dealPrice)} ~${formatINR(deal.originalPrice)}~${savingsText} (${deal.discountPercent}% OFF)`,
+          title: cleanTitleText,
+          description: descriptionText,
           jpegThumbnail: thumbBuffer,
         },
       };
@@ -402,7 +415,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         await sock.sendMessage(channelJid, msgPayload);
         recordPostedDeal(deal);
         postedCount++;
-        console.log(`✅ [${postedCount}/${maxToPost}] Posted deal WITH THUMBNAIL: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        console.log(`✅ [${postedCount}/${maxToPost}] Posted deal WITH LARGE THUMBNAIL: ${deal.id} - ${deal.title.slice(0, 30)}`);
 
         // Wait 10 seconds between posts to keep channel clean
         if (postedCount < maxToPost) {
