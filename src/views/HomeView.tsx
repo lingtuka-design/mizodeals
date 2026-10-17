@@ -52,10 +52,20 @@ export const HomeView: React.FC = () => {
   const handleFilterChange = (newFilters: Partial<DealsFilterParams>) => {
     navigate({
       to: '/',
-      search: (prev: Record<string, unknown>) => ({
-        ...prev,
-        ...newFilters,
-      }),
+      search: (prev: Record<string, unknown>) => {
+        const next: Record<string, unknown> = {
+          ...prev,
+          ...newFilters,
+        };
+        // Clean out default / empty values so URL stays completely clean (e.g. https://mizodeals.com/)
+        if (!next.category || next.category === 'all') delete next.category;
+        if (!next.search) delete next.search;
+        if (!next.sort || next.sort === 'newest') delete next.sort;
+        if (!next.lootOnly || next.lootOnly === 'false' || next.lootOnly === false) delete next.lootOnly;
+        if (!next.tab || next.tab === 'all') delete next.tab;
+        if (!next.priceRange || next.priceRange === 'all') delete next.priceRange;
+        return next;
+      },
     });
   };
 

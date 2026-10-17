@@ -22,13 +22,26 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   validateSearch: (search: Record<string, unknown>): DealsFilterParams => {
-    return {
-      category: (search.category as DealCategory) || 'all',
-      search: (search.search as string) || '',
-      sort: (search.sort as DealsFilterParams['sort']) || 'newest',
-      lootOnly: search.lootOnly === true || search.lootOnly === 'true',
-      priceRange: (search.priceRange as DealsFilterParams['priceRange']) || 'all',
-    };
+    const result: DealsFilterParams = {};
+    if (search.category && search.category !== 'all') {
+      result.category = search.category as DealCategory;
+    }
+    if (typeof search.search === 'string' && search.search.trim()) {
+      result.search = search.search.trim();
+    }
+    if (search.sort && search.sort !== 'newest') {
+      result.sort = search.sort as DealsFilterParams['sort'];
+    }
+    if (search.lootOnly === true || search.lootOnly === 'true') {
+      result.lootOnly = true;
+    }
+    if (search.tab && search.tab !== 'all') {
+      result.tab = search.tab as DealsFilterParams['tab'];
+    }
+    if (search.priceRange && search.priceRange !== 'all') {
+      result.priceRange = search.priceRange as DealsFilterParams['priceRange'];
+    }
+    return result;
   },
   component: HomeView,
 });
