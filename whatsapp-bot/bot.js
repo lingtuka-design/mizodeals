@@ -367,54 +367,14 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       const caption = formatMessage(deal);
       console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
-      let imgBuffer = null;
       try {
-        const imgRes = await fetch(deal.imageUrl, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          },
-          signal: AbortSignal.timeout(6000),
+        // WhatsApp Channels / Newsletters strictly require text with URL to render rich cards
+        await sock.sendMessage(channelJid, {
+          text: caption,
         });
-        if (imgRes.ok) {
-          const arrayBuffer = await imgRes.arrayBuffer();
-          const buf = Buffer.from(arrayBuffer);
-          if (buf.length > 1000) {
-            imgBuffer = buf;
-          }
-        }
-      } catch (imgErr) {
-        console.log(`[SKIP IMAGE FETCH FAILED] Deal ${deal.id} (${deal.imageUrl}):`, imgErr.message);
-      }
-
-      try {
-        let sent = false;
-
-        // Attempt 1: Try sending with image attachment if image buffer is downloaded
-        if (imgBuffer) {
-          try {
-            await sock.sendMessage(channelJid, {
-              image: imgBuffer,
-              caption: caption,
-            });
-            sent = true;
-            console.log(`📸 [${postedCount + 1}/${maxToPost}] Posted image deal: ${deal.id} - ${deal.title.slice(0, 30)}`);
-          } catch (mediaSendErr) {
-            console.warn(`Media post failed (${mediaSendErr.message}), falling back to text message...`);
-          }
-        }
-
-        // Attempt 2: Always send text post if image wasn't sent (WhatsApp channel generates link preview automatically)
-        if (!sent) {
-          await sock.sendMessage(channelJid, {
-            text: caption,
-          });
-          sent = true;
-          console.log(`📝 [${postedCount + 1}/${maxToPost}] Posted text deal: ${deal.id} - ${deal.title.slice(0, 30)}`);
-        }
-
         recordPostedDeal(deal);
         postedCount++;
+        console.log(`✅ [${postedCount}/${maxToPost}] Posted deal to WhatsApp Channel: ${deal.id} - ${deal.title.slice(0, 30)}`);
 
         // Wait 10 seconds between posts to keep channel clean
         if (postedCount < maxToPost) {
