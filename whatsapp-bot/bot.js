@@ -364,17 +364,45 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
     for (const deal of orderedCandidates) {
       if (postedCount >= maxToPost) break;
 
+      const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
       const caption = formatMessage(deal);
       console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
+      let thumbBuffer = null;
+      if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
+        try {
+          const img = await Jimp.read(deal.imageUrl);
+          img.resize({ w: 200, h: 200 });
+          thumbBuffer = await img.getBuffer('image/jpeg');
+        } catch (imgErr) {
+          console.warn(`[THUMBNAIL FAILED] Deal ${deal.id} (${deal.imageUrl}):`, imgErr.message);
+        }
+      }
+
+      // Strictly require a valid authentic thumbnail before posting to maintain high visual quality
+      if (!thumbBuffer) {
+        console.log(`[SKIP - NO THUMBNAIL] Deal ${deal.id} has no valid thumbnail. Skipping to next deal.`);
+        recordPostedDeal(deal);
+        continue;
+      }
+
+      const savings = deal.originalPrice - deal.dealPrice;
+      const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
+      const msgPayload = {
+        text: caption,
+        linkPreview: {
+          'matched-text': dealUrl,
+          title: cleanTitle(deal.title),
+          description: `Deal Price: ${formatINR(deal.dealPrice)} ~${formatINR(deal.originalPrice)}~${savingsText} (${deal.discountPercent}% OFF)`,
+          jpegThumbnail: thumbBuffer,
+        },
+      };
+
       try {
-        // WhatsApp Channels / Newsletters strictly require text with URL to render rich cards
-        await sock.sendMessage(channelJid, {
-          text: caption,
-        });
+        await sock.sendMessage(channelJid, msgPayload);
         recordPostedDeal(deal);
         postedCount++;
-        console.log(`✅ [${postedCount}/${maxToPost}] Posted deal to WhatsApp Channel: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        console.log(`✅ [${postedCount}/${maxToPost}] Posted deal WITH THUMBNAIL: ${deal.id} - ${deal.title.slice(0, 30)}`);
 
         // Wait 10 seconds between posts to keep channel clean
         if (postedCount < maxToPost) {
