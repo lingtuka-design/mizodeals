@@ -10,27 +10,30 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#FAF9F5]/90 backdrop-blur-md border-b border-[#EAE6DF] transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        {/* Brand / Logo */}
-        <Link to="/" className="flex items-center gap-2.5 group">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4 relative">
+        {/* Brand / Logo (Centered on mobile, left-aligned on desktop) */}
+        <Link
+          to="/"
+          className="flex items-center gap-2 sm:gap-2.5 group absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 shrink-0"
+        >
           <img
             src="/logo-icon.png"
             alt="Mizodeals icon"
-            className="w-9 h-9 rounded-xl object-contain shadow-2xs group-hover:scale-105 transition-transform"
+            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl object-contain shadow-2xs group-hover:scale-105 transition-transform"
           />
-          <div>
+          <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
               <img
                 src="/logo.png"
                 alt={SITE_NAME}
-                className="h-6 sm:h-7 w-auto object-contain"
+                className="h-7.5 sm:h-9 md:h-10 w-auto object-contain"
               />
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-stone-200/80 text-stone-700">
+              <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-stone-200/80 text-stone-700">
                 <MapPin className="w-2.5 h-2.5 text-stone-500" />
                 MZ
               </span>
             </div>
-            <span className="text-[10px] text-stone-500 font-medium block leading-none mt-0.5">
+            <span className="hidden sm:block text-[10px] text-stone-500 font-medium leading-none mt-0.5">
               Curated Amazon Deals
             </span>
           </div>
@@ -80,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
         </nav>
 
         {/* Right CTA */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto md:ml-0">
           {/* Saved shortcut on mobile */}
           <Link
             to="/saved"

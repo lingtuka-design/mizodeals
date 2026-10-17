@@ -14,12 +14,12 @@ export const Footer: React.FC = () => {
               <img
                 src="/logo-icon.png"
                 alt="Mizodeals icon"
-                className="w-8 h-8 rounded-xl object-contain shadow-2xs"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-contain shadow-2xs"
               />
               <img
                 src="/logo.png"
                 alt={SITE_NAME}
-                className="h-6 w-auto object-contain"
+                className="h-7.5 sm:h-8.5 w-auto object-contain"
               />
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 flex items-center gap-1">
                 <MapPin className="w-2.5 h-2.5" /> Mizoram Edition
