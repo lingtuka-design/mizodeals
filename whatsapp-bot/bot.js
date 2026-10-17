@@ -246,6 +246,7 @@ async function checkAndPostDeals(sock, channelJid) {
         d.imageUrl.startsWith('http') &&
         d.imageUrl.length > 15 &&
         !d.imageUrl.includes('unsplash.com') &&
+        !d.imageUrl.includes('images-eu.ssl-images-amazon.com') &&
         !d.imageUrl.includes('photo-1523275335684-37898b6baf30')
     );
 

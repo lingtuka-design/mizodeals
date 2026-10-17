@@ -70,6 +70,10 @@ export const DealCard: React.FC<DealCardProps> = ({
     onOpenDetails?.(deal);
   };
 
+  const [imageError, setImageError] = React.useState(
+    !deal.imageUrl || deal.imageUrl.includes('images-eu.ssl-images-amazon.com')
+  );
+
   return (
     <div 
       className={`group relative bg-white border rounded-2xl p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between ${
@@ -143,17 +147,28 @@ export const DealCard: React.FC<DealCardProps> = ({
           className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF]/60 mb-3 group-hover:border-stone-300 block cursor-pointer"
           title={`Open ${deal.title} on ${storeBadge.name}`}
         >
-          <img
-            src={deal.imageUrl}
-            alt={deal.title}
-            loading="lazy"
-            onError={(e) => {
-              if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
-                e.currentTarget.src = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
-              }
-            }}
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-          />
+          {!imageError ? (
+            <img
+              src={deal.imageUrl}
+              alt={deal.title}
+              loading="lazy"
+              onLoad={(e) => {
+                if (e.currentTarget.naturalWidth <= 2 || e.currentTarget.naturalHeight <= 2) {
+                  setImageError(true);
+                }
+              }}
+              onError={() => setImageError(true)}
+              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 border border-dashed border-stone-200 p-4 text-center">
+              <span className="p-2.5 rounded-full bg-orange-100 text-orange-600 mb-1.5">
+                <Flame className="w-5 h-5 fill-current" />
+              </span>
+              <span className="text-[11px] font-bold text-stone-700">{storeBadge.name} Deal</span>
+              <span className="text-[9px] text-stone-400 mt-0.5">Click to view on store</span>
+            </div>
+          )}
 
           {isExpired ? (
             <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-[1px] flex items-center justify-center p-2 text-center">

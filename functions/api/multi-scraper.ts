@@ -187,13 +187,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             if (seenAsins.has(asin)) continue;
             seenAsins.add(asin);
 
-            // Always use the real Amazon CDN product thumbnail for this exact ASIN
-            if (!imageUrl || imageUrl.includes('unsplash.com')) {
-              imageUrl = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
-            }
-
-            // Strictly skip any deal with missing or empty image URL
-            if (!imageUrl || !imageUrl.startsWith('http') || imageUrl.trim().length < 15) {
+            // Strictly require authentic photo embedded in the Telegram post
+            // Reject any deal lacking a genuine photo (do not fall back to legacy dead 43-byte Amazon URLs)
+            if (!imageUrl || !imageUrl.startsWith('http') || imageUrl.trim().length < 15 || imageUrl.includes('unsplash.com') || imageUrl.includes('images-eu.ssl-images-amazon.com')) {
               continue;
             }
 
@@ -384,6 +380,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         !deal.imageUrl.startsWith('http') ||
         deal.imageUrl.length < 15 ||
         deal.imageUrl.includes('unsplash.com') ||
+        deal.imageUrl.includes('images-eu.ssl-images-amazon.com') ||
         deal.imageUrl.includes('photo-1523275335684-37898b6baf30')
       ) {
         continue;
