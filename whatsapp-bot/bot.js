@@ -7,6 +7,32 @@ import { Jimp } from 'jimp';
 import fs from 'fs';
 import path from 'path';
 
+// Live in-memory activity logger
+const recentLogs = [];
+function addLog(level, ...args) {
+  const time = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+  const text = args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+  const prefix = level === 'error' ? '❌ ' : level === 'warn' ? '⚠️ ' : '';
+  recentLogs.push(`[${time}] ${prefix}${text}`);
+  if (recentLogs.length > 50) recentLogs.shift();
+}
+
+const origLog = console.log;
+const origErr = console.error;
+const origWarn = console.warn;
+console.log = (...args) => {
+  origLog(...args);
+  addLog('info', ...args);
+};
+console.error = (...args) => {
+  origErr(...args);
+  addLog('error', ...args);
+};
+console.warn = (...args) => {
+  origWarn(...args);
+  addLog('warn', ...args);
+};
+
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
 const API_URL = 'https://mizodeals.com/api/deals?status=all&limit=200';
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
@@ -58,8 +84,8 @@ function formatMessage(deal) {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
   const lootHeader = deal.isLootDeal || deal.discountPercent >= 50
-    ? '🔥 *PRICE TLAHNIAM NASA!* 🔥\n'
-    : '⚡ *PRICE TLAHNIAM!* ⚡\n';
+    ? '🔥 *MAN TLAHNIAM NASA!* 🔥\n'
+    : '⚡ *MAN TLAHNIAM!* ⚡\n';
 
   const title = cleanTitle(deal.title);
   const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
@@ -100,19 +126,26 @@ http
       if (isChecking) {
         return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px;background:#FAF9F5;">
           <h2>⏳ Post check already running...</h2>
-          <p>A deal check is currently underway. Please check WhatsApp channel.</p>
+          <p>A deal check is currently underway. Please wait a moment.</p>
           <p><a href="/" style="display:inline-block;padding:8px 16px;background:#ea580c;color:white;border-radius:8px;text-decoration:none;">Go Back</a></p>
         </body></html>`);
       }
       isChecking = true;
-      checkAndPostDeals(activeSock, CHANNEL_JID)
-        .catch((err) => console.error('Manual trigger error:', err))
-        .finally(() => { isChecking = false; });
+      try {
+        await checkAndPostDeals(activeSock, CHANNEL_JID);
+      } catch (err) {
+        console.error('Manual trigger error:', err.message);
+      } finally {
+        isChecking = false;
+      }
 
-      return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px;background:#FAF9F5;">
-        <h2>⚡ Deal Posting Cycle Started!</h2>
-        <p>Checking latest unposted deals and broadcasting to WhatsApp Channel now...</p>
-        <p><a href="/" style="display:inline-block;padding:10px 20px;background:#ea580c;color:white;border-radius:10px;text-decoration:none;font-weight:600;">Return to Status Page</a></p>
+      return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px 20px;background:#FAF9F5;color:#1c1917;">
+        <h2>⚡ Deal Posting Cycle Finished!</h2>
+        <p>Check the live log below or look at the WhatsApp Channel:</p>
+        <div style="max-width:600px;margin:20px auto;text-align:left;background:#0f172a;color:#f8fafc;padding:16px;border-radius:14px;font-family:monospace;font-size:12px;white-space:pre-wrap;max-height:300px;overflow-y:auto;">
+${recentLogs.slice(-15).join('\n')}
+        </div>
+        <p><a href="/" style="display:inline-block;padding:10px 20px;background:#ea580c;color:white;border-radius:10px;text-decoration:none;font-weight:600;">Return to Dashboard</a></p>
       </body></html>`);
     }
 
@@ -122,20 +155,24 @@ http
 <html>
   <head><title>Mizodeals Bot — 24/7 Cloud Active</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
   <body style="font-family:system-ui,sans-serif;text-align:center;padding:40px 20px;background:#FAF9F5;color:#1c1917;">
-    <div style="max-width:480px;margin:auto;background:white;padding:30px;border-radius:24px;border:1px solid #EAE6DF;box-shadow:0 10px 25px -5px rgba(0,0,0,0.05);">
+    <div style="max-width:540px;margin:auto;background:white;padding:30px;border-radius:24px;border:1px solid #EAE6DF;box-shadow:0 10px 25px -5px rgba(0,0,0,0.05);">
       <div style="font-size:42px;margin-bottom:12px;">✅</div>
       <h2 style="color:#16a34a;margin:0 0 10px 0;">Mizodeals Bot Is Running 24/7!</h2>
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString() : 'In Progress...'}</div>
+        <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
       </div>
 
       <a href="/post-now" style="display:inline-block;padding:12px 24px;background:#ea580c;color:white;border-radius:12px;text-decoration:none;font-weight:bold;font-size:14px;box-shadow:0 4px 12px rgba(234,88,12,0.25);">⚡ Post Deals Now</a>
+      <p style="font-size:11px;color:#a8a29e;margin-top:10px;">Runs automatically every 30 mins. Click above to trigger an immediate check.</p>
 
-      <p style="font-size:11px;color:#a8a29e;margin-top:16px;">Runs automatically every 30 mins. Click above to trigger an immediate check.</p>
+      <div style="margin-top:24px;text-align:left;background:#0f172a;color:#f8fafc;padding:16px;border-radius:14px;font-family:monospace;font-size:11px;max-height:260px;overflow-y:auto;white-space:pre-wrap;border:1px solid #334155;">
+<b style="color:#38bdf8;">📋 Live Bot Activity Log:</b><br><br>
+${recentLogs.length > 0 ? recentLogs.join('\n') : 'Waiting for next activity...'}
+      </div>
     </div>
   </body>
 </html>`);
@@ -350,39 +387,41 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         console.log(`[SKIP IMAGE FETCH FAILED] Deal ${deal.id} (${deal.imageUrl}):`, imgErr.message);
       }
 
-      // If authentic photo cannot be downloaded, record deal so we never get stuck on it, and try NEXT deal
-      if (!imgBuffer) {
-        console.log(`[SKIP - BAD PHOTO] Deal ${deal.id} photo missing or broken. Skipping and recording to try next deal.`);
-        recordPostedDeal(deal);
-        continue;
-      }
-
       try {
-        // Send as FULL-SIZE photo post so thumbnail is large, crisp, and eye-catching!
-        await sock.sendMessage(channelJid, {
-          image: imgBuffer,
-          caption: caption,
-        });
-        recordPostedDeal(deal);
-        postedCount++;
-        console.log(`📸 [${postedCount}/${maxToPost}] Posted FULL-SIZE image deal successfully: ${deal.id} - ${deal.title.slice(0, 30)}`);
-      } catch (mediaSendErr) {
-        console.warn(`Media post failed (${mediaSendErr.message}), trying text post fallback...`);
-        try {
+        let sent = false;
+
+        // Attempt 1: Try sending with image attachment if image buffer is downloaded
+        if (imgBuffer) {
+          try {
+            await sock.sendMessage(channelJid, {
+              image: imgBuffer,
+              caption: caption,
+            });
+            sent = true;
+            console.log(`📸 [${postedCount + 1}/${maxToPost}] Posted image deal: ${deal.id} - ${deal.title.slice(0, 30)}`);
+          } catch (mediaSendErr) {
+            console.warn(`Media post failed (${mediaSendErr.message}), falling back to text message...`);
+          }
+        }
+
+        // Attempt 2: Always send text post if image wasn't sent (WhatsApp channel generates link preview automatically)
+        if (!sent) {
           await sock.sendMessage(channelJid, {
             text: caption,
           });
-          recordPostedDeal(deal);
-          postedCount++;
-          console.log(`✅ [${postedCount}/${maxToPost}] Posted text fallback: ${deal.id} - ${deal.title.slice(0, 30)}`);
-        } catch (textSendErr) {
-          console.error(`Failed to post deal ${deal.id} via text:`, textSendErr.message);
+          sent = true;
+          console.log(`📝 [${postedCount + 1}/${maxToPost}] Posted text deal: ${deal.id} - ${deal.title.slice(0, 30)}`);
         }
-      }
 
-      // Wait 10 seconds between posts to keep channel clean
-      if (postedCount < maxToPost) {
-        await new Promise((resolve) => setTimeout(resolve, 10000));
+        recordPostedDeal(deal);
+        postedCount++;
+
+        // Wait 10 seconds between posts to keep channel clean
+        if (postedCount < maxToPost) {
+          await new Promise((resolve) => setTimeout(resolve, 10000));
+        }
+      } catch (postErr) {
+        console.error(`Failed to post deal ${deal.id}:`, postErr.message);
       }
     }
 
