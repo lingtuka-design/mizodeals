@@ -64,7 +64,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       discountPercent: row.discount_percent,
       rating: row.rating,
       ratingsCount: row.ratings_count,
-      imageUrl: row.image_url,
+      imageUrl:
+        row.image_url && row.image_url.includes('dealsmagnet.com/images/') && row.image_url.includes('-s-')
+          ? row.image_url.replace('-s-', '-m-')
+          : row.image_url,
       affiliateUrl: row.affiliate_url,
       status: row.status,
       isLootDeal: Boolean(row.is_loot_deal),

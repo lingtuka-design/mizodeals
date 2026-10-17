@@ -16,7 +16,7 @@ import type { Deal } from '../../types';
 import { STORE_BADGES } from '../../config/constants';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../../utils/formatters';
 import { shareDealToWhatsApp, generateWhatsAppDealShareText } from '../../utils/affiliate';
-import { isLootDeal, isNewDeal, isDealExpired, formatDealTime } from '../../utils/dealLogic';
+import { isLootDeal, isNewDeal, isDealExpired, formatDealTime, getHighResImageUrl } from '../../utils/dealLogic';
 import { useToast } from '../common/Toast';
 
 interface DealCardProps {
@@ -70,9 +70,15 @@ export const DealCard: React.FC<DealCardProps> = ({
     onOpenDetails?.(deal);
   };
 
+  const [imgSrc, setImgSrc] = React.useState(getHighResImageUrl(deal.imageUrl));
   const [imageError, setImageError] = React.useState(
     !deal.imageUrl || deal.imageUrl.includes('images-eu.ssl-images-amazon.com')
   );
+
+  React.useEffect(() => {
+    setImgSrc(getHighResImageUrl(deal.imageUrl));
+    setImageError(!deal.imageUrl || deal.imageUrl.includes('images-eu.ssl-images-amazon.com'));
+  }, [deal.imageUrl]);
 
   return (
     <div 
@@ -149,7 +155,7 @@ export const DealCard: React.FC<DealCardProps> = ({
         >
           {!imageError ? (
             <img
-              src={deal.imageUrl}
+              src={imgSrc}
               alt={deal.title}
               loading="lazy"
               onLoad={(e) => {
@@ -157,8 +163,14 @@ export const DealCard: React.FC<DealCardProps> = ({
                   setImageError(true);
                 }
               }}
-              onError={() => setImageError(true)}
-              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+              onError={() => {
+                if (imgSrc !== deal.imageUrl && deal.imageUrl) {
+                  setImgSrc(deal.imageUrl); // Fallback to original image if -m- fails
+                } else {
+                  setImageError(true);
+                }
+              }}
+              className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 border border-dashed border-stone-200 p-4 text-center">

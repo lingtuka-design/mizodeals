@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, BellRing, Check, ShieldCheck } from 'lucide-react';
 import type { Deal } from '../../types';
 import { formatINR } from '../../utils/formatters';
+import { getHighResImageUrl } from '../../utils/dealLogic';
 import { useToast } from './Toast';
 
 interface PriceAlertModalProps {
@@ -57,9 +58,14 @@ export const PriceAlertModal: React.FC<PriceAlertModalProps> = ({ deal, isOpen, 
 
         <div className="my-4 p-3 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl flex items-center gap-3">
           <img
-            src={deal.imageUrl}
+            src={getHighResImageUrl(deal.imageUrl)}
             alt={deal.title}
-            className="w-12 h-12 object-cover rounded-lg border border-stone-200"
+            onError={(e) => {
+              if (e.currentTarget.src !== deal.imageUrl && deal.imageUrl) {
+                e.currentTarget.src = deal.imageUrl;
+              }
+            }}
+            className="w-12 h-12 object-contain p-1 rounded-lg border border-stone-200 bg-white"
           />
           <div className="min-w-0 flex-1">
             <h4 className="text-xs font-semibold text-stone-900 truncate">{deal.title}</h4>

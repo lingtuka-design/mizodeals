@@ -81,10 +81,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   const ogTitle = `${title} — ${formattedDealPrice} (${discountText})`;
   const ogDescription = `Deal Price: ${formattedDealPrice} ~${formattedOrigPrice}~${savingsText} | ⭐ ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews). Exclusive Amazon deal curated on Mizodeals.`;
+  const rawImg = deal.imageUrl || '';
+  const hdImg = rawImg.includes('dealsmagnet.com/images/') && rawImg.includes('-s-')
+    ? rawImg.replace('-s-', '-m-')
+    : rawImg;
+
   const ogImage =
-    deal.asin && (!deal.imageUrl || deal.imageUrl.includes('unsplash.com'))
+    deal.asin && (!hdImg || hdImg.includes('unsplash.com'))
       ? `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`
-      : deal.imageUrl || 'https://mizodeals.com/logo.png';
+      : hdImg || 'https://mizodeals.com/logo.png';
   const pageTitle = `${title} — Mizodeals`;
 
   return new HTMLRewriter()

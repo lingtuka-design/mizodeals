@@ -253,7 +253,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             if (!imgMatch || !imgMatch[1] || !imgMatch[1].startsWith('http')) {
               continue; // Skip deals with no authentic product picture
             }
-            const imageUrl = imgMatch[1];
+            const rawImg = imgMatch[1];
+            const imageUrl = rawImg.includes('-s-') ? rawImg.replace('-s-', '-m-') : rawImg;
 
             // Prices
             const discPriceMatch = block.match(/DiscountedPrice[^>]*>\s*₹?\s*([\d,]+)/i);

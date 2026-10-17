@@ -7,7 +7,7 @@ import { DealGrid } from '../components/deals/DealGrid';
 import { DealDetailModal } from '../components/deals/DealDetailModal';
 import { PriceAlertModal } from '../components/common/PriceAlertModal';
 import { useBookmarks } from '../hooks/useBookmarks';
-import { isLootDeal, isNewDeal, isDealExpired } from '../utils/dealLogic';
+import { isLootDeal, isNewDeal, isDealExpired, getHighResImageUrl } from '../utils/dealLogic';
 import { formatINR } from '../utils/formatters';
 import { shareDealToWhatsApp } from '../utils/affiliate';
 import { 
@@ -286,14 +286,16 @@ export const HomeView: React.FC = () => {
                       title={`Open ${deal.title} on ${storeBadge.name}`}
                     >
                       <img
-                        src={deal.imageUrl}
+                        src={getHighResImageUrl(deal.imageUrl)}
                         alt={deal.title}
                         onError={(e) => {
-                          if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
+                          if (e.currentTarget.src !== deal.imageUrl && deal.imageUrl) {
+                            e.currentTarget.src = deal.imageUrl;
+                          } else if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
                             e.currentTarget.src = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
                           }
                         }}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                       />
                     </a>
 

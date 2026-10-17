@@ -4,7 +4,7 @@ import { useData } from '../context/DataContext';
 import { STORE_BADGES } from '../config/constants';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../utils/formatters';
 import { shareDealToWhatsApp, generateWhatsAppDealShareText, getDealLandingUrl } from '../utils/affiliate';
-import { isLootDeal, isDealExpired, formatDealTime } from '../utils/dealLogic';
+import { isLootDeal, isDealExpired, formatDealTime, getHighResImageUrl } from '../utils/dealLogic';
 import { PriceHistoryChart } from '../components/deals/PriceHistoryChart';
 import { PriceAlertModal } from '../components/common/PriceAlertModal';
 import { DealCard } from '../components/deals/DealCard';
@@ -147,14 +147,16 @@ export const DealDetailView: React.FC = () => {
             title={`Open ${deal.title} on ${storeBadge.name}`}
           >
             <img
-              src={deal.imageUrl}
+              src={getHighResImageUrl(deal.imageUrl)}
               alt={deal.title}
               onError={(e) => {
-                if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
+                if (e.currentTarget.src !== deal.imageUrl && deal.imageUrl) {
+                  e.currentTarget.src = deal.imageUrl; // Fallback to original image
+                } else if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
                   e.currentTarget.src = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
                 }
               }}
-              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isExpired ? 'opacity-80 grayscale-[20%]' : ''}`}
+              className={`w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300 ${isExpired ? 'opacity-80 grayscale-[20%]' : ''}`}
             />
             {isExpired ? (
               <div className="absolute top-3 left-3">

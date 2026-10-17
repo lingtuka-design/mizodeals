@@ -4,6 +4,7 @@ import type { Deal } from '../../types';
 import { formatINR, getDealSavings } from '../../utils/formatters';
 import { shareDealToWhatsApp } from '../../utils/affiliate';
 import { STORE_BADGES } from '../../config/constants';
+import { getHighResImageUrl } from '../../utils/dealLogic';
 
 interface EmbeddedDealCardProps {
   deal: Deal;
@@ -25,9 +26,14 @@ export const EmbeddedDealCard: React.FC<EmbeddedDealCardProps> = ({ deal }) => {
           title={`Open ${deal.title} on ${storeBadge.name}`}
         >
           <img
-            src={deal.imageUrl}
+            src={getHighResImageUrl(deal.imageUrl)}
             alt={deal.title}
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              if (e.currentTarget.src !== deal.imageUrl && deal.imageUrl) {
+                e.currentTarget.src = deal.imageUrl;
+              }
+            }}
+            className="w-full h-full object-contain p-1.5 object-center group-hover:scale-105 transition-transform duration-300"
           />
           <div className="absolute top-1.5 left-1.5">
             <span className="bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md">

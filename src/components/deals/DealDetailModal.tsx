@@ -18,6 +18,7 @@ import { formatINR, getDealSavings, copyTextToClipboard } from '../../utils/form
 import { shareDealToWhatsApp, generateWhatsAppDealShareText, getDealLandingUrl } from '../../utils/affiliate';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { useToast } from '../common/Toast';
+import { getHighResImageUrl } from '../../utils/dealLogic';
 
 interface DealDetailModalProps {
   deal: Deal | null;
@@ -37,6 +38,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   onOpenAlert,
 }) => {
   const { showToast } = useToast();
+  const [imgSrc, setImgSrc] = React.useState(deal?.imageUrl ? getHighResImageUrl(deal.imageUrl) : '');
+
+  React.useEffect(() => {
+    if (deal?.imageUrl) {
+      setImgSrc(getHighResImageUrl(deal.imageUrl));
+    }
+  }, [deal?.imageUrl]);
 
   if (!isOpen || !deal) return null;
 
@@ -113,14 +121,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               title={`Open ${deal.title} on ${storeBadge.name}`}
             >
               <img
-                src={deal.imageUrl}
+                src={imgSrc || deal.imageUrl}
                 alt={deal.title}
                 onError={(e) => {
-                  if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
+                  if (imgSrc !== deal.imageUrl && deal.imageUrl) {
+                    setImgSrc(deal.imageUrl);
+                  } else if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
                     e.currentTarget.src = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
                   }
                 }}
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
               />
               <div className="absolute top-3 left-3">
                 <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl shadow-sm">

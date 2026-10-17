@@ -64,3 +64,16 @@ export function formatDealTime(dateString: string): string {
     return 'Recently added';
   }
 }
+
+/**
+ * Upgrades blurry/low-resolution deal images (such as DealsMagnet 128px small thumbnails -s-)
+ * to crystal-clear high-definition (482px -m-) images.
+ */
+export function getHighResImageUrl(url?: string | null): string {
+  if (!url) return '';
+  // DealsMagnet: upgrade small 128px thumbnail (-s-) to high-res 482px (-m-)
+  if (url.includes('dealsmagnet.com/images/') && url.includes('-s-')) {
+    return url.replace('-s-', '-m-');
+  }
+  return url;
+}
