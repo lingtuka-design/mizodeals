@@ -469,10 +469,19 @@ export const AdminView: React.FC = () => {
     return (
       <div className="max-w-md mx-auto px-4 py-20">
         <div className="bg-white border border-[#EAE6DF] rounded-3xl p-8 shadow-sm text-center">
-          <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-6 h-6" />
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <img
+              src="/logo-icon.png"
+              alt="Mizodeals icon"
+              className="w-10 h-10 rounded-xl object-contain shadow-2xs"
+            />
+            <img
+              src="/logo.png"
+              alt="Mizodeals"
+              className="h-7 w-auto object-contain"
+            />
           </div>
-          <h1 className="text-xl font-black text-stone-900">Mizodeals Admin Login</h1>
+          <h1 className="text-xl font-black text-stone-900">Admin Control Panel</h1>
           <p className="text-xs text-stone-500 mt-1 mb-6">
             Enter admin passkey to create deals, review posts, and manage products.
           </p>
@@ -515,9 +524,19 @@ export const AdminView: React.FC = () => {
             <Sparkles className="w-3.5 h-3.5 text-orange-600" />
             <span>Management Console</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
-            Mizodeals Admin Dashboard
-          </h1>
+          <div className="flex items-center gap-2.5 mb-1">
+            <img
+              src="/logo-icon.png"
+              alt="Mizodeals icon"
+              className="w-8 h-8 rounded-xl object-contain shadow-2xs"
+            />
+            <img
+              src="/logo.png"
+              alt="Mizodeals"
+              className="h-6 sm:h-7 w-auto object-contain"
+            />
+            <span className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">Admin Dashboard</span>
+          </div>
           <p className="text-xs sm:text-sm text-stone-600 mt-1">
             Create and edit live deals, publish buying guides & reviews, and generate viral WhatsApp broadcasts.
           </p>

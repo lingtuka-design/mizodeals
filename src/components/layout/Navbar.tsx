@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from '@tanstack/react-router';
-import { Flame, Heart, BookOpen, MessageCircle, Sparkles, MapPin } from 'lucide-react';
+import { Heart, BookOpen, MessageCircle, Sparkles, MapPin } from 'lucide-react';
 import { SITE_NAME, WHATSAPP_CHANNEL_URL } from '../../config/constants';
 
 interface NavbarProps {
@@ -13,20 +13,24 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Brand / Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-stone-900 group-hover:bg-orange-600 transition-colors flex items-center justify-center text-white shadow-xs">
-            <Flame className="w-5 h-5 fill-amber-400 text-amber-400" />
-          </div>
+          <img
+            src="/logo-icon.png"
+            alt="Mizodeals icon"
+            className="w-9 h-9 rounded-xl object-contain shadow-2xs group-hover:scale-105 transition-transform"
+          />
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-lg font-black tracking-tight text-stone-900 group-hover:text-orange-600 transition-colors">
-                {SITE_NAME}
-              </span>
+              <img
+                src="/logo.png"
+                alt={SITE_NAME}
+                className="h-6 sm:h-7 w-auto object-contain"
+              />
               <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-stone-200/80 text-stone-700">
                 <MapPin className="w-2.5 h-2.5 text-stone-500" />
                 MZ
               </span>
             </div>
-            <span className="text-[10px] text-stone-500 font-medium block leading-none">
+            <span className="text-[10px] text-stone-500 font-medium block leading-none mt-0.5">
               Curated Amazon Deals
             </span>
           </div>

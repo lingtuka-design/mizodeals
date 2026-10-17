@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from '@tanstack/react-router';
-import { Flame, ShieldCheck, Heart, ExternalLink, MapPin } from 'lucide-react';
+import { ShieldCheck, Heart, ExternalLink, MapPin } from 'lucide-react';
 import { AFFILIATE_TAG, SITE_NAME, WHATSAPP_CHANNEL_URL } from '../../config/constants';
 
 export const Footer: React.FC = () => {
@@ -10,13 +10,17 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-stone-900 flex items-center justify-center text-white">
-                <Flame className="w-4 h-4 fill-amber-400 text-amber-400" />
-              </div>
-              <span className="text-base font-black text-stone-900 tracking-tight">
-                {SITE_NAME}
-              </span>
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/logo-icon.png"
+                alt="Mizodeals icon"
+                className="w-8 h-8 rounded-xl object-contain shadow-2xs"
+              />
+              <img
+                src="/logo.png"
+                alt={SITE_NAME}
+                className="h-6 w-auto object-contain"
+              />
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 flex items-center gap-1">
                 <MapPin className="w-2.5 h-2.5" /> Mizoram Edition
               </span>
