@@ -51,6 +51,7 @@ async function resolveAmazonUrl(rawUrl: string, targetTag: string): Promise<{ as
         method: 'HEAD',
         redirect: 'follow',
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(3000),
       });
       resolvedUrl = headRes.url || rawUrl;
     }
@@ -108,12 +109,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       try {
         const tgRes = await fetch(`https://t.me/s/${ch}`, {
           headers: { 'User-Agent': userAgent },
+          signal: AbortSignal.timeout(4000),
         });
         if (tgRes.ok) {
           const html = await tgRes.text();
           const messageBlocks = html.split('<div class="tgme_widget_message_wrap');
+          const startIndex = Math.max(1, messageBlocks.length - 8);
 
-          for (let i = messageBlocks.length - 1; i >= 1; i--) {
+          for (let i = messageBlocks.length - 1; i >= startIndex; i--) {
             if (collectedDeals.length >= limit) break;
             const block = messageBlocks[i];
 

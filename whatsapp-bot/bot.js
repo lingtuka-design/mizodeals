@@ -79,13 +79,45 @@ function formatMessage(deal) {
 const CHANNEL_JID = '120363414138647022@newsletter';
 let latestQrDataUrl = null;
 let isConnected = false;
+let activeSock = null;
+let lastCheckTime = null;
+let isChecking = false;
 
-// Cloud Web Server for Render/Railway with live status & Web QR Code
+// Cloud Web Server for Render/Railway with live status, manual trigger, & Web QR Code
 const PORT = process.env.PORT || 3000;
 http
-  .createServer((req, res) => {
+  .createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+
+    if (req.url === '/post-now' || req.url === '/trigger') {
+      if (!isConnected || !activeSock) {
+        return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px;background:#FAF9F5;">
+          <h2>⚠️ Bot is not connected yet!</h2>
+          <p>Please wait for WhatsApp connection or scan QR code.</p>
+          <p><a href="/" style="display:inline-block;padding:8px 16px;background:#ea580c;color:white;border-radius:8px;text-decoration:none;">Go Back</a></p>
+        </body></html>`);
+      }
+      if (isChecking) {
+        return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px;background:#FAF9F5;">
+          <h2>⏳ Post check already running...</h2>
+          <p>A deal check is currently underway. Please check WhatsApp channel.</p>
+          <p><a href="/" style="display:inline-block;padding:8px 16px;background:#ea580c;color:white;border-radius:8px;text-decoration:none;">Go Back</a></p>
+        </body></html>`);
+      }
+      isChecking = true;
+      checkAndPostDeals(activeSock, CHANNEL_JID)
+        .catch((err) => console.error('Manual trigger error:', err))
+        .finally(() => { isChecking = false; });
+
+      return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px;background:#FAF9F5;">
+        <h2>⚡ Deal Posting Cycle Started!</h2>
+        <p>Checking latest unposted deals and broadcasting to WhatsApp Channel now...</p>
+        <p><a href="/" style="display:inline-block;padding:10px 20px;background:#ea580c;color:white;border-radius:10px;text-decoration:none;font-weight:600;">Return to Status Page</a></p>
+      </body></html>`);
+    }
+
     if (isConnected) {
+      const postedCount = getPostedDealIds().size;
       res.end(`<!doctype html>
 <html>
   <head><title>Mizodeals Bot — 24/7 Cloud Active</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -94,10 +126,16 @@ http
       <div style="font-size:42px;margin-bottom:12px;">✅</div>
       <h2 style="color:#16a34a;margin:0 0 10px 0;">Mizodeals Bot Is Running 24/7!</h2>
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
-      <div style="margin-top:20px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;font-size:12px;color:#15803d;font-weight:600;">
-        ⚡ Rotating Auto-Harvest: Telegram Deals &bull; DealsMagnet &bull; IFS
+      
+      <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
+        <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString() : 'In Progress...'}</div>
+        <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
+        <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
       </div>
-      <p style="font-size:11px;color:#a8a29e;margin-top:16px;">Checking and posting high-discount loot deals every 30 minutes.</p>
+
+      <a href="/post-now" style="display:inline-block;padding:12px 24px;background:#ea580c;color:white;border-radius:12px;text-decoration:none;font-weight:bold;font-size:14px;box-shadow:0 4px 12px rgba(234,88,12,0.25);">⚡ Post Deals Now</a>
+
+      <p style="font-size:11px;color:#a8a29e;margin-top:16px;">Runs automatically every 30 mins. Click above to trigger an immediate check.</p>
     </div>
   </body>
 </html>`);
@@ -168,6 +206,7 @@ async function startBot() {
 
     if (connection === 'close') {
       isConnected = false;
+      activeSock = null;
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       console.log(`Connection closed (${statusCode}). Reconnecting: ${shouldReconnect}`);
@@ -176,6 +215,7 @@ async function startBot() {
       }
     } else if (connection === 'open') {
       isConnected = true;
+      activeSock = sock;
       latestQrDataUrl = null;
       console.log('\n======================================================');
       console.log('✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
@@ -202,8 +242,9 @@ async function startBot() {
   });
 }
 
-async function checkAndPostDeals(sock, channelJid) {
+async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
   if (!sock || !channelJid) return;
+  lastCheckTime = new Date();
 
   const currentSource = SCRAPER_SOURCES[currentSourceIndex % SCRAPER_SOURCES.length];
   currentSourceIndex++;
@@ -212,10 +253,10 @@ async function checkAndPostDeals(sock, channelJid) {
   console.log(`[${new Date().toLocaleTimeString()}] 🔄 AUTO-HARVEST CYCLE: [${currentSource.toUpperCase()}]`);
   console.log(`======================================================`);
 
-  // Step 1: Auto-scrape from rotated source and auto-publish to D1 (no manual work needed)
+  // Step 1: Auto-scrape from rotated source and auto-publish to D1 with 12s safe timeout
   try {
-    const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=80`;
-    const harvestRes = await fetch(harvestUrl);
+    const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=40`;
+    const harvestRes = await fetch(harvestUrl, { signal: AbortSignal.timeout(12000) });
     if (harvestRes.ok) {
       const harvestData = await harvestRes.json();
       console.log(`🌾 Auto-harvested: ${harvestData.count || 0} deals found from ${currentSource.toUpperCase()} (${harvestData.insertedCount || 0} updated in D1 database).`);
@@ -226,18 +267,21 @@ async function checkAndPostDeals(sock, channelJid) {
     console.warn('Auto-harvest background sync notice:', hErr.message);
   }
 
-  // Step 2: Fetch newly synced live deals from database
+  // Step 2: Fetch newly synced live deals from database with 10s safe timeout
   console.log(`[${new Date().toLocaleTimeString()}] Checking live unposted loot deals in catalog...`);
 
   try {
-    const res = await fetch(API_URL);
-    if (!res.ok) return;
+    const res = await fetch(API_URL, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) {
+      console.error(`Deals API responded with status ${res.status}`);
+      return;
+    }
     const data = await res.json();
     if (!data.success || !Array.isArray(data.deals)) return;
 
     const postedIds = getPostedDealIds();
 
-    const newDeals = data.deals.filter(
+    const candidates = data.deals.filter(
       (d) =>
         !postedIds.has(d.id) &&
         (!d.asin || !postedIds.has(d.asin)) &&
@@ -250,97 +294,103 @@ async function checkAndPostDeals(sock, channelJid) {
         !d.imageUrl.includes('photo-1523275335684-37898b6baf30')
     );
 
-    console.log(`Found ${newDeals.length} unposted loot deals available with valid photos.`);
+    console.log(`Found ${candidates.length} unposted candidate loot deals.`);
 
     // Sort deals by highest discount first so top loot deals get prioritized
-    newDeals.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+    candidates.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
-    // Multi-Category Diversity Selector: Pick 3 top deals across DIFFERENT categories
-    const toPost = [];
-    const seenCategories = new Set();
-
-    // Round 1: Pick top deals from unique categories (e.g. 1 Electronics/Gadget, 1 Shoes/Fashion, 1 Home/Kitchen)
-    for (const deal of newDeals) {
-      if (toPost.length >= 3) break;
-      const cat = deal.category || 'general';
-      if (!seenCategories.has(cat)) {
-        seenCategories.add(cat);
-        toPost.push(deal);
-      }
+    // Diverse category ordering: group by category and interleave
+    const byCategory = {};
+    for (const d of candidates) {
+      const cat = d.category || 'general';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(d);
     }
 
-    // Round 2: If fewer than 3 categories were available, fill remaining slots with highest discounts
-    for (const deal of newDeals) {
-      if (toPost.length >= 3) break;
-      if (!toPost.includes(deal)) {
-        toPost.push(deal);
+    const orderedCandidates = [];
+    const catKeys = Object.keys(byCategory);
+    let index = 0;
+    let added = true;
+    while (added) {
+      added = false;
+      for (const cat of catKeys) {
+        if (byCategory[cat][index]) {
+          orderedCandidates.push(byCategory[cat][index]);
+          added = true;
+        }
       }
+      index++;
     }
 
-    console.log(`Selected ${toPost.length} diverse loot deals across categories: [${toPost.map((d) => d.category).join(', ')}]`);
+    let postedCount = 0;
 
-    for (const deal of toPost) {
-      // User rule: Thlalak awm lo lak loh ni bawk se (strictly require valid authentic photo)
-      if (!deal.imageUrl || !deal.imageUrl.startsWith('http') || deal.imageUrl.includes('unsplash.com')) {
-        console.log(`[SKIP] Deal ${deal.id} has no valid authentic product picture.`);
+    for (const deal of orderedCandidates) {
+      if (postedCount >= maxToPost) break;
+
+      const caption = formatMessage(deal);
+      console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
+
+      let imgBuffer = null;
+      try {
+        const imgRes = await fetch(deal.imageUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (imgRes.ok) {
+          const arrayBuffer = await imgRes.arrayBuffer();
+          const buf = Buffer.from(arrayBuffer);
+          if (buf.length > 1000) {
+            imgBuffer = buf;
+          }
+        }
+      } catch (imgErr) {
+        console.log(`[SKIP IMAGE FETCH FAILED] Deal ${deal.id} (${deal.imageUrl}):`, imgErr.message);
+      }
+
+      // If authentic photo cannot be downloaded, record deal so we never get stuck on it, and try NEXT deal
+      if (!imgBuffer) {
+        console.log(`[SKIP - BAD PHOTO] Deal ${deal.id} photo missing or broken. Skipping and recording to try next deal.`);
+        recordPostedDeal(deal);
         continue;
       }
 
-      const caption = formatMessage(deal);
-      const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
-      console.log(`Posting: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
-
       try {
-        let imgBuffer = null;
+        // Send as FULL-SIZE photo post so thumbnail is large, crisp, and eye-catching!
+        await sock.sendMessage(channelJid, {
+          image: imgBuffer,
+          caption: caption,
+        });
+        recordPostedDeal(deal);
+        postedCount++;
+        console.log(`📸 [${postedCount}/${maxToPost}] Posted FULL-SIZE image deal successfully: ${deal.id} - ${deal.title.slice(0, 30)}`);
+      } catch (mediaSendErr) {
+        console.warn(`Media post failed (${mediaSendErr.message}), trying text post fallback...`);
         try {
-          const imgRes = await fetch(deal.imageUrl, {
-            headers: {
-              'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            },
-          });
-          if (imgRes.ok) {
-            const arrayBuffer = await imgRes.arrayBuffer();
-            const buf = Buffer.from(arrayBuffer);
-            if (buf.length > 1000) {
-              imgBuffer = buf;
-            }
-          }
-        } catch (imgErr) {
-          console.log(`[SKIP] Deal ${deal.id} photo failed to fetch (${deal.imageUrl}):`, imgErr.message);
-        }
-
-        if (!imgBuffer) {
-          console.log(`[SKIP] Valid image buffer could not be downloaded for ${deal.id}`);
-          continue;
-        }
-
-        try {
-          // Send as FULL-SIZE photo post so thumbnail is large, crisp, and eye-catching!
-          await sock.sendMessage(channelJid, {
-            image: imgBuffer,
-            caption: caption,
-          });
-          recordPostedDeal(deal);
-          console.log(`📸 Posted FULL-SIZE image deal successfully: ${deal.id} [${deal.asin || 'NO-ASIN'}] - ${deal.title.slice(0, 30)}`);
-        } catch (mediaSendErr) {
-          console.warn(`Media post failed (${mediaSendErr.message}), trying text post fallback...`);
           await sock.sendMessage(channelJid, {
             text: caption,
           });
           recordPostedDeal(deal);
-          console.log(`✅ Posted text fallback: ${deal.id} - ${deal.title.slice(0, 30)}`);
+          postedCount++;
+          console.log(`✅ [${postedCount}/${maxToPost}] Posted text fallback: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        } catch (textSendErr) {
+          console.error(`Failed to post deal ${deal.id} via text:`, textSendErr.message);
         }
+      }
 
-        // Wait 10 seconds between posts to keep channel clean
+      // Wait 10 seconds between posts to keep channel clean
+      if (postedCount < maxToPost) {
         await new Promise((resolve) => setTimeout(resolve, 10000));
-      } catch (postErr) {
-        console.error(`Failed to post deal ${deal.id}:`, postErr.message);
       }
     }
+
+    console.log(`✨ Completed check cycle: Successfully posted ${postedCount} deals.`);
   } catch (err) {
     console.error('Error in checkAndPostDeals:', err.message);
   }
+}
 }
 
 startBot();
