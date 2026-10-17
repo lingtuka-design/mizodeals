@@ -62,7 +62,7 @@ function formatMessage(deal) {
     : '⚡ *PRICE TLAHNIAM!* ⚡\n';
 
   const title = cleanTitle(deal.title);
-  const dealUrl = `https://mizodeals.pages.dev/deals/${deal.id}`;
+  const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
 
   return (
     `${lootHeader}` +
