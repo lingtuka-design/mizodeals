@@ -84,7 +84,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const ogImage =
     deal.asin && (!deal.imageUrl || deal.imageUrl.includes('unsplash.com'))
       ? `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`
-      : deal.imageUrl || 'https://mizodeals.pages.dev/og-image.jpg';
+      : deal.imageUrl || 'https://mizodeals.com/logo.png';
   const pageTitle = `${title} — Mizodeals`;
 
   return new HTMLRewriter()
