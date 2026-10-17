@@ -165,7 +165,7 @@ http
 </html>`);
     }
   })
-  .listen(PORT, () => {
+  .listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Web status server listening on port ${PORT}`);
   });
 
@@ -390,7 +390,6 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
   } catch (err) {
     console.error('Error in checkAndPostDeals:', err.message);
   }
-}
 }
 
 startBot();
