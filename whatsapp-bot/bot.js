@@ -477,16 +477,6 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
 
       const msgPayload = {
         text: caption,
-        contextInfo: {
-          externalAdReply: {
-            title: cleanTitleText,
-            body: descriptionText,
-            mediaType: 1,
-            thumbnail: thumbBuffer,
-            sourceUrl: dealUrl,
-            renderLargerThumbnail: true,
-          },
-        },
         linkPreview: {
           'matched-text': dealUrl,
           title: cleanTitleText,
