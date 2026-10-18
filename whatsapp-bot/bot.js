@@ -108,12 +108,83 @@ let isConnected = false;
 let activeSock = null;
 let lastCheckTime = null;
 let isChecking = false;
+let reconnectTimer = null;
+let autoPostInterval = null;
+
+function triggerReconnect(delayMs = 3000) {
+  if (reconnectTimer) return;
+  isConnected = false;
+  if (activeSock) {
+    try {
+      activeSock.ev.removeAllListeners();
+      activeSock.ws?.close();
+    } catch (e) {}
+    activeSock = null;
+  }
+  console.log(`🔄 Triggering bot reconnection in ${delayMs / 1000}s...`);
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    await startBot();
+  }, delayMs);
+}
+
+function ensureAutoPostScheduler() {
+  if (autoPostInterval) return;
+  console.log('⏰ Auto-post timer scheduled: Every 30 minutes');
+  autoPostInterval = setInterval(async () => {
+    if (!activeSock || !isConnected) {
+      console.log('⏳ Auto-post timer: Bot not connected, attempting reconnect...');
+      triggerReconnect(1000);
+      return;
+    }
+    if (isChecking) {
+      console.log('⏳ Auto-post timer: Check already in progress, skipping.');
+      return;
+    }
+    isChecking = true;
+    try {
+      await checkAndPostDeals(activeSock, CHANNEL_JID);
+    } catch (err) {
+      console.error('Auto-post cycle error:', err.message);
+    } finally {
+      isChecking = false;
+    }
+  }, 30 * 60 * 1000);
+}
+
+// Active WebSocket presence keep-alive every 2 minutes
+setInterval(() => {
+  if (activeSock && isConnected) {
+    if (activeSock.ws && activeSock.ws.readyState !== 1) {
+      console.warn('⚠️ Keep-alive check: WebSocket is dead. Triggering reconnect...');
+      triggerReconnect(2000);
+    } else {
+      activeSock.sendPresenceUpdate('available').catch(() => {});
+    }
+  }
+}, 2 * 60 * 1000);
+
+// Keep Render Free Tier awake
+const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://mizodeals-whatsapp-bot.onrender.com';
+setInterval(() => {
+  fetch(SELF_URL).catch(() => {});
+}, 8 * 60 * 1000);
 
 // Cloud Web Server for Render/Railway with live status, manual trigger, & Web QR Code
 const PORT = process.env.PORT || 3000;
 http
   .createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+
+    if (req.url === '/restart') {
+      console.log('🔄 Manual restart requested via /restart endpoint');
+      triggerReconnect(1000);
+      return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:50px 20px;background:#FAF9F5;">
+        <h2>🔄 Reconnecting WhatsApp Bot...</h2>
+        <p>Please wait 5 seconds while the bot reconnects to WhatsApp.</p>
+        <script>setTimeout(() => { window.location.href = '/'; }, 5000);</script>
+      </body></html>`);
+    }
 
     if (req.url === '/post-now' || req.url === '/trigger') {
       if (!isConnected || !activeSock) {
@@ -166,8 +237,11 @@ ${recentLogs.slice(-15).join('\n')}
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
       </div>
 
-      <a href="/post-now" style="display:inline-block;padding:12px 24px;background:#ea580c;color:white;border-radius:12px;text-decoration:none;font-weight:bold;font-size:14px;box-shadow:0 4px 12px rgba(234,88,12,0.25);">⚡ Post Deals Now</a>
-      <p style="font-size:11px;color:#a8a29e;margin-top:10px;">Runs automatically every 30 mins. Click above to trigger an immediate check.</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <a href="/post-now" style="display:inline-block;padding:12px 20px;background:#ea580c;color:white;border-radius:12px;text-decoration:none;font-weight:bold;font-size:14px;box-shadow:0 4px 12px rgba(234,88,12,0.25);">⚡ Post Deals Now</a>
+        <a href="/restart" style="display:inline-block;padding:12px 20px;background:#475569;color:white;border-radius:12px;text-decoration:none;font-weight:bold;font-size:14px;">🔄 Reconnect Bot</a>
+      </div>
+      <p style="font-size:11px;color:#a8a29e;margin-top:10px;">Runs automatically every 30 mins. Click above to trigger an immediate check or reconnect.</p>
 
       <div style="margin-top:24px;text-align:left;background:#0f172a;color:#f8fafc;padding:16px;border-radius:14px;font-family:monospace;font-size:11px;max-height:260px;overflow-y:auto;white-space:pre-wrap;border:1px solid #334155;">
 <b style="color:#38bdf8;">📋 Live Bot Activity Log:</b><br><br>
@@ -206,13 +280,6 @@ ${recentLogs.length > 0 ? recentLogs.join('\n') : 'Waiting for next activity...'
     console.log(`🌐 Web status server listening on port ${PORT}`);
   });
 
-// Keep Render Free Tier awake
-if (process.env.RENDER_EXTERNAL_URL) {
-  setInterval(() => {
-    fetch(process.env.RENDER_EXTERNAL_URL).catch(() => {});
-  }, 14 * 60 * 1000);
-}
-
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
@@ -220,11 +287,12 @@ async function startBot() {
     auth: state,
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
+    keepAliveIntervalMs: 25_000,
+    connectTimeoutMs: 60_000,
+    defaultQueryTimeoutMs: 60_000,
   });
 
   sock.ev.on('creds.update', saveCreds);
-
-  let isChecking = false;
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -246,9 +314,9 @@ async function startBot() {
       activeSock = null;
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      console.log(`Connection closed (${statusCode}). Reconnecting: ${shouldReconnect}`);
+      console.log(`Connection closed (statusCode: ${statusCode}). Reconnecting: ${shouldReconnect}`);
       if (shouldReconnect) {
-        setTimeout(startBot, 4000);
+        triggerReconnect(4000);
       }
     } else if (connection === 'open') {
       isConnected = true;
@@ -259,28 +327,29 @@ async function startBot() {
       console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);
       console.log('======================================================\n');
 
+      ensureAutoPostScheduler();
+
       setTimeout(async () => {
-        if (!isChecking) {
+        if (!isChecking && activeSock) {
           isChecking = true;
-          await checkAndPostDeals(sock, CHANNEL_JID);
-          isChecking = false;
+          try {
+            await checkAndPostDeals(activeSock, CHANNEL_JID);
+          } finally {
+            isChecking = false;
+          }
         }
       }, 3000);
-
-      console.log('⏰ Auto-post timer scheduled: Every 30 minutes');
-      setInterval(async () => {
-        if (!isChecking) {
-          isChecking = true;
-          await checkAndPostDeals(sock, CHANNEL_JID);
-          isChecking = false;
-        }
-      }, 30 * 60 * 1000);
     }
   });
 }
 
 async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
   if (!sock || !channelJid) return;
+  if (sock.ws && sock.ws.readyState !== 1) {
+    console.warn(`⚠️ WebSocket is not open (readyState=${sock.ws?.readyState}). Reconnecting...`);
+    triggerReconnect(2000);
+    return;
+  }
   lastCheckTime = new Date();
 
   const currentSource = SCRAPER_SOURCES[currentSourceIndex % SCRAPER_SOURCES.length];
@@ -423,6 +492,17 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         }
       } catch (postErr) {
         console.error(`Failed to post deal ${deal.id}:`, postErr.message);
+        if (
+          postErr.message?.includes('Connection Closed') ||
+          postErr.message?.includes('connection closed') ||
+          postErr.message?.includes('not connected') ||
+          postErr.message?.includes('Stream Errored') ||
+          postErr.message?.includes('statusCode: 428')
+        ) {
+          console.error(`🚨 Fatal WhatsApp socket disconnect (${postErr.message}). Triggering instant reconnect...`);
+          triggerReconnect(2000);
+          break;
+        }
       }
     }
 
