@@ -155,12 +155,7 @@ function ensureAutoPostScheduler() {
 // Active WebSocket presence keep-alive every 2 minutes
 setInterval(() => {
   if (activeSock && isConnected) {
-    if (activeSock.ws && activeSock.ws.readyState !== 1) {
-      console.warn('⚠️ Keep-alive check: WebSocket is dead. Triggering reconnect...');
-      triggerReconnect(2000);
-    } else {
-      activeSock.sendPresenceUpdate('available').catch(() => {});
-    }
+    activeSock.sendPresenceUpdate('available').catch(() => {});
   }
 }, 2 * 60 * 1000);
 
@@ -350,11 +345,6 @@ async function startBot() {
 
 async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
   if (!sock || !channelJid) return;
-  if (sock.ws && sock.ws.readyState !== 1) {
-    console.warn(`⚠️ WebSocket is not open (readyState=${sock.ws?.readyState}). Reconnecting...`);
-    triggerReconnect(2000);
-    return;
-  }
   lastCheckTime = new Date();
 
   const currentSource = SCRAPER_SOURCES[currentSourceIndex % SCRAPER_SOURCES.length];
