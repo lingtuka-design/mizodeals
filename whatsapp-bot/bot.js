@@ -373,11 +373,18 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       .catch((e) => console.log('🌾 Background sync notice:', e.message));
   } catch (e) {}
 
-  // Step 2: Fetch newly synced live deals from database with 10s safe timeout
+  // Step 2: Fetch newly synced live deals from database with safe fallback
   console.log(`[${new Date().toLocaleTimeString()}] Checking live unposted loot deals in catalog...`);
 
   try {
-    const res = await fetch(API_URL, { signal: AbortSignal.timeout(10000) });
+    let res;
+    try {
+      res = await fetch('https://mizodeals.com/api/deals?status=all&limit=100', { signal: AbortSignal.timeout(8000) });
+    } catch (e) {
+      console.warn('mizodeals.com API slow, falling back to pages.dev...');
+      res = await fetch('https://mizodeals.pages.dev/api/deals?status=all&limit=100', { signal: AbortSignal.timeout(8000) });
+    }
+
     if (!res.ok) {
       console.error(`Deals API responded with status ${res.status}`);
       return;
@@ -428,10 +435,11 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       index++;
     }
 
+    // Select top 2 deals per run (exactly like the reliable dev version)
+    const toPost = orderedCandidates.slice(0, 2);
     let postedCount = 0;
 
-    for (const deal of orderedCandidates) {
-      if (postedCount >= maxToPost) break;
+    for (const deal of toPost) {
 
       const caption = formatMessage(deal);
       console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
