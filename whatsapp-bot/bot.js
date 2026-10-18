@@ -281,66 +281,71 @@ ${recentLogs.length > 0 ? recentLogs.join('\n') : 'Waiting for next activity...'
   });
 
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
-  const sock = makeWASocket({
-    auth: state,
-    logger: pino({ level: 'silent' }),
-    printQRInTerminal: false,
-    keepAliveIntervalMs: 25_000,
-    connectTimeoutMs: 60_000,
-    defaultQueryTimeoutMs: 60_000,
-  });
+    const sock = makeWASocket({
+      auth: state,
+      logger: pino({ level: 'silent' }),
+      printQRInTerminal: false,
+      keepAliveIntervalMs: 25_000,
+      connectTimeoutMs: 60_000,
+      defaultQueryTimeoutMs: 60_000,
+    });
 
-  sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect, qr } = update;
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
-      console.log('\n======================================================');
-      console.log('📲 I PHONE WHATSAPP-IN HE QR CODE HI SCAN RAWH LE:');
-      console.log('   (WhatsApp > Settings/Menu > Linked Devices > Link a Device)');
-      console.log('======================================================\n');
-      qrcode.generate(qr, { small: true });
-      try {
-        latestQrDataUrl = await QRCode.toDataURL(qr);
-      } catch (e) {}
-      isConnected = false;
-    }
-
-    if (connection === 'close') {
-      isConnected = false;
-      activeSock = null;
-      const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      console.log(`Connection closed (statusCode: ${statusCode}). Reconnecting: ${shouldReconnect}`);
-      if (shouldReconnect) {
-        triggerReconnect(4000);
+      if (qr) {
+        console.log('\n======================================================');
+        console.log('📲 I PHONE WHATSAPP-IN HE QR CODE HI SCAN RAWH LE:');
+        console.log('   (WhatsApp > Settings/Menu > Linked Devices > Link a Device)');
+        console.log('======================================================\n');
+        qrcode.generate(qr, { small: true });
+        try {
+          latestQrDataUrl = await QRCode.toDataURL(qr);
+        } catch (e) {}
+        isConnected = false;
       }
-    } else if (connection === 'open') {
-      isConnected = true;
-      activeSock = sock;
-      latestQrDataUrl = null;
-      console.log('\n======================================================');
-      console.log('✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
-      console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);
-      console.log('======================================================\n');
 
-      ensureAutoPostScheduler();
-
-      setTimeout(async () => {
-        if (!isChecking && activeSock) {
-          isChecking = true;
-          try {
-            await checkAndPostDeals(activeSock, CHANNEL_JID);
-          } finally {
-            isChecking = false;
-          }
+      if (connection === 'close') {
+        isConnected = false;
+        activeSock = null;
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        console.log(`Connection closed (statusCode: ${statusCode}). Reconnecting: ${shouldReconnect}`);
+        if (shouldReconnect) {
+          triggerReconnect(4000);
         }
-      }, 3000);
-    }
-  });
+      } else if (connection === 'open') {
+        isConnected = true;
+        activeSock = sock;
+        latestQrDataUrl = null;
+        console.log('\n======================================================');
+        console.log('✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
+        console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);
+        console.log('======================================================\n');
+
+        ensureAutoPostScheduler();
+
+        setTimeout(async () => {
+          if (!isChecking && activeSock) {
+            isChecking = true;
+            try {
+              await checkAndPostDeals(activeSock, CHANNEL_JID);
+            } finally {
+              isChecking = false;
+            }
+          }
+        }, 3000);
+      }
+    });
+  } catch (err) {
+    console.error('Fatal error starting WhatsApp bot:', err.message);
+    triggerReconnect(5000);
+  }
 }
 
 async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
