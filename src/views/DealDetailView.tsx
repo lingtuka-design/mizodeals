@@ -147,13 +147,16 @@ export const DealDetailView: React.FC = () => {
             title={`Open ${deal.title} on ${storeBadge.name}`}
           >
             <img
-              src={getHighResImageUrl(deal.imageUrl)}
+              src={getHighResImageUrl(deal.imageUrl, deal.asin)}
               alt={deal.title}
+              onLoad={(e) => {
+                if (e.currentTarget.naturalWidth <= 2 && deal.imageUrl) {
+                  e.currentTarget.src = deal.imageUrl;
+                }
+              }}
               onError={(e) => {
-                if (e.currentTarget.src !== deal.imageUrl && deal.imageUrl) {
+                if (deal.imageUrl && e.currentTarget.src !== deal.imageUrl) {
                   e.currentTarget.src = deal.imageUrl; // Fallback to original image
-                } else if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
-                  e.currentTarget.src = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
                 }
               }}
               className={`w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300 ${isExpired ? 'opacity-80 grayscale-[20%]' : ''}`}

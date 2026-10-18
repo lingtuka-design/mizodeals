@@ -70,15 +70,13 @@ export const DealCard: React.FC<DealCardProps> = ({
     onOpenDetails?.(deal);
   };
 
-  const [imgSrc, setImgSrc] = React.useState(getHighResImageUrl(deal.imageUrl));
-  const [imageError, setImageError] = React.useState(
-    !deal.imageUrl || deal.imageUrl.includes('images-eu.ssl-images-amazon.com')
-  );
+  const [imgSrc, setImgSrc] = React.useState(getHighResImageUrl(deal.imageUrl, deal.asin));
+  const [imageError, setImageError] = React.useState(!deal.imageUrl && !deal.asin);
 
   React.useEffect(() => {
-    setImgSrc(getHighResImageUrl(deal.imageUrl));
-    setImageError(!deal.imageUrl || deal.imageUrl.includes('images-eu.ssl-images-amazon.com'));
-  }, [deal.imageUrl]);
+    setImgSrc(getHighResImageUrl(deal.imageUrl, deal.asin));
+    setImageError(!deal.imageUrl && !deal.asin);
+  }, [deal.imageUrl, deal.asin]);
 
   return (
     <div 
@@ -160,12 +158,16 @@ export const DealCard: React.FC<DealCardProps> = ({
               loading="lazy"
               onLoad={(e) => {
                 if (e.currentTarget.naturalWidth <= 2 || e.currentTarget.naturalHeight <= 2) {
-                  setImageError(true);
+                  if (deal.imageUrl && imgSrc !== deal.imageUrl) {
+                    setImgSrc(deal.imageUrl);
+                  } else {
+                    setImageError(true);
+                  }
                 }
               }}
               onError={() => {
-                if (imgSrc !== deal.imageUrl && deal.imageUrl) {
-                  setImgSrc(deal.imageUrl); // Fallback to original image if -m- fails
+                if (deal.imageUrl && imgSrc !== deal.imageUrl) {
+                  setImgSrc(deal.imageUrl); // Fallback to original image if HD image fails
                 } else {
                   setImageError(true);
                 }

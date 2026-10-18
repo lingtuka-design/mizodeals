@@ -190,9 +190,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             if (seenAsins.has(asin)) continue;
             seenAsins.add(asin);
 
-            // Strictly require authentic photo embedded in the Telegram post
-            // Reject any deal lacking a genuine photo (do not fall back to legacy dead 43-byte Amazon URLs)
-            if (!imageUrl || !imageUrl.startsWith('http') || imageUrl.trim().length < 15 || imageUrl.includes('unsplash.com') || imageUrl.includes('images-eu.ssl-images-amazon.com')) {
+            // Prefer Amazon official Ultra-HD photo if available
+            const officialAmzImg = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
+            try {
+              const headImg = await fetch(officialAmzImg, {
+                method: 'HEAD',
+                signal: AbortSignal.timeout(1500),
+              });
+              const cl = parseInt(headImg.headers.get('content-length') || '0', 10);
+              if (headImg.ok && cl > 1000) {
+                imageUrl = officialAmzImg;
+              }
+            } catch (e) {
+              // keep embedded telegram image
+            }
+
+            // Strictly require authentic photo
+            if (!imageUrl || !imageUrl.startsWith('http') || imageUrl.trim().length < 15 || imageUrl.includes('unsplash.com')) {
               continue;
             }
 
@@ -254,7 +268,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               continue; // Skip deals with no authentic product picture
             }
             const rawImg = imgMatch[1];
-            const imageUrl = rawImg.includes('-s-') ? rawImg.replace('-s-', '-m-') : rawImg;
+            let imageUrl = rawImg.replace('-s-', '-l-').replace('-m-', '-l-');
 
             // Prices
             const discPriceMatch = block.match(/DiscountedPrice[^>]*>\s*₹?\s*([\d,]+)/i);
@@ -309,6 +323,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
             if (seenAsins.has(asin)) continue;
             seenAsins.add(asin);
+
+            // Prefer Amazon official Ultra-HD photo if available
+            const officialAmzImg = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
+            try {
+              const headImg = await fetch(officialAmzImg, {
+                method: 'HEAD',
+                signal: AbortSignal.timeout(1500),
+              });
+              const cl = parseInt(headImg.headers.get('content-length') || '0', 10);
+              if (headImg.ok && cl > 1000) {
+                imageUrl = officialAmzImg;
+              }
+            } catch (e) {
+              // keep DealsMagnet large image
+            }
 
             // Clean title (remove store prefixes and discount banners)
             title = title
@@ -372,13 +401,26 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               if (!imgMatch || !imgMatch[1] || !imgMatch[1].startsWith('http') || imgMatch[1].includes('unsplash.com')) {
                 continue; // Strictly reject any deal lacking authentic product photo
               }
-              const imageUrl = imgMatch[1];
+              let imageUrl = imgMatch[1];
 
               const linkMatch = article.match(/href="([^"]*(?:amzn\.to|amazon\.in)[^"]*)"/i);
               if (!linkMatch) continue;
               const { asin, cleanUrl } = await resolveAmazonUrl(linkMatch[1], targetTag);
               if (!asin || seenAsins.has(asin)) continue;
               seenAsins.add(asin);
+
+              // Prefer Amazon official Ultra-HD photo if available
+              const officialAmzImg = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
+              try {
+                const headImg = await fetch(officialAmzImg, {
+                  method: 'HEAD',
+                  signal: AbortSignal.timeout(1500),
+                });
+                const cl = parseInt(headImg.headers.get('content-length') || '0', 10);
+                if (headImg.ok && cl > 1000) {
+                  imageUrl = officialAmzImg;
+                }
+              } catch (e) {}
 
               collectedDeals.push({
                 dealId: `ifs-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
@@ -425,7 +467,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         !deal.imageUrl.startsWith('http') ||
         deal.imageUrl.length < 15 ||
         deal.imageUrl.includes('unsplash.com') ||
-        deal.imageUrl.includes('images-eu.ssl-images-amazon.com') ||
         deal.imageUrl.includes('photo-1523275335684-37898b6baf30') ||
         (deal.amazonUrl && (deal.amazonUrl.includes('/s?k=') || deal.amazonUrl.includes('/deal/')))
       ) {

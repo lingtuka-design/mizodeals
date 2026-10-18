@@ -286,13 +286,16 @@ export const HomeView: React.FC = () => {
                       title={`Open ${deal.title} on ${storeBadge.name}`}
                     >
                       <img
-                        src={getHighResImageUrl(deal.imageUrl)}
+                        src={getHighResImageUrl(deal.imageUrl, deal.asin)}
                         alt={deal.title}
-                        onError={(e) => {
-                          if (e.currentTarget.src !== deal.imageUrl && deal.imageUrl) {
+                        onLoad={(e) => {
+                          if (e.currentTarget.naturalWidth <= 2 && deal.imageUrl) {
                             e.currentTarget.src = deal.imageUrl;
-                          } else if (deal.asin && !e.currentTarget.src.includes('images-eu.ssl-images-amazon.com')) {
-                            e.currentTarget.src = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
+                          }
+                        }}
+                        onError={(e) => {
+                          if (deal.imageUrl && e.currentTarget.src !== deal.imageUrl) {
+                            e.currentTarget.src = deal.imageUrl;
                           }
                         }}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"

@@ -26,8 +26,13 @@ export const EmbeddedDealCard: React.FC<EmbeddedDealCardProps> = ({ deal }) => {
           title={`Open ${deal.title} on ${storeBadge.name}`}
         >
           <img
-            src={getHighResImageUrl(deal.imageUrl)}
+            src={getHighResImageUrl(deal.imageUrl, deal.asin)}
             alt={deal.title}
+            onLoad={(e) => {
+              if (e.currentTarget.naturalWidth <= 2 && deal.imageUrl) {
+                e.currentTarget.src = deal.imageUrl;
+              }
+            }}
             onError={(e) => {
               if (e.currentTarget.src !== deal.imageUrl && deal.imageUrl) {
                 e.currentTarget.src = deal.imageUrl;

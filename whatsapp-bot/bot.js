@@ -397,7 +397,6 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         d.imageUrl.startsWith('http') &&
         d.imageUrl.length > 15 &&
         !d.imageUrl.includes('unsplash.com') &&
-        !d.imageUrl.includes('images-eu.ssl-images-amazon.com') &&
         !d.imageUrl.includes('photo-1523275335684-37898b6baf30')
     );
 
@@ -440,13 +439,32 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
       let thumbBuffer = null;
-      if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
+      let targetImgUrl = deal.imageUrl;
+      // Prefer Amazon official Ultra-HD photo if authentic ASIN is available
+      if (deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
+        targetImgUrl = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`;
+      }
+
+      if (targetImgUrl && targetImgUrl.startsWith('http')) {
         try {
-          const img = await Jimp.read(deal.imageUrl);
-          img.resize({ w: 400, h: 260 });
+          let img = await Jimp.read(targetImgUrl);
+          // If Amazon returned 1x1 empty placeholder GIF, fallback to source imageUrl
+          if ((img.bitmap.width <= 2 || img.bitmap.height <= 2) && deal.imageUrl && deal.imageUrl !== targetImgUrl) {
+            img = await Jimp.read(deal.imageUrl);
+          }
+          img.scaleToFit({ w: 600, h: 600 });
           thumbBuffer = await img.getBuffer('image/jpeg');
         } catch (imgErr) {
-          console.warn(`[THUMBNAIL FAILED] Deal ${deal.id} (${deal.imageUrl}):`, imgErr.message);
+          // Fallback to deal.imageUrl if Amazon HD image fetch fails
+          try {
+            if (deal.imageUrl && deal.imageUrl !== targetImgUrl) {
+              const fallbackImg = await Jimp.read(deal.imageUrl);
+              fallbackImg.scaleToFit({ w: 600, h: 600 });
+              thumbBuffer = await fallbackImg.getBuffer('image/jpeg');
+            }
+          } catch (e2) {
+            console.warn(`[THUMBNAIL FAILED] Deal ${deal.id}:`, e2.message);
+          }
         }
       }
 
