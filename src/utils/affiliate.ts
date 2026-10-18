@@ -7,6 +7,10 @@ import type { Deal } from '../types';
  */
 export function buildAffiliateUrl(asinOrUrl: string, store: Deal['store'] = 'amazon'): string {
   const clean = asinOrUrl.trim();
+  const asinMatch = clean.match(/(?:dp|gp\/product|product)\/([A-Z0-9]{10})/i) || clean.match(/^([A-Z0-9]{10})$/i);
+  if (asinMatch && asinMatch[1]) {
+    return `https://www.amazon.in/dp/${asinMatch[1].toUpperCase()}?tag=${AFFILIATE_TAG}`;
+  }
   if (clean.startsWith('http://') || clean.startsWith('https://')) {
     return ensureAffiliateTag(clean);
   }

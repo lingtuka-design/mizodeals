@@ -269,17 +269,55 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
             // Deal link
             const linkMatch = block.match(/href="([^"]*\/deal\/[^"]+)"/i);
-            const dealPageUrl = linkMatch ? linkMatch[1] : 'https://www.dealsmagnet.com';
+            if (!linkMatch) continue;
+            const dealPageUrl = linkMatch[1];
 
-            // Generate clean ASIN from deal slug or title hash
-            const slugMatch = dealPageUrl.match(/-([0-9a-zA-Z]{8,10})$/);
-            const asin = slugMatch ? `DM${slugMatch[1].toUpperCase()}` : `DM${Date.now().toString().slice(-8)}`;
+            // Resolve authentic Amazon ASIN from DealsMagnet buy redirect
+            let asin: string | null = null;
+            try {
+              const dpRes = await fetch(dealPageUrl, {
+                headers: { 'User-Agent': userAgent },
+                signal: AbortSignal.timeout(3000),
+              });
+              if (dpRes.ok) {
+                const dpHtml = await dpRes.text();
+                const codeMatch = dpHtml.match(/class="[^"]*buy-button[^"]*"[^>]*data-code="([^"]+)"/i);
+                if (codeMatch) {
+                  const buyUrl = `https://www.dealsmagnet.com/buy?${codeMatch[1]}`;
+                  const buyRes = await fetch(buyUrl, {
+                    method: 'GET',
+                    redirect: 'manual',
+                    headers: { 'User-Agent': userAgent },
+                    signal: AbortSignal.timeout(3000),
+                  });
+                  const loc = buyRes.headers.get('location') || '';
+                  const asinMatch = loc.match(/(?:dp|gp\/product|product)\/([A-Z0-9]{10})/i);
+                  if (asinMatch) {
+                    asin = asinMatch[1].toUpperCase();
+                  }
+                }
+              }
+            } catch (dpErr) {
+              // Skip if deal page resolution fails
+            }
+
+            // CRITICAL: Strictly skip deals that do not resolve to an authentic 10-char Amazon ASIN!
+            // This eliminates all generic collections, search pages, Flipkart redirects, and category banners.
+            if (!asin || !/^[A-Z0-9]{10}$/i.test(asin)) {
+              continue;
+            }
 
             if (seenAsins.has(asin)) continue;
             seenAsins.add(asin);
 
+            // Clean title (remove store prefixes and discount banners)
+            title = title
+              .replace(/^(?:Amazon|Flipkart|Myntra)\s*:\s*/i, '')
+              .replace(/^(?:flat|up\s*to)?\s*\d+%\s*off\s*[-:]?\s*/i, '')
+              .trim();
+
             const category = classifyCategory(title);
-            const cleanUrl = `https://www.amazon.in/s?k=${encodeURIComponent(title.slice(0, 40))}&tag=${targetTag}`;
+            const cleanUrl = `https://www.amazon.in/dp/${asin}?tag=${targetTag}`;
 
             collectedDeals.push({
               dealId: `dm-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
@@ -375,17 +413,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const nowIso = new Date().toISOString();
     for (const deal of collectedDeals) {
       // STRICT VERIFICATION GATE:
-      // 1. Must have authentic ASIN
+      // 1. Must have authentic 10-character Amazon ASIN (strictly no DM- slugs or search collections)
       // 2. Must have valid product image starting with http
       // 3. Must NOT have any Unsplash or stock placeholder images
+      // 4. Must NOT have search collection URLs (/s?k= or /deal/)
       if (
         !deal.asin ||
+        deal.asin.startsWith('DM') ||
+        !/^[A-Z0-9]{10}$/i.test(deal.asin) ||
         !deal.imageUrl ||
         !deal.imageUrl.startsWith('http') ||
         deal.imageUrl.length < 15 ||
         deal.imageUrl.includes('unsplash.com') ||
         deal.imageUrl.includes('images-eu.ssl-images-amazon.com') ||
-        deal.imageUrl.includes('photo-1523275335684-37898b6baf30')
+        deal.imageUrl.includes('photo-1523275335684-37898b6baf30') ||
+        (deal.amazonUrl && (deal.amazonUrl.includes('/s?k=') || deal.amazonUrl.includes('/deal/')))
       ) {
         continue;
       }

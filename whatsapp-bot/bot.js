@@ -387,7 +387,11 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
     const candidates = data.deals.filter(
       (d) =>
         !postedIds.has(d.id) &&
-        (!d.asin || !postedIds.has(d.asin)) &&
+        d.asin &&
+        !d.asin.startsWith('DM') &&
+        /^[A-Z0-9]{10}$/i.test(d.asin) &&
+        !postedIds.has(d.asin) &&
+        (!d.affiliateUrl || (!d.affiliateUrl.includes('/s?k=') && !d.affiliateUrl.includes('/deal/'))) &&
         (d.isLootDeal || d.discountPercent >= 50) &&
         d.imageUrl &&
         d.imageUrl.startsWith('http') &&

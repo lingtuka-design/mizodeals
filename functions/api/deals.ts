@@ -49,34 +49,47 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     query += ' ORDER BY created_at DESC LIMIT ?';
     params.push(limit);
 
+    const targetTag = env.AMAZON_PARTNER_TAG || 'lalmalsawmtlu-21';
     const { results } = await env.DB.prepare(query).bind(...params).all();
 
+    // Filter out any stale/legacy deals that contain search collection URLs (/s?k=) or non-Amazon fake ASINs
+    const validRows = (results || []).filter((row: any) => {
+      if (!row.asin || row.asin.startsWith('DM') || !/^[A-Z0-9]{10}$/i.test(row.asin)) return false;
+      if (row.affiliate_url && (row.affiliate_url.includes('/s?k=') || row.affiliate_url.includes('/deal/'))) return false;
+      return true;
+    });
+
     // Map database snake_case columns back to Deal interface
-    const mappedDeals: Deal[] = (results || []).map((row: any) => ({
-      id: row.id,
-      asin: row.asin,
-      title: row.title,
-      category: row.category,
-      store: row.store || 'amazon',
-      originalPrice: row.original_price,
-      dealPrice: row.deal_price,
-      currentPrice: row.current_price,
-      discountPercent: row.discount_percent,
-      rating: row.rating,
-      ratingsCount: row.ratings_count,
-      imageUrl:
-        row.image_url && row.image_url.includes('dealsmagnet.com/images/') && row.image_url.includes('-s-')
-          ? row.image_url.replace('-s-', '-m-')
-          : row.image_url,
-      affiliateUrl: row.affiliate_url,
-      status: row.status,
-      isLootDeal: Boolean(row.is_loot_deal),
-      couponText: row.coupon_text,
-      description: row.description,
-      createdAt: row.created_at,
-      lastCheckedAt: row.last_checked_at,
-      verifiedAt: row.verified_at,
-    }));
+    const mappedDeals: Deal[] = validRows.map((row: any) => {
+      const cleanAsin = row.asin.toUpperCase();
+      const directAffiliateUrl = `https://www.amazon.in/dp/${cleanAsin}?tag=${targetTag}`;
+
+      return {
+        id: row.id,
+        asin: cleanAsin,
+        title: row.title,
+        category: row.category,
+        store: row.store || 'amazon',
+        originalPrice: row.original_price,
+        dealPrice: row.deal_price,
+        currentPrice: row.current_price,
+        discountPercent: row.discount_percent,
+        rating: row.rating,
+        ratingsCount: row.ratings_count,
+        imageUrl:
+          row.image_url && row.image_url.includes('dealsmagnet.com/images/') && row.image_url.includes('-s-')
+            ? row.image_url.replace('-s-', '-m-')
+            : row.image_url,
+        affiliateUrl: directAffiliateUrl,
+        status: row.status,
+        isLootDeal: Boolean(row.is_loot_deal),
+        couponText: row.coupon_text,
+        description: row.description,
+        createdAt: row.created_at,
+        lastCheckedAt: row.last_checked_at,
+        verifiedAt: row.verified_at,
+      };
+    });
 
     // If database is empty (e.g. freshly created), return INITIAL_DEALS as fallback
     if (mappedDeals.length === 0 && !category) {
