@@ -434,78 +434,72 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
 
     for (const deal of toPost) {
 
-      const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
+      const dealUrl = `https://mizodeals.com/deals/${deal.id}?u=${deal.id}`;
       const caption = formatMessage(deal);
       console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
-      let imgBuffer = null;
+      let thumbBuffer = null;
       let targetImgUrl = null;
-      // Prefer Amazon official Ultra-HD photo if authentic ASIN is available
       if (deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
         targetImgUrl = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`;
       }
 
-      if (targetImgUrl) {
-        try {
-          const res = await fetch(targetImgUrl, { signal: AbortSignal.timeout(6000) });
-          if (res.ok) {
-            const buf = Buffer.from(await res.arrayBuffer());
-            // Amazon returns a 43-byte 1x1 GIF when not found; check > 2000 bytes
-            if (buf.length > 2000) {
-              imgBuffer = buf;
+      // Try Amazon Ultra-HD first, then seamlessly fallback to deal.imageUrl
+      try {
+        let img = null;
+        if (targetImgUrl) {
+          try {
+            img = await Jimp.read(targetImgUrl);
+            if (img.bitmap.width <= 2 || img.bitmap.height <= 2) {
+              img = null;
             }
+          } catch (e) {
+            img = null;
           }
-        } catch (e) {}
+        }
+
+        if (!img && deal.imageUrl && deal.imageUrl.startsWith('http')) {
+          img = await Jimp.read(deal.imageUrl);
+        }
+
+        if (img) {
+          img.scaleToFit({ w: 320, h: 320 });
+          thumbBuffer = await img.getBuffer('image/jpeg', { quality: 75 });
+        }
+      } catch (imgErr) {
+        console.warn(`[THUMBNAIL NOTICE] Deal ${deal.id}:`, imgErr.message);
       }
 
-      // If Amazon image unavailable or 1x1 GIF, fall back to deal.imageUrl
-      if (!imgBuffer && deal.imageUrl && deal.imageUrl.startsWith('http')) {
-        try {
-          const res = await fetch(deal.imageUrl, {
-            headers: {
-              'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            },
-            signal: AbortSignal.timeout(6000),
-          });
-          if (res.ok) {
-            const buf = Buffer.from(await res.arrayBuffer());
-            if (buf.length > 500) {
-              imgBuffer = buf;
-            }
-          }
-        } catch (e) {
-          console.warn(`[IMAGE FETCH NOTICE] Deal ${deal.id}:`, e.message);
-        }
-      }
+      const savings = deal.originalPrice - deal.dealPrice;
+      const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
+      const cleanTitleText = cleanTitle(deal.title);
+      const descriptionText = `Deal Price: ${formatINR(deal.dealPrice)} ~${formatINR(deal.originalPrice)}~${savingsText} (${deal.discountPercent}% OFF)`;
+
+      const msgPayload = {
+        text: caption,
+        contextInfo: {
+          externalAdReply: {
+            title: cleanTitleText,
+            body: descriptionText,
+            mediaType: 1,
+            thumbnail: thumbBuffer,
+            sourceUrl: dealUrl,
+            renderLargerThumbnail: true,
+          },
+        },
+        linkPreview: {
+          'matched-text': dealUrl,
+          title: cleanTitleText,
+          description: descriptionText,
+          jpegThumbnail: thumbBuffer,
+        },
+      };
 
       try {
-        let sent = false;
-
-        // Post permanent native photo with formatted caption to WhatsApp Channel
-        if (imgBuffer) {
-          try {
-            await sock.sendMessage(channelJid, {
-              image: imgBuffer,
-              caption: caption,
-            });
-            sent = true;
-            console.log(`📸 [${postedCount + 1}/${toPost.length}] Posted permanent deal photo: ${deal.id} - ${deal.title.slice(0, 30)}`);
-          } catch (mediaSendErr) {
-            console.warn(`Media post failed (${mediaSendErr.message}), falling back to text message...`);
-          }
-        }
-
-        // Fallback: If image send fails, post text message so deal is never dropped
-        if (!sent) {
-          await sock.sendMessage(channelJid, {
-            text: caption,
-          });
-          console.log(`📝 [${postedCount + 1}/${toPost.length}] Posted deal text: ${deal.id} - ${deal.title.slice(0, 30)}`);
-        }
-
+        await sock.sendMessage(channelJid, msgPayload);
         recordPostedDeal(deal);
         postedCount++;
+        console.log(`✅ [${postedCount}/${toPost.length}] Posted deal card: ${deal.id} - ${deal.title.slice(0, 30)}`);
 
         // Wait 10 seconds between posts to keep channel clean
         if (postedCount < toPost.length) {

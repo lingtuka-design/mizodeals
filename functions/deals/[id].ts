@@ -87,9 +87,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     : rawImg;
 
   const ogImage =
-    deal.asin && deal.asin.length === 10 && !deal.asin.startsWith('DM') && !deal.asin.startsWith('ifs')
+    hdImg && !hdImg.includes('unsplash.com') && hdImg.length > 15
+      ? hdImg
+      : deal.asin && deal.asin.length === 10 && !deal.asin.startsWith('DM')
       ? `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`
-      : hdImg || 'https://mizodeals.com/logo.png';
+      : 'https://mizodeals.com/logo.png';
   const pageTitle = `${title} — Mizodeals`;
 
   return new HTMLRewriter()
