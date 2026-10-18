@@ -4,7 +4,7 @@ import { INITIAL_DEALS } from '../data/deals';
 import { BLOG_POSTS } from '../data/blogs';
 import { buildAffiliateUrl, ensureAffiliateTag } from '../utils/affiliate';
 
-const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v8';
+const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v9';
 const STORAGE_BLOGS_KEY = 'mizodeals_all_blogs_v1';
 
 interface DataContextType {
@@ -27,23 +27,26 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [deals, setDeals] = useState<Deal[]>(() => {
     try {
-      // Clean up legacy v1..v7 caches to ensure instantaneous delivery of fresh catalog
-      localStorage.removeItem('mizodeals_all_deals_v1');
-      localStorage.removeItem('mizodeals_all_deals_v2');
-      localStorage.removeItem('mizodeals_all_deals_v3');
-      localStorage.removeItem('mizodeals_all_deals_v4');
-      localStorage.removeItem('mizodeals_all_deals_v5');
-      localStorage.removeItem('mizodeals_all_deals_v6');
-      localStorage.removeItem('mizodeals_all_deals_v7');
+      // Clean up legacy v1..v8 caches to ensure instantaneous delivery of fresh catalog
+      for (let i = 1; i <= 8; i++) {
+        localStorage.removeItem(`mizodeals_all_deals_v${i}`);
+      }
 
       const stored = localStorage.getItem(STORAGE_DEALS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((d: Deal) => ({
-            ...d,
-            affiliateUrl: ensureAffiliateTag(d.affiliateUrl || buildAffiliateUrl(d.asin, d.store)),
-          }));
+          return parsed
+            .filter((d: Deal) => {
+              // Strictly reject search collections and fake ASINs from cache
+              if (!d.asin || d.asin.startsWith('DM') || !/^[A-Z0-9]{10}$/i.test(d.asin)) return false;
+              if (d.affiliateUrl && (d.affiliateUrl.includes('/s?k=') || d.affiliateUrl.includes('/deal/'))) return false;
+              return true;
+            })
+            .map((d: Deal) => ({
+              ...d,
+              affiliateUrl: ensureAffiliateTag(d.affiliateUrl || buildAffiliateUrl(d.asin, d.store)),
+            }));
         }
       }
     } catch (e) {
@@ -89,13 +92,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .then((data) => {
         if (isMounted && data.success && Array.isArray(data.deals) && data.deals.length > 0) {
-          setDeals((prev) => {
-            // Prioritize freshly fetched D1 deals
-            const d1Asins = new Set(data.deals!.map((d) => d.asin.toLowerCase()));
-            const remainingLocal = prev.filter((d) => !d1Asins.has(d.asin.toLowerCase()));
-            const merged = [...data.deals!, ...remainingLocal];
-            return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          });
+          // Cloudflare D1 database is the single source of truth - do not merge stale deleted deals
+          setDeals(data.deals);
         }
       })
       .catch((err) => {
