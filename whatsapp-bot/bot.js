@@ -452,15 +452,15 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           if ((img.bitmap.width <= 2 || img.bitmap.height <= 2) && deal.imageUrl && deal.imageUrl !== targetImgUrl) {
             img = await Jimp.read(deal.imageUrl);
           }
-          img.scaleToFit({ w: 600, h: 600 });
-          thumbBuffer = await img.getBuffer('image/jpeg');
+          img.scaleToFit({ w: 320, h: 320 });
+          thumbBuffer = await img.getBuffer('image/jpeg', { quality: 75 });
         } catch (imgErr) {
           // Fallback to deal.imageUrl if Amazon HD image fetch fails
           try {
             if (deal.imageUrl && deal.imageUrl !== targetImgUrl) {
               const fallbackImg = await Jimp.read(deal.imageUrl);
-              fallbackImg.scaleToFit({ w: 600, h: 600 });
-              thumbBuffer = await fallbackImg.getBuffer('image/jpeg');
+              fallbackImg.scaleToFit({ w: 320, h: 320 });
+              thumbBuffer = await fallbackImg.getBuffer('image/jpeg', { quality: 75 });
             }
           } catch (e2) {
             console.warn(`[THUMBNAIL FAILED] Deal ${deal.id}:`, e2.message);
