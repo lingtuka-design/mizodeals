@@ -10,7 +10,7 @@ interface ScrapedDeal {
   asin: string | null;
   amazonUrl: string;
   category: string;
-  source: 'Telegram Deals' | 'DealsMagnet' | 'IndiaFreeStuff';
+  source: 'Telegram Deals' | 'DealsMagnet' | 'IndiaFreeStuff' | 'IndiaDesire';
   isLootDeal: boolean;
   couponText?: string | null;
 }
@@ -82,7 +82,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const limitParam = url.searchParams.get('limit') || '80';
   const limit = Math.min(Math.max(parseInt(limitParam, 10) || 80, 5), 150);
   const targetTag = url.searchParams.get('tag') || env.AMAZON_PARTNER_TAG || 'lalmalsawmtlu-21';
-  const filterSource = url.searchParams.get('source'); // 'all', 'telegram', 'dealsmagnet', 'ifs'
+  const filterSource = url.searchParams.get('source'); // 'all', 'telegram', 'dealsmagnet', 'ifs', 'indiadesire'
   const shouldAutoPublish = url.searchParams.get('autoPublish') === 'true';
 
   const userAgent =
@@ -443,6 +443,126 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }
       } catch (ifsErr) {
         console.error('Error in IFS fetch:', ifsErr);
+      }
+    }
+  }
+
+  // ==========================================
+  // SOURCE 4: INDIADESIRE (HIGH QUALITY LOOT DEALS)
+  // ==========================================
+  if (!filterSource || filterSource === 'all' || filterSource === 'indiadesire') {
+    if (collectedDeals.length < limit) {
+      try {
+        const idRes = await fetch('https://indiadesire.com/lootdeals', {
+          headers: {
+            'User-Agent': userAgent,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          signal: AbortSignal.timeout(6000),
+        });
+
+        if (idRes.ok) {
+          const html = await idRes.text();
+          const dealBoxes = html.split(/<div class=['"]px-xl-2 py-xl-1 col-6/i);
+
+          for (let i = 1; i < dealBoxes.length; i++) {
+            if (collectedDeals.length >= limit) break;
+            const box = dealBoxes[i];
+
+            // 1. Check if deal is explicitly marked expired
+            if (box.includes("class='expired'") && !box.includes('displaynoneexpired') && box.includes('offer_expired.png')) {
+              continue;
+            }
+
+            // 2. Extract ASIN (pid or redirectpid1)
+            const asinMatch = box.match(/pid=['"]([A-Z0-9]{10})['"]/i) || box.match(/redirectpid1=([A-Z0-9]{10})/i);
+            const storeMatch = box.match(/store=['"]([^'"]+)['"]/i);
+            const store = storeMatch ? storeMatch[1].toLowerCase() : (asinMatch ? 'amazon' : 'unknown');
+
+            // Strictly process Amazon deals with verified 10-char ASIN
+            if (store !== 'amazon' || !asinMatch) continue;
+            const asin = asinMatch[1].toUpperCase();
+            if (seenAsins.has(asin)) continue;
+
+            // 3. Extract title
+            const titleMatch = box.match(/id="[^"]*OfferDetails[^"]*">([\s\S]*?)<\/span>/i) || box.match(/alt=['"]([^'"]+)['"]/i);
+            if (!titleMatch) continue;
+            let title = titleMatch[1].replace(/<[^>]+>/g, '').trim();
+            if (!title || title.length < 5) continue;
+
+            title = title
+              .replace(/^(?:Amazon|Flipkart)\s*:\s*/i, '')
+              .replace(/^(?:flat|up\s*to)?\s*\d+%\s*off\s*[-:]?\s*/i, '')
+              .trim();
+
+            // 4. Extract prices
+            const currPriceMatch = box.match(/currentprice[^"]*">[^0-9]*([0-9,]+)/i);
+            const prevPriceMatch = box.match(/prevlowprice[^"]*">[^0-9]*([0-9,]+)/i);
+            const dealPrice = currPriceMatch ? parseInt(currPriceMatch[1].replace(/,/g, ''), 10) : 0;
+            let originalPrice = prevPriceMatch ? parseInt(prevPriceMatch[1].replace(/,/g, ''), 10) : 0;
+
+            if (dealPrice <= 0) continue;
+            if (originalPrice <= dealPrice) {
+              originalPrice = Math.round(dealPrice * 1.5);
+            }
+
+            // 5. Calculate discount percent
+            let discountPercent = Math.round(((originalPrice - dealPrice) / originalPrice) * 100);
+            const offMatch = box.match(/(\d+)%\s*OFF/i);
+            if (offMatch) {
+              const explicitDiscount = parseInt(offMatch[1], 10);
+              if (explicitDiscount > discountPercent) discountPercent = explicitDiscount;
+            }
+
+            // 6. Image extraction: prefer high-resolution
+            const imgMatch = box.match(/data-src=['"]([^'"]+)['"]/i) || box.match(/src=['"](https:\/\/[^'"]+)['"]/i);
+            let imageUrl = imgMatch ? imgMatch[1] : '';
+            if (imageUrl.includes('_SL300_')) {
+              imageUrl = imageUrl.replace('_SL300_', '_SL600_');
+            }
+
+            // Prefer Amazon official Ultra-HD photo if available
+            const officialAmzImg = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
+            try {
+              const headImg = await fetch(officialAmzImg, {
+                method: 'HEAD',
+                signal: AbortSignal.timeout(1500),
+              });
+              const cl = parseInt(headImg.headers.get('content-length') || '0', 10);
+              if (headImg.ok && cl > 1000) {
+                imageUrl = officialAmzImg;
+              }
+            } catch (e) {}
+
+            if (!imageUrl || !imageUrl.startsWith('http')) {
+              imageUrl = officialAmzImg;
+            }
+
+            seenAsins.add(asin);
+
+            const category = classifyCategory(title);
+            const cleanUrl = `https://www.amazon.in/dp/${asin}?tag=${targetTag}`;
+
+            collectedDeals.push({
+              dealId: `id-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
+              title,
+              price: dealPrice,
+              originalPrice,
+              discountPercent,
+              rating: 4.4,
+              ratingsCount: 2450,
+              imageUrl,
+              asin,
+              amazonUrl: cleanUrl,
+              category,
+              source: 'IndiaDesire',
+              isLootDeal: discountPercent >= 50,
+              couponText: discountPercent >= 60 ? '⚡ Super Loot Deal' : null,
+            });
+          }
+        }
+      } catch (idErr: any) {
+        console.error('Error fetching IndiaDesire deals:', idErr.message);
       }
     }
   }

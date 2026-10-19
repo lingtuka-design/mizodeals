@@ -50,6 +50,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const body: any = await request.json();
+    if (body.reset === true) {
+      await env.DB.prepare('DELETE FROM bot_auth').run();
+      return new Response(JSON.stringify({ success: true, message: 'Auth database reset' }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const files = body.files as Record<string, string>;
     if (!files || typeof files !== 'object') {
       return new Response(JSON.stringify({ success: false, message: 'Invalid payload' }), {

@@ -37,7 +37,7 @@ const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
 const API_URL = 'https://mizodeals.com/api/deals?status=all&limit=200';
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
-const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'all'];
+const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'all'];
 let currentSourceIndex = 0;
 
 // Load already posted deal IDs and ASINs
@@ -180,6 +180,24 @@ http
       </body></html>`);
     }
 
+    if (req.url === '/reset') {
+      console.log('⚠️ Manual session reset requested via /reset endpoint');
+      try {
+        if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+      } catch (e) {}
+      fetch('https://mizodeals.com/api/bot-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset: true }),
+      }).catch(() => {});
+      triggerReconnect(1000);
+      return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:50px 20px;background:#FAF9F5;">
+        <h2>🔄 Resetting WhatsApp Bot Session...</h2>
+        <p>Old credentials wiped. Generating fresh QR code...</p>
+        <script>setTimeout(() => { window.location.href = '/'; }, 3000);</script>
+      </body></html>`);
+    }
+
     if (req.url === '/post-now' || req.url === '/trigger') {
       if (!isConnected || !activeSock) {
         return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px;background:#FAF9F5;">
@@ -263,10 +281,23 @@ ${recentLogs.length > 0 ? recentLogs.join('\n') : 'Waiting for next activity...'
       res.end(`<!doctype html>
 <html>
   <head><title>Mizodeals Bot Starting</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-  <body style="font-family:system-ui,sans-serif;text-align:center;padding:50px 20px;background:#FAF9F5;">
-    <h3>⏳ Mizodeals Bot Starting Up...</h3>
-    <p style="font-size:13px;color:#78716c;">Connecting to WhatsApp network, please wait a few seconds...</p>
-    <script>setTimeout(() => location.reload(), 3000);</script>
+  <body style="font-family:system-ui,sans-serif;text-align:center;padding:40px 20px;background:#FAF9F5;color:#1c1917;">
+    <div style="max-width:540px;margin:auto;background:white;padding:30px;border-radius:24px;border:1px solid #EAE6DF;box-shadow:0 10px 25px -5px rgba(0,0,0,0.05);">
+      <div style="font-size:36px;margin-bottom:8px;">⏳</div>
+      <h3 style="margin:0 0 10px 0;">Mizodeals Bot Starting Up...</h3>
+      <p style="font-size:13px;color:#78716c;">Connecting to WhatsApp network, please wait a moment...</p>
+
+      <div style="margin:20px 0;text-align:left;background:#0f172a;color:#f8fafc;padding:14px;border-radius:12px;font-family:monospace;font-size:11px;max-height:220px;overflow-y:auto;white-space:pre-wrap;">
+<b style="color:#38bdf8;">📋 Live Bot Activity Log:</b><br><br>
+${recentLogs.length > 0 ? recentLogs.join('\n') : 'Initializing bot...'}
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:15px;">
+        <a href="/restart" style="display:inline-block;padding:10px 16px;background:#475569;color:white;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;">🔄 Reconnect</a>
+        <a href="/reset" style="display:inline-block;padding:10px 16px;background:#ea580c;color:white;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;">⚠️ Reset & New QR</a>
+      </div>
+      <script>setTimeout(() => location.reload(), 4000);</script>
+    </div>
   </body>
 </html>`);
     }
@@ -324,6 +355,29 @@ async function startBot() {
       } catch (e) {}
     };
 
+    const syncAllAuthToCloud = async () => {
+      try {
+        if (!fs.existsSync(AUTH_DIR)) return;
+        const files = fs.readdirSync(AUTH_DIR);
+        const fileMap = {};
+        for (const f of files) {
+          if (f.endsWith('.json')) {
+            fileMap[f] = fs.readFileSync(path.join(AUTH_DIR, f), 'utf8');
+          }
+        }
+        if (fileMap['creds.json']) {
+          await fetch('https://mizodeals.com/api/bot-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: fileMap }),
+          });
+          console.log(`☁️ Synced ${Object.keys(fileMap).length} auth session files to Cloudflare D1!`);
+        }
+      } catch (e) {
+        console.warn('⚠️ Cloud sync notice:', e.message);
+      }
+    };
+
     sock.ev.on('creds.update', syncCredsToCloud);
 
     sock.ev.on('connection.update', async (update) => {
@@ -345,9 +399,20 @@ async function startBot() {
         isConnected = false;
         activeSock = null;
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-        console.log(`Connection closed (statusCode: ${statusCode}). Reconnecting: ${shouldReconnect}`);
-        if (shouldReconnect) {
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+        console.log(`Connection closed (statusCode: ${statusCode}). Logged out: ${isLoggedOut}`);
+        if (isLoggedOut) {
+          console.warn('⚠️ WhatsApp session logged out / expired (401). Purging stale auth for fresh QR...');
+          try {
+            if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+          } catch (e) {}
+          fetch('https://mizodeals.com/api/bot-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reset: true }),
+          }).catch(() => {});
+          triggerReconnect(1500);
+        } else {
           triggerReconnect(4000);
         }
       } else if (connection === 'open') {
@@ -359,6 +424,7 @@ async function startBot() {
         console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);
         console.log('======================================================\n');
 
+        syncAllAuthToCloud().catch(() => {});
         ensureAutoPostScheduler();
 
         setTimeout(async () => {
