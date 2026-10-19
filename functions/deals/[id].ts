@@ -98,7 +98,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     .on('head', {
       element(el) {
         el.append(
-          `<meta property="og:image:width" content="800" /><meta property="og:image:height" content="800" /><meta property="og:image:type" content="image/jpeg" />`,
+          `<meta property="og:image:width" content="1200" /><meta property="og:image:height" content="630" /><meta property="og:image:type" content="image/jpeg" />`,
           { html: true }
         );
       },
