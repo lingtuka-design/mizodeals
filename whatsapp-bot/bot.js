@@ -226,6 +226,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.1-permanent-thumbnails</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
@@ -276,6 +277,27 @@ ${recentLogs.length > 0 ? recentLogs.join('\n') : 'Waiting for next activity...'
 
 async function startBot() {
   try {
+    // 1. Auto-restore session from Cloudflare D1 if local auth_info is missing
+    const credsPath = path.join(AUTH_DIR, 'creds.json');
+    if (!fs.existsSync(credsPath)) {
+      console.log('📦 Local credentials missing. Restoring session from Cloudflare D1...');
+      try {
+        const authRes = await fetch('https://mizodeals.com/api/bot-auth', { signal: AbortSignal.timeout(15000) });
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          if (authData.success && authData.files) {
+            if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
+            for (const [fname, content] of Object.entries(authData.files)) {
+              fs.writeFileSync(path.join(AUTH_DIR, fname), content, 'utf8');
+            }
+            console.log(`✅ Restored ${Object.keys(authData.files).length} session auth files from Cloudflare D1!`);
+          }
+        }
+      } catch (d1Err) {
+        console.warn('⚠️ Cloudflare D1 session restore notice:', d1Err.message);
+      }
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
     const sock = makeWASocket({
@@ -287,7 +309,22 @@ async function startBot() {
       defaultQueryTimeoutMs: 60_000,
     });
 
-    sock.ev.on('creds.update', saveCreds);
+    const syncCredsToCloud = async () => {
+      saveCreds();
+      try {
+        const credsFile = path.join(AUTH_DIR, 'creds.json');
+        if (fs.existsSync(credsFile)) {
+          const credsContent = fs.readFileSync(credsFile, 'utf8');
+          fetch('https://mizodeals.com/api/bot-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: { 'creds.json': credsContent } }),
+          }).catch(() => {});
+        }
+      } catch (e) {}
+    };
+
+    sock.ev.on('creds.update', syncCredsToCloud);
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
