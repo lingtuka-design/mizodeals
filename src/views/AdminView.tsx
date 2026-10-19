@@ -27,10 +27,12 @@ import {
   Bot,
   Globe,
   Check,
-  ArrowRight
+  ArrowRight,
+  LogOut
 } from 'lucide-react';
 
-const ADMIN_PASSKEY = '2026';
+const ADMIN_USERNAME = 'lingtuka';
+const ADMIN_PASSWORD = 'MAWLA1984@mala';
 
 export const AdminView: React.FC = () => {
   const { 
@@ -53,7 +55,8 @@ export const AdminView: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('mizodeals_admin_auth') === 'true';
   });
-  const [passkeyInput, setPasskeyInput] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
 
   // Active Tab
@@ -245,17 +248,26 @@ export const AdminView: React.FC = () => {
     showToast(`"${item.title.substring(0, 30)}..." published to live catalog!`, 'success');
   };
 
-  // Handle Passkey Login
+  // Handle Username & Password Login
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passkeyInput === ADMIN_PASSKEY) {
+    if (usernameInput.trim() === ADMIN_USERNAME && passwordInput === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
       sessionStorage.setItem('mizodeals_admin_auth', 'true');
       setAuthError('');
-      showToast('Welcome to Mizodeals Admin Panel!', 'success');
+      showToast('Welcome, Admin Lingtuka!', 'success');
     } else {
-      setAuthError('Invalid Admin Passkey. Default is 2026');
+      setAuthError('Username emaw password a dik lo. Khawngaihin enfiah leh rawh.');
     }
+  };
+
+  // Handle Logout
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('mizodeals_admin_auth');
+    setUsernameInput('');
+    setPasswordInput('');
+    showToast('Logged out successfully', 'info');
   };
 
   // Helper to extract ASIN from URL or clean input
@@ -464,11 +476,11 @@ export const AdminView: React.FC = () => {
 
   const broadcastDeal = deals.find((d) => d.id === selectedBroadcastDealId) || broadcastCandidateDeals[0] || deals[0];
 
-  // If not authenticated, show PIN gate
+  // If not authenticated, show Login gate
   if (!isAuthenticated) {
     return (
-      <div className="max-w-md mx-auto px-4 py-20">
-        <div className="bg-white border border-[#EAE6DF] rounded-3xl p-8 shadow-sm text-center">
+      <div className="max-w-md mx-auto px-4 py-16 sm:py-24">
+        <div className="bg-white border border-[#EAE6DF] rounded-3xl p-6 sm:p-8 shadow-xs text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <img
               src="/logo-icon.png"
@@ -481,35 +493,60 @@ export const AdminView: React.FC = () => {
               className="h-7 w-auto object-contain"
             />
           </div>
-          <h1 className="text-xl font-black text-stone-900">Admin Control Panel</h1>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-100 text-stone-700 text-xs font-semibold mb-2">
+            <Lock className="w-3.5 h-3.5 text-stone-600" />
+            <span>Admin Control Panel</span>
+          </div>
+          <h1 className="text-xl font-black text-stone-900 tracking-tight">Admin Login</h1>
           <p className="text-xs text-stone-500 mt-1 mb-6">
-            Enter admin passkey to create deals, review posts, and manage products.
+            Mizodeals control panel luh nan username leh password chhu lut rawh le.
           </p>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4 text-left">
             <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Username
+              </label>
+              <input
+                type="text"
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                placeholder="Username chhu lut rawh"
+                autoComplete="username"
+                className="w-full text-sm font-medium px-4 py-3 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                autoFocus
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Password
+              </label>
               <input
                 type="password"
-                value={passkeyInput}
-                onChange={(e) => setPasskeyInput(e.target.value)}
-                placeholder="Enter Passkey (Default: 2026)"
-                className="w-full text-center tracking-widest text-lg font-bold px-4 py-3 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                autoFocus
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Password chhu lut rawh"
+                autoComplete="current-password"
+                className="w-full text-sm font-medium px-4 py-3 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                required
               />
-              {authError && <p className="text-xs text-rose-600 mt-1.5 font-medium">{authError}</p>}
             </div>
+
+            {authError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                {authError}
+              </div>
+            )}
 
             <button
               type="submit"
-              className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer"
+              className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer mt-2"
             >
-              Access Admin Panel
+              Lut Rawh (Login)
             </button>
           </form>
-
-          <p className="text-[11px] text-stone-400 mt-4">
-            Default passkey is <strong>2026</strong>
-          </p>
         </div>
       </div>
     );
@@ -542,7 +579,7 @@ export const AdminView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={openAddDealModal}
@@ -558,6 +595,15 @@ export const AdminView: React.FC = () => {
           >
             <FileText className="w-4 h-4" />
             <span>New Buying Guide</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            title="Log out of admin"
+          >
+            <LogOut className="w-4 h-4 text-stone-500" />
+            <span>Logout</span>
           </button>
         </div>
       </div>

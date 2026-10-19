@@ -67,11 +67,6 @@ export const Footer: React.FC = () => {
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </li>
-              <li>
-                <Link to="/admin" className="hover:text-stone-900 transition-colors text-stone-400 hover:text-stone-700">
-                  Admin Panel (Passkey: 2026)
-                </Link>
-              </li>
             </ul>
           </div>
 

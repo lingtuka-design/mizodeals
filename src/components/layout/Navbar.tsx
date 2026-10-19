@@ -72,14 +72,6 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
               </span>
             )}
           </Link>
-
-          <Link
-            to="/admin"
-            className="px-3.5 py-2 rounded-xl hover:bg-stone-200/60 transition-colors flex items-center gap-1.5 text-stone-500 hover:text-stone-900"
-            activeProps={{ className: 'bg-stone-200/90 text-stone-900' }}
-          >
-            <span>Admin</span>
-          </Link>
         </nav>
 
         {/* Right CTA */}
