@@ -80,7 +80,7 @@ function cleanTitle(str) {
     .trim();
 }
 
-function formatMessage(deal) {
+function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`) {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
   const lootHeader = deal.isLootDeal || deal.discountPercent >= 50
@@ -88,7 +88,6 @@ function formatMessage(deal) {
     : '⚡ *MAN TLAHNIAM!* ⚡\n';
 
   const title = cleanTitle(deal.title);
-  const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
 
   return (
     `${lootHeader}` +
@@ -434,17 +433,22 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
 
     for (const deal of toPost) {
 
-      const dealUrl = `https://mizodeals.com/deals/${deal.id}?u=${deal.id}`;
-      const caption = formatMessage(deal);
+      const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
+      const caption = formatMessage(deal, dealUrl);
       console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
 
       let thumbBuffer = null;
+      let rawImg = deal.imageUrl || '';
+      if (rawImg.includes('dealsmagnet.com/images/') && rawImg.includes('-s-')) {
+        rawImg = rawImg.replace('-s-', '-m-');
+      }
+
       let targetImgUrl = null;
       if (deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
         targetImgUrl = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`;
       }
 
-      // Try Amazon Ultra-HD first, then seamlessly fallback to deal.imageUrl
+      // Try Amazon Ultra-HD first, then seamlessly fallback to rawImg
       try {
         let img = null;
         if (targetImgUrl) {
@@ -458,16 +462,23 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           }
         }
 
-        if (!img && deal.imageUrl && deal.imageUrl.startsWith('http')) {
-          img = await Jimp.read(deal.imageUrl);
+        if (!img && rawImg && rawImg.startsWith('http')) {
+          img = await Jimp.read(rawImg);
         }
 
         if (img) {
           img.scaleToFit({ w: 320, h: 320 });
-          thumbBuffer = await img.getBuffer('image/jpeg', { quality: 75 });
+          thumbBuffer = await img.getBuffer('image/jpeg', { quality: 80 });
         }
       } catch (imgErr) {
         console.warn(`[THUMBNAIL NOTICE] Deal ${deal.id}:`, imgErr.message);
+      }
+
+      // Strictly require a valid thumbnail before posting so no deal is posted without photo
+      if (!thumbBuffer) {
+        console.warn(`[SKIP - NO THUMBNAIL] Deal ${deal.id} has no valid thumbnail. Skipping to next deal.`);
+        recordPostedDeal(deal);
+        continue;
       }
 
       const savings = deal.originalPrice - deal.dealPrice;
