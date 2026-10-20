@@ -517,6 +517,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             }
             const store = rawStore as 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio';
 
+            // Ensure store diversity: prevent Amazon from consuming 100% of the limit so Myntra, Flipkart, Nykaa always get space
+            const storeCount = collectedDeals.filter((d) => d.store === store).length;
+            const maxPerStore = Math.max(Math.floor(limit * 0.5), 12);
+            if (storeCount >= maxPerStore) continue;
+
             const asinMatch = box.match(/pid=['"]([A-Z0-9]{10})['"]/i) || box.match(/redirectpid1=([A-Z0-9]{10})/i);
             const pidMatch = (store === 'amazon' ? asinMatch : null) || box.match(/pid=['"]([^'"]+)['"]/i) || box.match(/redirectpid1=([^&'"\s>]+)/i);
             if (!pidMatch) continue;
