@@ -84,6 +84,15 @@ export const HomeView: React.FC = () => {
       .slice(0, 6);
   }, [activeDeals]);
 
+  // Whether the Top Loot Deals spotlight section is currently visible on the page
+  const isTopLootVisible = useMemo(() => {
+    return (!activeFilters.store || activeFilters.store === 'all') && topLootDeals.length > 0;
+  }, [activeFilters.store, topLootDeals.length]);
+
+  const topLootDealIds = useMemo(() => {
+    return new Set(topLootDeals.map((d) => d.id));
+  }, [topLootDeals]);
+
   // Category counts calculation based on active deals
   const categoryCounts = useMemo(() => {
     const counts: Record<DealCategory, number> = {
@@ -108,6 +117,12 @@ export const HomeView: React.FC = () => {
   // Filtered and sorted deals
   const filteredDeals = useMemo(() => {
     return activeDeals.filter((deal) => {
+      // Deduplicate: If Top Loot Deals spotlight is visible above, exclude those deals from the feed below.
+      // Once a deal drops out of topLootDeals, it will automatically appear in this feed.
+      if (isTopLootVisible && topLootDealIds.has(deal.id)) {
+        return false;
+      }
+
       // Tab filter
       if (activeTab === 'loot' && !isLootDeal(deal)) {
         return false;
@@ -168,7 +183,7 @@ export const HomeView: React.FC = () => {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
-  }, [activeDeals, activeFilters, activeTab]);
+  }, [activeDeals, activeFilters, activeTab, isTopLootVisible, topLootDealIds]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
@@ -236,7 +251,7 @@ export const HomeView: React.FC = () => {
       </section>
 
       {/* 1. HOT LOOT DEALS SPOTLIGHT (Feature 1: Top of Homepage - Swipeable on mobile) */}
-      {(!activeFilters.store || activeFilters.store === 'all') && topLootDeals.length > 0 && (
+      {isTopLootVisible && (
         <section className="bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border border-orange-200/80 rounded-3xl p-4 sm:p-6 space-y-3.5 sm:space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
