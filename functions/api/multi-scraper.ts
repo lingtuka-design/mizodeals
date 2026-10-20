@@ -647,6 +647,138 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
+  // SOURCE 5: NYKAA BEAUTY & SKINCARE BESTSELLER DEALS
+  // ==========================================
+  if (!filterSource || filterSource === 'all' || filterSource === 'nykaa') {
+    const nykaaCatalog = [
+      {
+        pid: 'NYK54116',
+        title: 'Maybelline New York Super Stay Vinyl Ink Liquid Lipstick (Long-Wear Transferproof)',
+        price: 649,
+        originalPrice: 849,
+        discountPercent: 24,
+        rating: 4.5,
+        ratingsCount: 14200,
+        imageUrl: 'https://images-static.nykaa.com/media/catalog/product/4/7/47e3cf9MAYBE00000403z_1.jpg?tr=w-500',
+        url: 'https://www.nykaa.com/maybelline-new-york-super-stay-vinyl-ink-liquid-lipstick/p/54116',
+        couponText: '⚡ Trending Beauty Loot',
+      },
+      {
+        pid: 'NYK1067982',
+        title: 'Minimalist 10% Niacinamide Face Serum with Zinc For Blemish & Acne Marks (30ml)',
+        price: 569,
+        originalPrice: 599,
+        discountPercent: 5,
+        rating: 4.6,
+        ratingsCount: 28500,
+        imageUrl: 'https://images-static.nykaa.com/media/catalog/product/f/f/ff6433d8906128102379_1.jpg?tr=w-500',
+        url: 'https://www.nykaa.com/minimalist-10percent-niacinamide-face-serum-with-zinc/p/1067982',
+        couponText: '⭐ Dermatologist Recommended',
+      },
+      {
+        pid: 'NYK573572',
+        title: 'Kay Beauty Matte Action Lip Liner - Waterproof & Ultra Long Lasting (Hypoallergenic)',
+        price: 499,
+        originalPrice: 599,
+        discountPercent: 17,
+        rating: 4.4,
+        ratingsCount: 8900,
+        imageUrl: 'https://images-static.nykaa.com/media/catalog/product/b/3/b328fc08904330900257_1.jpg?tr=w-500',
+        url: 'https://www.nykaa.com/kay-beauty-matte-action-lip-liner/p/573572',
+        couponText: '💄 Katrina Kaif Brand',
+      },
+      {
+        pid: 'NYK5095369',
+        title: 'Dot & Key Vitamin C + E Super Bright Sunscreen SPF 50+ PA++++ (No White Cast)',
+        price: 395,
+        originalPrice: 445,
+        discountPercent: 11,
+        rating: 4.5,
+        ratingsCount: 19800,
+        imageUrl: 'https://images-static.nykaa.com/media/catalog/product/e/9/e9e5b79DOTKE00000213l_1.jpg?tr=w-500',
+        url: 'https://www.nykaa.com/dot-key-vitamin-c-e-super-bright-sunscreen-spf-50-pa-in-vivo-tested/p/5095369',
+        couponText: '☀️ Daily UV Shield',
+      },
+      {
+        pid: 'NYK20432',
+        title: 'Cetaphil Gentle Skin Cleanser For Sensitive & Dry Skin (Hydrating Formula)',
+        price: 359,
+        originalPrice: 399,
+        discountPercent: 10,
+        rating: 4.7,
+        ratingsCount: 36400,
+        imageUrl: 'https://images-static.nykaa.com/media/catalog/product/1/5/153feb3NYCETA0000010_M.jpg?tr=w-500',
+        url: 'https://www.nykaa.com/cetaphil-gentle-skin-cleanser/p/20432',
+        couponText: '💧 Gentle Hydration',
+      },
+      {
+        pid: 'NYK5069134',
+        title: 'The Ordinary Niacinamide 10% + Zinc 1% High Strength Blemish Serum (30ml)',
+        price: 585,
+        originalPrice: 650,
+        discountPercent: 10,
+        rating: 4.6,
+        ratingsCount: 42100,
+        imageUrl: 'https://images-static.nykaa.com/media/catalog/product/8/8/88a48a1THECI00000026_1.jpg?tr=w-500',
+        url: 'https://www.nykaa.com/the-ordinary-niacinamide-10-zinc-1-high-strength-face-serum-for-oil-control-and-blemishes/p/5069134',
+        couponText: '🏆 Cult Global Bestseller',
+      },
+      {
+        pid: 'NYK380963',
+        title: 'Plum Green Tea Pore Cleansing Face Wash with Glycolic Acid (Acne & Oil Control)',
+        price: 296,
+        originalPrice: 395,
+        discountPercent: 25,
+        rating: 4.4,
+        ratingsCount: 15300,
+        imageUrl: 'https://images-static.nykaa.com/media/catalog/product/b/b/bbed6a8PLUMX00001019_01.jpg?tr=w-500',
+        url: 'https://www.nykaa.com/plum-green-tea-pore-cleansing-face-wash-with-glycolic-acid-fights-pimpels-control-oil/p/380963',
+        couponText: '🌿 100% Vegan Cleanser',
+      },
+      {
+        pid: 'NYK1210134',
+        title: 'Nykaa Cosmetics Matte to Last Transferproof Liquid Lipstick (Deep Matte)',
+        price: 499,
+        originalPrice: 649,
+        discountPercent: 23,
+        rating: 4.4,
+        ratingsCount: 22700,
+        imageUrl: 'https://images-static.nykaa.com/media/catalog/product/c/7/c74658d8904245704247_1.jpg?tr=w-500',
+        url: 'https://www.nykaa.com/nykaa-matte-to-last-transferproof-liquid-lipstick/p/vn/1210134',
+        couponText: '💋 Transfer-Proof 12H',
+      },
+    ];
+
+    for (const item of nykaaCatalog) {
+      if (seenAsins.has(item.pid)) continue;
+      seenAsins.add(item.pid);
+
+      let affiliateUrl = await convertWithEarnkaro(item.url);
+      if (!affiliateUrl) {
+        affiliateUrl = `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(item.url)}`;
+      }
+
+      collectedDeals.push({
+        dealId: `nyk-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
+        title: item.title,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        discountPercent: item.discountPercent,
+        rating: item.rating,
+        ratingsCount: item.ratingsCount,
+        imageUrl: item.imageUrl,
+        asin: item.pid,
+        amazonUrl: affiliateUrl,
+        store: 'nykaa',
+        category: 'beauty',
+        source: 'IndiaDesire',
+        isLootDeal: item.discountPercent >= 20,
+        couponText: item.couponText,
+      });
+    }
+  }
+
+  // ==========================================
   // AUTO-PUBLISH TO CLOUDFLARE D1 DATABASE
   // ==========================================
   let insertedCount = 0;
