@@ -236,7 +236,7 @@ export const HomeView: React.FC = () => {
       </section>
 
       {/* 1. HOT LOOT DEALS SPOTLIGHT (Feature 1: Top of Homepage - Swipeable on mobile) */}
-      {topLootDeals.length > 0 && (
+      {(!activeFilters.store || activeFilters.store === 'all') && topLootDeals.length > 0 && (
         <section className="bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border border-orange-200/80 rounded-3xl p-4 sm:p-6 space-y-3.5 sm:space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -428,6 +428,8 @@ export const HomeView: React.FC = () => {
               ? '🔥 Hot Loot Deals Catalog' 
               : activeTab === 'new'
               ? '✨ New Deals (Darkar Tlemte Chhunga Lo Lut)'
+              : activeFilters.store && activeFilters.store !== 'all'
+              ? `${STORE_BADGES[activeFilters.store]?.name || activeFilters.store} Deals`
               : !activeFilters.category || activeFilters.category === 'all'
               ? 'Live Deals Feed' 
               : `${activeFilters.category.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())} Deals`}
