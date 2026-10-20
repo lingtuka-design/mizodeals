@@ -88,12 +88,21 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     : '⚡ *MAN TLAHNIAM!* ⚡\n';
 
   const title = cleanTitle(deal.title);
+  const storeEmoji = {
+    flipkart: '🛒 *Flipkart*',
+    myntra: '👗 *Myntra*',
+    nykaa: '💄 *Nykaa*',
+    ajio: '🛍️ *Ajio*',
+    hm: '👔 *H&M*',
+    amazon: '📦 *Amazon.in*'
+  }[deal.store || 'amazon'] || '📦 *Amazon.in*';
 
   return (
     `${lootHeader}` +
     `*${title}*\n\n` +
     `💰 Deal Price: *${formatINR(deal.dealPrice)}* ~${formatINR(deal.originalPrice)}~${savingsText}\n` +
     `💥 Discount: *${deal.discountPercent}% OFF*\n` +
+    `🏬 Store: ${storeEmoji}\n` +
     `⭐ Rating: ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews)\n` +
     `${deal.couponText ? `🎟️ Coupon: ${deal.couponText}\n` : ''}\n` +
     `👉 *Enna leh Leina (Deal Link):*\n${dealUrl}\n\n` +
@@ -491,7 +500,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         !postedIds.has(d.id) &&
         d.asin &&
         !d.asin.startsWith('DM') &&
-        /^[A-Z0-9]{10}$/i.test(d.asin) &&
+        ((d.store && d.store !== 'amazon') || /^[A-Z0-9]{10}$/i.test(d.asin)) &&
         !postedIds.has(d.asin) &&
         (!d.affiliateUrl || (!d.affiliateUrl.includes('/s?k=') && !d.affiliateUrl.includes('/deal/'))) &&
         (d.isLootDeal || d.discountPercent >= 50) &&
@@ -538,16 +547,19 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
 
       const dealUrl = `https://mizodeals.com/deals/${deal.id}`;
       const caption = formatMessage(deal, dealUrl);
-      console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF)`);
+      console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF, store: ${deal.store || 'amazon'})`);
 
       let thumbBuffer = null;
       let rawImg = deal.imageUrl || '';
       if (rawImg.includes('dealsmagnet.com/images/') && rawImg.includes('-s-')) {
         rawImg = rawImg.replace('-s-', '-m-');
       }
+      if (deal.store === 'flipkart' && rawImg.includes('flixcart.com')) {
+        rawImg = rawImg.replace(/\/image\/\d+\/\d+\//, '/image/612/612/');
+      }
 
       let targetImgUrl = null;
-      if (deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
+      if ((!deal.store || deal.store === 'amazon') && deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
         targetImgUrl = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`;
       }
 

@@ -38,13 +38,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   onOpenAlert,
 }) => {
   const { showToast } = useToast();
-  const [imgSrc, setImgSrc] = React.useState(deal ? getHighResImageUrl(deal.imageUrl, deal.asin) : '');
+  const [imgSrc, setImgSrc] = React.useState(deal ? getHighResImageUrl(deal.imageUrl, deal.asin, deal.store) : '');
 
   React.useEffect(() => {
     if (deal) {
-      setImgSrc(getHighResImageUrl(deal.imageUrl, deal.asin));
+      setImgSrc(getHighResImageUrl(deal.imageUrl, deal.asin, deal.store));
     }
-  }, [deal?.imageUrl, deal?.asin]);
+  }, [deal?.imageUrl, deal?.asin, deal?.store]);
 
   if (!isOpen || !deal) return null;
 

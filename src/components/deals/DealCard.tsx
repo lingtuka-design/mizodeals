@@ -70,13 +70,13 @@ export const DealCard: React.FC<DealCardProps> = ({
     onOpenDetails?.(deal);
   };
 
-  const [imgSrc, setImgSrc] = React.useState(getHighResImageUrl(deal.imageUrl, deal.asin));
+  const [imgSrc, setImgSrc] = React.useState(getHighResImageUrl(deal.imageUrl, deal.asin, deal.store));
   const [imageError, setImageError] = React.useState(!deal.imageUrl && !deal.asin);
 
   React.useEffect(() => {
-    setImgSrc(getHighResImageUrl(deal.imageUrl, deal.asin));
+    setImgSrc(getHighResImageUrl(deal.imageUrl, deal.asin, deal.store));
     setImageError(!deal.imageUrl && !deal.asin);
-  }, [deal.imageUrl, deal.asin]);
+  }, [deal.imageUrl, deal.asin, deal.store]);
 
   return (
     <div 

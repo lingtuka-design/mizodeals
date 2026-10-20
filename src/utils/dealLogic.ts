@@ -71,13 +71,16 @@ export function formatDealTime(dateString: string): string {
  * 2. If DealsMagnet thumbnail (-s- / -m-), upgrades to large (-l-)
  * 3. If Amazon media URL with small sizing modifier, upgrades to high-res (_SL800_)
  */
-export function getHighResImageUrl(url?: string | null, asin?: string | null): string {
-  if (asin && /^[A-Z0-9]{10}$/i.test(asin)) {
+export function getHighResImageUrl(url?: string | null, asin?: string | null, store?: string): string {
+  if ((!store || store === 'amazon') && asin && /^[A-Z0-9]{10}$/i.test(asin)) {
     return `https://images-eu.ssl-images-amazon.com/images/P/${asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`;
   }
   if (!url) return '';
   if (url.includes('dealsmagnet.com/images/')) {
     return url.replace('-s-', '-l-').replace('-m-', '-l-');
+  }
+  if (url.includes('flixcart.com')) {
+    return url.replace(/\/image\/\d+\/\d+\//, '/image/612/612/');
   }
   if (url.includes('images-eu.ssl-images-amazon.com') || url.includes('media-amazon.com')) {
     return url.replace(/\._[A-Z0-9_,]+_\./i, '._SL800_.');

@@ -58,7 +58,7 @@ export const PriceAlertModal: React.FC<PriceAlertModalProps> = ({ deal, isOpen, 
 
         <div className="my-4 p-3 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl flex items-center gap-3">
           <img
-            src={getHighResImageUrl(deal.imageUrl, deal.asin)}
+            src={getHighResImageUrl(deal.imageUrl, deal.asin, deal.store)}
             alt={deal.title}
             onLoad={(e) => {
               if (e.currentTarget.naturalWidth <= 2 && deal.imageUrl) {

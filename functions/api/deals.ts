@@ -52,24 +52,30 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const targetTag = env.AMAZON_PARTNER_TAG || 'lalmalsawmtlu-21';
     const { results } = await env.DB.prepare(query).bind(...params).all();
 
-    // Filter out any stale/legacy deals that contain search collection URLs (/s?k=) or non-Amazon fake ASINs
+    // Filter out any stale/legacy deals that contain search collection URLs (/s?k=)
     const validRows = (results || []).filter((row: any) => {
-      if (!row.asin || row.asin.startsWith('DM') || !/^[A-Z0-9]{10}$/i.test(row.asin)) return false;
+      if (!row.asin || row.asin.startsWith('DM')) return false;
+      const isAmz = !row.store || row.store === 'amazon';
+      if (isAmz && !/^[A-Z0-9]{10}$/i.test(row.asin)) return false;
       if (row.affiliate_url && (row.affiliate_url.includes('/s?k=') || row.affiliate_url.includes('/deal/'))) return false;
       return true;
     });
 
     // Map database snake_case columns back to Deal interface
     const mappedDeals: Deal[] = validRows.map((row: any) => {
-      const cleanAsin = row.asin.toUpperCase();
-      const directAffiliateUrl = `https://www.amazon.in/dp/${cleanAsin}?tag=${targetTag}`;
+      const store = row.store || 'amazon';
+      let affiliateUrl = row.affiliate_url;
+      if (!affiliateUrl || store === 'amazon') {
+        const cleanAsin = row.asin.toUpperCase();
+        affiliateUrl = `https://www.amazon.in/dp/${cleanAsin}?tag=${targetTag}`;
+      }
 
       return {
         id: row.id,
-        asin: cleanAsin,
+        asin: row.asin,
         title: row.title,
         category: row.category,
-        store: row.store || 'amazon',
+        store: store,
         originalPrice: row.original_price,
         dealPrice: row.deal_price,
         currentPrice: row.current_price,
@@ -80,7 +86,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           row.image_url && row.image_url.includes('dealsmagnet.com/images/') && row.image_url.includes('-s-')
             ? row.image_url.replace('-s-', '-m-')
             : row.image_url,
-        affiliateUrl: directAffiliateUrl,
+        affiliateUrl: affiliateUrl,
         status: row.status,
         isLootDeal: Boolean(row.is_loot_deal),
         couponText: row.coupon_text,

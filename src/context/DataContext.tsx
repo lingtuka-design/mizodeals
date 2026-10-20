@@ -38,14 +38,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed
             .filter((d: Deal) => {
-              // Strictly reject search collections and fake ASINs from cache
-              if (!d.asin || d.asin.startsWith('DM') || !/^[A-Z0-9]{10}$/i.test(d.asin)) return false;
+              if (!d.asin || d.asin.startsWith('DM')) return false;
+              const isAmz = !d.store || d.store === 'amazon';
+              if (isAmz && !/^[A-Z0-9]{10}$/i.test(d.asin)) return false;
               if (d.affiliateUrl && (d.affiliateUrl.includes('/s?k=') || d.affiliateUrl.includes('/deal/'))) return false;
               return true;
             })
             .map((d: Deal) => ({
               ...d,
-              affiliateUrl: ensureAffiliateTag(d.affiliateUrl || buildAffiliateUrl(d.asin, d.store)),
+              affiliateUrl: (!d.store || d.store === 'amazon')
+                ? ensureAffiliateTag(d.affiliateUrl || buildAffiliateUrl(d.asin, d.store))
+                : d.affiliateUrl,
             }));
         }
       }

@@ -47,6 +47,7 @@ export const HomeView: React.FC = () => {
     lootOnly: activeTab === 'loot' || Boolean(searchParams.lootOnly),
     tab: activeTab,
     priceRange: searchParams.priceRange || 'all',
+    store: searchParams.store || 'all',
   }), [searchParams, activeTab]);
 
   const handleFilterChange = (newFilters: Partial<DealsFilterParams>) => {
@@ -64,6 +65,7 @@ export const HomeView: React.FC = () => {
         if (!next.lootOnly || next.lootOnly === 'false' || next.lootOnly === false) delete next.lootOnly;
         if (!next.tab || next.tab === 'all') delete next.tab;
         if (!next.priceRange || next.priceRange === 'all') delete next.priceRange;
+        if (!next.store || next.store === 'all') delete next.store;
         return next;
       },
     });
@@ -91,6 +93,7 @@ export const HomeView: React.FC = () => {
       sports: 0,
       home_kitchen: 0,
       gadgets: 0,
+      beauty: 0,
     };
 
     activeDeals.forEach((deal) => {
@@ -111,6 +114,12 @@ export const HomeView: React.FC = () => {
       }
       if (activeTab === 'new' && !isNewDeal(deal, 6)) {
         return false;
+      }
+
+      // Store filter
+      if (activeFilters.store && activeFilters.store !== 'all') {
+        const store = deal.store || 'amazon';
+        if (store !== activeFilters.store) return false;
       }
 
       // Category filter
@@ -286,7 +295,7 @@ export const HomeView: React.FC = () => {
                       title={`Open ${deal.title} on ${storeBadge.name}`}
                     >
                       <img
-                        src={getHighResImageUrl(deal.imageUrl, deal.asin)}
+                        src={getHighResImageUrl(deal.imageUrl, deal.asin, deal.store)}
                         alt={deal.title}
                         onLoad={(e) => {
                           if (e.currentTarget.naturalWidth <= 2 && deal.imageUrl) {

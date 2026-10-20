@@ -15,6 +15,7 @@ export const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = 
   sports: { label: 'Sports & Fitness', icon: 'Activity' },
   home_kitchen: { label: 'Home & Kitchen', icon: 'Home' },
   gadgets: { label: 'Gadgets & Tech', icon: 'Smartphone' },
+  beauty: { label: 'Beauty & Skincare', icon: 'Sparkles' },
 };
 
 export const STORE_BADGES: Record<string, { name: string; bg: string; text: string; border: string }> = {
@@ -30,10 +31,28 @@ export const STORE_BADGES: Record<string, { name: string; bg: string; text: stri
     text: 'text-blue-800',
     border: 'border-blue-200',
   },
+  myntra: {
+    name: 'Myntra',
+    bg: 'bg-pink-50',
+    text: 'text-pink-800',
+    border: 'border-pink-200',
+  },
+  nykaa: {
+    name: 'Nykaa',
+    bg: 'bg-fuchsia-50',
+    text: 'text-fuchsia-800',
+    border: 'border-fuchsia-200',
+  },
   hm: {
     name: 'H&M',
     bg: 'bg-rose-50',
     text: 'text-rose-800',
     border: 'border-rose-200',
+  },
+  ajio: {
+    name: 'Ajio',
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-800',
+    border: 'border-emerald-200',
   },
 };

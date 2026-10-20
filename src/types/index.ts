@@ -4,9 +4,10 @@ export type DealCategory =
   | 'electronics'
   | 'sports'
   | 'home_kitchen'
-  | 'gadgets';
+  | 'gadgets'
+  | 'beauty';
 
-export type StoreType = 'amazon' | 'flipkart' | 'hm';
+export type StoreType = 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'hm' | 'ajio';
 
 export type DealStatus = 'active' | 'expired';
 

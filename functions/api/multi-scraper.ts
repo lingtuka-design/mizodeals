@@ -9,6 +9,7 @@ interface ScrapedDeal {
   imageUrl: string;
   asin: string | null;
   amazonUrl: string;
+  store: 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio';
   category: string;
   source: 'Telegram Deals' | 'DealsMagnet' | 'IndiaFreeStuff' | 'IndiaDesire';
   isLootDeal: boolean;
@@ -20,9 +21,40 @@ interface Env {
   AMAZON_PARTNER_TAG?: string;
 }
 
+const EARNKARO_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YWQ2ZmI1ZGVmOTM2Y2JkNzEzZWRhYTUiLCJlYXJua2FybyI6IjU3MzAzOTIiLCJpYXQiOjE3OTI0NzQyMTJ9.yC7pF3WzcpVcl5yPEbe2rtg0DugrglJ64SUJqmDNOc0';
+
+async function convertWithEarnkaro(targetUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch('https://ekaro-api.affiliaters.in/api/converter/public', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${EARNKARO_TOKEN}`,
+      },
+      body: JSON.stringify({
+        deal: targetUrl,
+        convert_option: 'convert_only',
+      }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      const data: any = await res.json();
+      if (data && data.success === 1 && typeof data.data === 'string' && data.data.startsWith('http')) {
+        return data.data;
+      }
+    }
+  } catch (e: any) {
+    console.error('EarnKaro conversion failed for:', targetUrl, e?.message);
+  }
+  return `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(targetUrl)}`;
+}
+
 // Category classifier helper
 function classifyCategory(title: string): string {
   const t = title.toLowerCase();
+  if (/lipstick|perfume|serum|sunscreen|lotion|cream|shampoo|skincare|cosmetic|kajal|beauty|makeup|facewash/i.test(t)) {
+    return 'beauty';
+  }
   if (/phone|iphone|samsung|oneplus|realme|redmi|mobile|smartphone|case|charger|earbud|airpod|headphone|earphone|audio|speaker|bluetooth|gadget|smartwatch|watch|strap|tws|band/i.test(t)) {
     if (/phone|mobile|case|charger|headphone|earbud|speaker|smartwatch/i.test(t)) return 'gadgets';
     return 'electronics';
@@ -31,10 +63,10 @@ function classifyCategory(title: string): string {
     return 'electronics';
   }
   if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|jacket|sock|sandal|wallet|bag|fashion|cloth|wear/i.test(t)) {
-    return 'fashion';
+    return 'shoes_fashion';
   }
   if (/cooker|bottle|pan|bedsheet|pillow|light|lamp|curtain|mop|cleaner|purifier|kettle|knife|kitchen|home|room|towel/i.test(t)) {
-    return 'home';
+    return 'home_kitchen';
   }
   if (/gym|fitness|dumbbell|badminton|football|cricket|yoga|sport|cycle|exercise/i.test(t)) {
     return 'sports';
@@ -223,6 +255,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               imageUrl,
               asin,
               amazonUrl: cleanUrl,
+              store: 'amazon',
               category,
               source: 'Telegram Deals',
               isLootDeal: discountPercent >= 50,
@@ -359,6 +392,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               imageUrl,
               asin,
               amazonUrl: cleanUrl,
+              store: 'amazon',
               category,
               source: 'DealsMagnet',
               isLootDeal: discountPercent >= 50,
@@ -433,6 +467,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                 imageUrl,
                 asin,
                 amazonUrl: cleanUrl,
+                store: 'amazon',
                 category: classifyCategory(title),
                 source: 'IndiaFreeStuff',
                 isLootDeal: true,
@@ -474,15 +509,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               continue;
             }
 
-            // 2. Extract ASIN (pid or redirectpid1)
-            const asinMatch = box.match(/pid=['"]([A-Z0-9]{10})['"]/i) || box.match(/redirectpid1=([A-Z0-9]{10})/i);
-            const storeMatch = box.match(/store=['"]([^'"]+)['"]/i);
-            const store = storeMatch ? storeMatch[1].toLowerCase() : (asinMatch ? 'amazon' : 'unknown');
+            // 2. Extract Store & PID
+            const storeMatch = box.match(/store=([^&'"\s>]+)/i) || box.match(/store=['"]([^'"]+)['"]/i);
+            const rawStore = storeMatch ? storeMatch[1].toLowerCase() : 'amazon';
+            if (rawStore !== 'amazon' && rawStore !== 'flipkart' && rawStore !== 'myntra' && rawStore !== 'nykaa' && rawStore !== 'ajio') {
+              continue;
+            }
+            const store = rawStore as 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio';
 
-            // Strictly process Amazon deals with verified 10-char ASIN
-            if (store !== 'amazon' || !asinMatch) continue;
-            const asin = asinMatch[1].toUpperCase();
-            if (seenAsins.has(asin)) continue;
+            const asinMatch = box.match(/pid=['"]([A-Z0-9]{10})['"]/i) || box.match(/redirectpid1=([A-Z0-9]{10})/i);
+            const pidMatch = (store === 'amazon' ? asinMatch : null) || box.match(/pid=['"]([^'"]+)['"]/i) || box.match(/redirectpid1=([^&'"\s>]+)/i);
+            if (!pidMatch) continue;
+            const pid = pidMatch[1].trim();
+            if (seenAsins.has(pid)) continue;
 
             // 3. Extract title
             const titleMatch = box.match(/id="[^"]*OfferDetails[^"]*">([\s\S]*?)<\/span>/i) || box.match(/alt=['"]([^'"]+)['"]/i);
@@ -491,7 +530,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             if (!title || title.length < 5) continue;
 
             title = title
-              .replace(/^(?:Amazon|Flipkart)\s*:\s*/i, '')
+              .replace(/^(?:Amazon|Flipkart|Myntra|Nykaa|Ajio)\s*:\s*/i, '')
               .replace(/^(?:flat|up\s*to)?\s*\d+%\s*off\s*[-:]?\s*/i, '')
               .trim();
 
@@ -517,31 +556,65 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             // 6. Image extraction: prefer high-resolution
             const imgMatch = box.match(/data-src=['"]([^'"]+)['"]/i) || box.match(/src=['"](https:\/\/[^'"]+)['"]/i);
             let imageUrl = imgMatch ? imgMatch[1] : '';
-            if (imageUrl.includes('_SL300_')) {
-              imageUrl = imageUrl.replace('_SL300_', '_SL600_');
-            }
 
-            // Prefer Amazon official Ultra-HD photo if available
-            const officialAmzImg = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
-            try {
-              const headImg = await fetch(officialAmzImg, {
-                method: 'HEAD',
-                signal: AbortSignal.timeout(1500),
-              });
-              const cl = parseInt(headImg.headers.get('content-length') || '0', 10);
-              if (headImg.ok && cl > 1000) {
+            if (store === 'amazon') {
+              if (imageUrl.includes('_SL300_')) {
+                imageUrl = imageUrl.replace('_SL300_', '_SL600_');
+              }
+              const officialAmzImg = `https://images-eu.ssl-images-amazon.com/images/P/${pid}.01.MAIN._SCRMZZZZZZ_.jpg`;
+              try {
+                const headImg = await fetch(officialAmzImg, {
+                  method: 'HEAD',
+                  signal: AbortSignal.timeout(1500),
+                });
+                const cl = parseInt(headImg.headers.get('content-length') || '0', 10);
+                if (headImg.ok && cl > 1000) {
+                  imageUrl = officialAmzImg;
+                }
+              } catch (e) {}
+              if (!imageUrl || !imageUrl.startsWith('http')) {
                 imageUrl = officialAmzImg;
               }
-            } catch (e) {}
-
-            if (!imageUrl || !imageUrl.startsWith('http')) {
-              imageUrl = officialAmzImg;
+            } else if (store === 'flipkart') {
+              if (imageUrl.includes('flixcart.com')) {
+                imageUrl = imageUrl.replace(/\/image\/\d+\/\d+\//, '/image/612/612/');
+              }
             }
 
-            seenAsins.add(asin);
+            if (!imageUrl || !imageUrl.startsWith('http')) continue;
 
-            const category = classifyCategory(title);
-            const cleanUrl = `https://www.amazon.in/dp/${asin}?tag=${targetTag}`;
+            seenAsins.add(pid);
+
+            // 7. Category classification
+            let category = classifyCategory(title);
+            if ((store === 'myntra' || store === 'ajio') && (category === 'electronics' || category === 'gadgets')) {
+              category = 'shoes_fashion';
+            }
+            if (store === 'nykaa') {
+              category = 'beauty';
+            }
+
+            // 8. Build target link & convert with EarnKaro
+            let cleanUrl = '';
+            if (store === 'amazon') {
+              cleanUrl = `https://www.amazon.in/dp/${pid.toUpperCase()}?tag=${targetTag}`;
+            } else if (store === 'flipkart') {
+              const target = `https://www.flipkart.com/product/p/itme?pid=${pid}`;
+              const converted = await convertWithEarnkaro(target);
+              cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(target)}`;
+            } else if (store === 'myntra') {
+              const target = `https://www.myntra.com/a/b/c/${pid}/buy`;
+              const converted = await convertWithEarnkaro(target);
+              cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(target)}`;
+            } else if (store === 'nykaa') {
+              const target = `https://www.nykaa.com/product/p/${pid}`;
+              const converted = await convertWithEarnkaro(target);
+              cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(target)}`;
+            } else if (store === 'ajio') {
+              const target = `https://www.ajio.com/p/${pid}`;
+              const converted = await convertWithEarnkaro(target);
+              cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(target)}`;
+            }
 
             collectedDeals.push({
               dealId: `id-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
@@ -552,8 +625,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               rating: 4.4,
               ratingsCount: 2450,
               imageUrl,
-              asin,
+              asin: pid,
               amazonUrl: cleanUrl,
+              store,
               category,
               source: 'IndiaDesire',
               isLootDeal: discountPercent >= 50,
@@ -575,14 +649,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const nowIso = new Date().toISOString();
     for (const deal of collectedDeals) {
       // STRICT VERIFICATION GATE:
-      // 1. Must have authentic 10-character Amazon ASIN (strictly no DM- slugs or search collections)
-      // 2. Must have valid product image starting with http
-      // 3. Must NOT have any Unsplash or stock placeholder images
-      // 4. Must NOT have search collection URLs (/s?k= or /deal/)
+      // 1. Amazon deals must have authentic 10-character Amazon ASIN
+      // 2. Non-Amazon deals (Flipkart/Myntra/Nykaa/Ajio) must have valid product ID
+      // 3. Must have valid product image starting with http
+      // 4. Must NOT have any Unsplash or stock placeholder images
+      // 5. Must NOT have search collection URLs (/s?k= or /deal/)
+      const isAmz = !deal.store || deal.store === 'amazon';
+      if (isAmz && (!deal.asin || !/^[A-Z0-9]{10}$/i.test(deal.asin))) {
+        continue;
+      }
       if (
         !deal.asin ||
         deal.asin.startsWith('DM') ||
-        !/^[A-Z0-9]{10}$/i.test(deal.asin) ||
         !deal.imageUrl ||
         !deal.imageUrl.startsWith('http') ||
         deal.imageUrl.length < 15 ||
@@ -612,7 +690,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             finalAsin,
             deal.title,
             deal.category,
-            'amazon',
+            deal.store || 'amazon',
             deal.originalPrice,
             deal.price,
             deal.price,
@@ -624,7 +702,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             'active',
             deal.isLootDeal ? 1 : 0,
             deal.couponText || (deal.discountPercent >= 55 ? '🔥 Price Tlahniam Nasa!' : null),
-            `Curated from ${deal.source}. 100% genuine Amazon India deal verified with ${deal.discountPercent}% OFF.`,
+            `Curated from ${deal.source}. 100% genuine ${deal.store ? deal.store.toUpperCase() : 'Amazon'} deal verified with ${deal.discountPercent}% OFF.`,
             nowIso,
             nowIso,
             'Auto-harvested'

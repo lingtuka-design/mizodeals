@@ -12,7 +12,7 @@ import {
   Home,
   Smartphone
 } from 'lucide-react';
-import type { DealCategory, DealsFilterParams } from '../../types';
+import type { DealCategory, DealsFilterParams, StoreType } from '../../types';
 
 interface DealFiltersProps {
   filters: DealsFilterParams;
@@ -28,6 +28,16 @@ const CATEGORIES: { id: DealCategory; label: string; icon: React.FC<{ className?
   { id: 'sports', label: 'Sports & Fitness', icon: Activity },
   { id: 'home_kitchen', label: 'Home & Kitchen', icon: Home },
   { id: 'gadgets', label: 'Gadgets & Tech', icon: Smartphone },
+  { id: 'beauty', label: 'Beauty & Skincare', icon: Sparkles },
+];
+
+const STORES: { id: StoreType | 'all'; label: string }[] = [
+  { id: 'all', label: 'All Stores' },
+  { id: 'amazon', label: 'Amazon.in' },
+  { id: 'flipkart', label: 'Flipkart' },
+  { id: 'myntra', label: 'Myntra' },
+  { id: 'nykaa', label: 'Nykaa' },
+  { id: 'ajio', label: 'Ajio' },
 ];
 
 const PRICE_RANGES = [
@@ -138,6 +148,30 @@ export const DealFilters: React.FC<DealFiltersProps> = ({
         })}
       </div>
 
+      {/* Store Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 text-xs">
+        <span className="text-[11px] font-semibold text-stone-500 flex items-center gap-1 shrink-0 mr-1">
+          Store:
+        </span>
+        {STORES.map((s) => {
+          const isSelected = (filters.store || 'all') === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onFilterChange({ store: s.id })}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
+                isSelected
+                  ? 'bg-orange-600 text-white border-orange-600 shadow-2xs'
+                  : 'bg-white text-stone-700 border-[#EAE6DF] hover:border-stone-300 hover:bg-stone-50'
+              }`}
+            >
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Price Range Sub-Filter Chips */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 text-xs">
         <span className="text-[11px] font-semibold text-stone-500 flex items-center gap-1 shrink-0 mr-1">
@@ -163,10 +197,10 @@ export const DealFilters: React.FC<DealFiltersProps> = ({
         })}
 
         {/* Clear filters shortcut */}
-        {(filters.search || filters.category !== 'all' || filters.lootOnly || (filters.priceRange && filters.priceRange !== 'all')) && (
+        {(filters.search || (filters.category && filters.category !== 'all') || filters.lootOnly || (filters.priceRange && filters.priceRange !== 'all') || (filters.store && filters.store !== 'all')) && (
           <button
             type="button"
-            onClick={() => onFilterChange({ category: 'all', search: '', lootOnly: false, priceRange: 'all' })}
+            onClick={() => onFilterChange({ category: 'all', search: '', lootOnly: false, priceRange: 'all', store: 'all' })}
             className="text-[11px] font-semibold text-stone-500 hover:text-stone-800 underline underline-offset-2 shrink-0 ml-2"
           >
             Reset Filters
