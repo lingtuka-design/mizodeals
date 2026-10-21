@@ -28,8 +28,10 @@ import {
   Globe,
   Check,
   ArrowRight,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
+import { AnalyticsPanel } from '../components/admin/AnalyticsPanel';
 
 const ADMIN_USERNAME = 'lingtuka';
 const ADMIN_PASSWORD = 'MAWLA1984@mala';
@@ -60,7 +62,7 @@ export const AdminView: React.FC = () => {
   const [authError, setAuthError] = useState('');
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'deals' | 'scraper' | 'blogs' | 'whatsapp' | 'backup'>('deals');
+  const [activeTab, setActiveTab] = useState<'deals' | 'scraper' | 'blogs' | 'whatsapp' | 'backup' | 'analytics'>('deals');
 
   // Search filter inside admin
   const [searchTerm, setSearchTerm] = useState('');
@@ -678,6 +680,19 @@ export const AdminView: React.FC = () => {
         >
           <Download className="w-4 h-4" />
           <span>Backup & Sync</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('analytics')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeTab === 'analytics'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'bg-white text-stone-600 border border-[#EAE6DF] hover:bg-stone-50'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-emerald-600" />
+          <span>Visitor Analytics</span>
         </button>
       </div>
 
@@ -1472,6 +1487,11 @@ export const AdminView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* TAB 6: VISITOR ANALYTICS */}
+      {activeTab === 'analytics' && (
+        <AnalyticsPanel />
       )}
 
       {/* MODAL: ADD / EDIT DEAL */}

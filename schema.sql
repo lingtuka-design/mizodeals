@@ -26,3 +26,18 @@ CREATE INDEX IF NOT EXISTS idx_deals_status ON deals(status);
 CREATE INDEX IF NOT EXISTS idx_deals_category ON deals(category);
 CREATE INDEX IF NOT EXISTS idx_deals_created_at ON deals(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_deals_is_loot ON deals(is_loot_deal);
+
+CREATE TABLE IF NOT EXISTS page_views (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  path TEXT NOT NULL,
+  visitor_hash TEXT NOT NULL,
+  city TEXT,
+  region TEXT,
+  country TEXT,
+  device TEXT,
+  referrer TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pv_created_at ON page_views(created_at);
+CREATE INDEX IF NOT EXISTS idx_pv_visitor ON page_views(visitor_hash, created_at);
