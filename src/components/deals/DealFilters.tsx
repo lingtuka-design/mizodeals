@@ -56,6 +56,34 @@ export const DealFilters: React.FC<DealFiltersProps> = ({
 }) => {
   const activeCategory = filters.category || 'all';
 
+  // Local state for fast, buttery smooth typing without jitter or cursor jumping
+  const [searchTerm, setSearchTerm] = React.useState(filters.search || '');
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Synchronize local search if filters.search changes externally (e.g. reset filters)
+  React.useEffect(() => {
+    setSearchTerm(filters.search || '');
+  }, [filters.search]);
+
+  // Debounced search propagation to parent router (200ms)
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      const currentParam = filters.search || '';
+      const trimmed = searchTerm.trim();
+      if (trimmed !== currentParam) {
+        onFilterChange({ search: trimmed });
+      }
+    }, 200);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm, filters.search, onFilterChange]);
+
+  const handleClearSearch = () => {
+    setSearchTerm('');
+    onFilterChange({ search: '' });
+    inputRef.current?.focus();
+  };
+
   return (
     <div className="space-y-4">
       {/* Search Bar & Loot Deals Toggle */}
@@ -64,16 +92,23 @@ export const DealFilters: React.FC<DealFiltersProps> = ({
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
+            ref={inputRef}
             type="text"
-            value={filters.search || ''}
-            onChange={(e) => onFilterChange({ search: e.target.value })}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onFocus={() => {
+              // Ensure the search box remains comfortably in view above mobile keyboard
+              setTimeout(() => {
+                inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }, 250);
+            }}
             placeholder="Search deals, phones, shoes, laptops, brands..."
             className="w-full pl-10 pr-9 py-2.5 bg-white border border-[#EAE6DF] focus:border-orange-500 rounded-xl text-xs sm:text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all shadow-2xs"
           />
-          {filters.search && (
+          {searchTerm && (
             <button
               type="button"
-              onClick={() => onFilterChange({ search: '' })}
+              onClick={handleClearSearch}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 rounded-full"
               aria-label="Clear search"
             >

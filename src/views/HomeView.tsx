@@ -68,6 +68,8 @@ export const HomeView: React.FC = () => {
         if (!next.store || next.store === 'all') delete next.store;
         return next;
       },
+      resetScroll: false,
+      replace: true,
     });
   };
 
