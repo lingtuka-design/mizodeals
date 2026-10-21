@@ -34,7 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
               </span>
             </div>
             <span className="hidden sm:block text-[10px] text-stone-500 font-medium leading-none mt-0.5">
-              Curated Amazon Deals
+              Online Deals Mizoram
             </span>
           </div>
         </Link>

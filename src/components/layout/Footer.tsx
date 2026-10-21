@@ -26,7 +26,7 @@ export const Footer: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-stone-600 max-w-md leading-relaxed">
-              Curated Amazon deals, instant price-drop tracking, and field-tested product buying guides tailored for smart online shoppers in Aizawl, Lunglei, Champhai, and across the Northeast.
+              Amazon, Flipkart, Myntra, Nykaa &amp; Ajio deal ṭha ber ber, man tlahniam zawn hmuhna, leh Mizoram mipui tana online shopping kaihhruaina.
             </p>
             <div className="flex items-center gap-2 pt-1">
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
