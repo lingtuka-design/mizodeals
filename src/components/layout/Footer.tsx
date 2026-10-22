@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from '@tanstack/react-router';
 import { ShieldCheck, Heart, ExternalLink, MapPin } from 'lucide-react';
-import { AFFILIATE_TAG, SITE_NAME, WHATSAPP_CHANNEL_URL } from '../../config/constants';
+import { AFFILIATE_TAG, SITE_NAME, WHATSAPP_CHANNEL_URL, FACEBOOK_PAGE_URL } from '../../config/constants';
 
 export const Footer: React.FC = () => {
   return (
@@ -64,6 +64,17 @@ export const Footer: React.FC = () => {
                   className="hover:text-[#128C7E] flex items-center gap-1"
                 >
                   <span>VIP WhatsApp Alerts</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href={FACEBOOK_PAGE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#1877F2] flex items-center gap-1"
+                >
+                  <span>Facebook Page</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </li>
