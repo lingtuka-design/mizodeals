@@ -163,6 +163,37 @@ const CHANNEL_JID = '120363414138647022@newsletter';
 const GROUP_INVITE_CODE = 'KCBEUuKs3Dk4TsowNE34dj';
 const FB_PAGE_ID = process.env.FB_PAGE_ID || '';
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || '';
+let lastFbPostTime = 0;
+const FB_COOLDOWN_MS = 2.5 * 60 * 60 * 1000; // 2.5 hours minimum interval between FB posts
+const FB_MIN_DISCOUNT = 60; // Only post high-discount deals (>= 60% OFF) to Facebook
+
+function canPostToFacebook(deal) {
+  if (!FB_PAGE_ID || !FB_PAGE_ACCESS_TOKEN) return { allowed: false, reason: 'No FB credentials' };
+
+  // 1. High discount / Loot deal gate
+  const discount = deal.discountPercent || 0;
+  if (discount < FB_MIN_DISCOUNT && !deal.isLootDeal) {
+    return { allowed: false, reason: `Discount ${discount}% is below ${FB_MIN_DISCOUNT}% threshold` };
+  }
+
+  // 2. Active hours gate: 08:00 AM to 10:30 PM IST (Asia/Kolkata)
+  const now = new Date();
+  const istTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false });
+  const [hStr, mStr] = istTimeStr.split(':');
+  const totalMins = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+  if (totalMins < 480 || totalMins > 1350) {
+    return { allowed: false, reason: `Outside active hours (08:00 AM - 10:30 PM IST)` };
+  }
+
+  // 3. Cooldown gate: minimum 2.5 hours between Facebook posts
+  const elapsed = Date.now() - lastFbPostTime;
+  if (elapsed < FB_COOLDOWN_MS) {
+    const minsLeft = Math.ceil((FB_COOLDOWN_MS - elapsed) / 60000);
+    return { allowed: false, reason: `Cooldown active (${minsLeft} mins left)` };
+  }
+
+  return { allowed: true };
+}
 let activeGroupJid = null;
 let latestQrDataUrl = null;
 let isConnected = false;
@@ -322,7 +353,7 @@ ${recentLogs.slice(-15).join('\n')}
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
-        <div>📘 <b>Facebook Page:</b> ${FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:600;">Active & Connected</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:6px;">Waiting for credentials</span>'}</div>
+        <div>📘 <b>Facebook Page:</b> ${FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:600;">Active (Smart Anti-Spam: 60%+ Loot Only, 2.5h Cooldown)</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:6px;">Waiting for credentials</span>'}</div>
       </div>
 
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
@@ -650,6 +681,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
     // Select top 2 deals per run (exactly like the reliable dev version)
     const toPost = orderedCandidates.slice(0, 2);
     let postedCount = 0;
+    let postedToFbThisCycle = false;
 
     for (const deal of toPost) {
 
@@ -776,12 +808,22 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           }
         }
 
-        // 3. Post to Facebook Page (if credentials provided)
-        if (FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN) {
-          try {
-            await postToFacebookPage(deal, caption, fullImageBuffer);
-          } catch (fbErr) {
-            console.error(`Failed to post to Facebook Page:`, fbErr.message);
+        // 3. Post to Facebook Page (Smart Anti-Spam Gate)
+        if (FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN && !postedToFbThisCycle) {
+          const fbCheck = canPostToFacebook(deal);
+          if (fbCheck.allowed) {
+            try {
+              const ok = await postToFacebookPage(deal, caption, fullImageBuffer);
+              if (ok) {
+                lastFbPostTime = Date.now();
+                postedToFbThisCycle = true;
+                console.log(`📘 [Facebook Gate] Cooldown started: Next FB post eligible in 2.5 hours.`);
+              }
+            } catch (fbErr) {
+              console.error(`Failed to post to Facebook Page:`, fbErr.message);
+            }
+          } else {
+            console.log(`📘 [Facebook Gate] Skipped FB: ${fbCheck.reason}`);
           }
         }
 
