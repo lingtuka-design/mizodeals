@@ -383,6 +383,7 @@ ${recentLogs.length > 0 ? recentLogs.join('\n') : 'Initializing bot...'}
 
 async function startBot() {
   try {
+    let sessionRestoredFromD1 = false;
     // 1. Auto-restore session from Cloudflare D1 if local auth_info is missing
     const credsPath = path.join(AUTH_DIR, 'creds.json');
     if (!fs.existsSync(credsPath)) {
@@ -397,6 +398,7 @@ async function startBot() {
               fs.writeFileSync(path.join(AUTH_DIR, fname), content, 'utf8');
             }
             console.log(`✅ Restored ${Object.keys(authData.files).length} session auth files from Cloudflare D1!`);
+            sessionRestoredFromD1 = true;
           }
         }
       } catch (d1Err) {
@@ -517,7 +519,9 @@ async function startBot() {
 
         console.log('======================================================\n');
 
-        syncAllAuthToCloud().catch(() => {});
+        if (!sessionRestoredFromD1) {
+          syncAllAuthToCloud().catch(() => {});
+        }
         ensureAutoPostScheduler();
 
         setTimeout(async () => {
