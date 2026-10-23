@@ -106,11 +106,13 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     `⭐ Rating: ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews)\n` +
     `${deal.couponText ? `🎟️ Coupon: ${deal.couponText}\n` : ''}\n` +
     `👉 *Enna leh Leina (Deal Link):*\n${dealUrl}\n\n` +
-    `📲 _Shared via Mizodeals VIP Channel_`
+    `📲 _Shared via Mizodeals VIP (mizodeals.com)_`
   );
 }
 
 const CHANNEL_JID = '120363414138647022@newsletter';
+const GROUP_INVITE_CODE = 'KCBEUuKs3Dk4TsowNE34dj';
+let activeGroupJid = null;
 let latestQrDataUrl = null;
 let isConnected = false;
 let activeSock = null;
@@ -431,6 +433,23 @@ async function startBot() {
         console.log('\n======================================================');
         console.log('✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
         console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);
+
+        // Automatically resolve Target Group JID
+        try {
+          const participatingGroups = await sock.groupFetchAllParticipating();
+          for (const [jid, group] of Object.entries(participatingGroups)) {
+            console.log(`👥 Found WhatsApp Group: "${group.subject}" (${jid})`);
+            activeGroupJid = jid;
+          }
+          if (!activeGroupJid && GROUP_INVITE_CODE) {
+            const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
+            activeGroupJid = inviteInfo.id;
+          }
+          console.log(`🎯 Target WhatsApp Group: ${activeGroupJid || 'None'}`);
+        } catch (gErr) {
+          console.warn('⚠️ Group resolution note:', gErr.message);
+        }
+
         console.log('======================================================\n');
 
         syncAllAuthToCloud().catch(() => {});
@@ -624,12 +643,29 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       };
 
       try {
-        await sock.sendMessage(channelJid, msgPayload);
+        // 1. Post to Channel
+        try {
+          await sock.sendMessage(channelJid, msgPayload);
+          console.log(`📢 [Channel] Posted deal: ${deal.title.slice(0, 30)}`);
+        } catch (chanErr) {
+          console.error(`Failed to post to Channel:`, chanErr.message);
+        }
+
+        // 2. Post to Group
+        if (activeGroupJid) {
+          try {
+            await sock.sendMessage(activeGroupJid, msgPayload);
+            console.log(`👥 [Group] Posted deal: ${deal.title.slice(0, 30)}`);
+          } catch (grpErr) {
+            console.error(`Failed to post to Group (${activeGroupJid}):`, grpErr.message);
+          }
+        }
+
         recordPostedDeal(deal);
         postedCount++;
-        console.log(`✅ [${postedCount}/${toPost.length}] Posted deal card: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        console.log(`✅ [${postedCount}/${toPost.length}] Successfully broadcast deal card: ${deal.id} - ${deal.title.slice(0, 30)}`);
 
-        // Wait 10 seconds between posts to keep channel clean
+        // Wait 10 seconds between posts to keep broadcast clean
         if (postedCount < toPost.length) {
           await new Promise((resolve) => setTimeout(resolve, 10000));
         }

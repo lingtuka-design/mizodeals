@@ -5,6 +5,7 @@ export const SITE_NAME = 'Mizodeals';
 export const SITE_TAGLINE = 'Curated Online Deals & Buying Guides for Mizoram';
 export const WHATSAPP_CHANNEL_URL = 'https://whatsapp.com/channel/0029VbE4k2N8fewji3I3Wa0t';
 export const WHATSAPP_CHANNEL_NAME = 'Mizodeals VIP Loot Channel';
+export const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/KCBEUuKs3Dk4TsowNE34dj';
 export const FACEBOOK_PAGE_URL = 'https://www.facebook.com/mizodealsofficial';
 export const WHATSAPP_COMMUNITY_MEMBERS = '2,850+';
 export const RENDER_BOT_URL = 'https://mizodeals-whatsapp-bot.onrender.com/';
