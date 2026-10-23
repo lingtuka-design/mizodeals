@@ -115,8 +115,44 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
   );
 }
 
+async function postToFacebookPage(deal, caption) {
+  if (!FB_PAGE_ID || !FB_PAGE_ACCESS_TOKEN) return false;
+  try {
+    let photoUrl = deal.imageUrl || '';
+    if ((!deal.store || deal.store === 'amazon') && deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
+      photoUrl = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`;
+    }
+
+    const fbCaption = caption.replace(/\*/g, '').replace(/~/g, '');
+    const fbApiUrl = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/photos`;
+    const res = await fetch(fbApiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: photoUrl,
+        caption: fbCaption,
+        access_token: FB_PAGE_ACCESS_TOKEN,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.id) {
+      console.log(`📘 [Facebook Page] Posted deal: ${deal.title.slice(0, 30)} (Photo ID: ${data.id})`);
+      return true;
+    } else {
+      console.error(`📘 [Facebook Page Error]:`, data.error?.message || data);
+      return false;
+    }
+  } catch (err) {
+    console.error(`Failed to post to Facebook Page:`, err.message);
+    return false;
+  }
+}
+
 const CHANNEL_JID = '120363414138647022@newsletter';
 const GROUP_INVITE_CODE = 'KCBEUuKs3Dk4TsowNE34dj';
+const FB_PAGE_ID = process.env.FB_PAGE_ID || '';
+const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || '';
 let activeGroupJid = null;
 let latestQrDataUrl = null;
 let isConnected = false;
@@ -276,6 +312,7 @@ ${recentLogs.slice(-15).join('\n')}
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
+        <div>📘 <b>Facebook Page:</b> ${FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:600;">Active & Connected</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:6px;">Waiting for credentials</span>'}</div>
       </div>
 
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
@@ -722,6 +759,15 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
             } catch (fallbackErr) {
               console.error(`Group fallback also failed:`, fallbackErr.message);
             }
+          }
+        }
+
+        // 3. Post to Facebook Page (if credentials provided)
+        if (FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN) {
+          try {
+            await postToFacebookPage(deal, caption);
+          } catch (fbErr) {
+            console.error(`Failed to post to Facebook Page:`, fbErr.message);
           }
         }
 
