@@ -83,8 +83,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       batch.push(stmt.bind(key, value, now));
     }
 
+    // Process D1 batch in chunks of 50 to prevent Cloudflare D1 limits
     if (batch.length > 0) {
-      await env.DB.batch(batch);
+      for (let i = 0; i < batch.length; i += 50) {
+        const slice = batch.slice(i, i + 50);
+        await env.DB.batch(slice);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, count: batch.length }), {

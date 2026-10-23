@@ -387,20 +387,21 @@ async function startBot() {
       try {
         if (!fs.existsSync(AUTH_DIR)) return;
         const files = fs.readdirSync(AUTH_DIR);
-        const fileMap = {};
-        for (const f of files) {
-          if (f.endsWith('.json')) {
+        const jsonFiles = files.filter((f) => f.endsWith('.json'));
+        console.log(`☁️ Syncing ${jsonFiles.length} auth session files to Cloudflare D1 in batches...`);
+        for (let i = 0; i < jsonFiles.length; i += 40) {
+          const chunk = jsonFiles.slice(i, i + 40);
+          const fileMap = {};
+          for (const f of chunk) {
             fileMap[f] = fs.readFileSync(path.join(AUTH_DIR, f), 'utf8');
           }
-        }
-        if (fileMap['creds.json']) {
           await fetch('https://mizodeals.com/api/bot-auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ files: fileMap }),
           });
-          console.log(`☁️ Synced ${Object.keys(fileMap).length} auth session files to Cloudflare D1!`);
         }
+        console.log(`✅ All ${jsonFiles.length} auth files securely backed up to Cloudflare D1!`);
       } catch (e) {
         console.warn('⚠️ Cloud sync notice:', e.message);
       }
