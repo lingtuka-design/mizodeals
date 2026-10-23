@@ -607,6 +607,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF, store: ${deal.store || 'amazon'})`);
 
       let thumbBuffer = null;
+      let fullImageBuffer = null;
       let rawImg = deal.imageUrl || '';
       if (rawImg.includes('dealsmagnet.com/images/') && rawImg.includes('-s-')) {
         rawImg = rawImg.replace('-s-', '-m-');
@@ -639,7 +640,21 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         }
 
         if (img) {
-          // Generate 1.91:1 widescreen canvas (500x262) for WhatsApp Large Hero Card
+          // 1. High-resolution square canvas (800x800) for WhatsApp Group full-width photo
+          try {
+            const groupSize = 800;
+            const groupCanvas = new Jimp({ width: groupSize, height: groupSize, color: 0xffffffff });
+            const groupImg = img.clone();
+            groupImg.scaleToFit({ w: 760, h: 760 });
+            const gx = Math.round((groupSize - groupImg.bitmap.width) / 2);
+            const gy = Math.round((groupSize - groupImg.bitmap.height) / 2);
+            groupCanvas.composite(groupImg, gx, gy);
+            fullImageBuffer = await groupCanvas.getBuffer('image/jpeg', { quality: 85 });
+          } catch (e) {
+            console.warn(`[GROUP IMAGE GENERATION FAILED] Deal ${deal.id}:`, e.message);
+          }
+
+          // 2. Generate 1.91:1 widescreen canvas (500x262) for WhatsApp Channel Hero Card
           const canvasW = 500;
           const canvasH = 262;
           const canvas = new Jimp({ width: canvasW, height: canvasH, color: 0xffffffff });
@@ -681,7 +696,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       };
 
       try {
-        // 1. Post to Channel
+        // 1. Post to Channel (using linkPreview which works reliably on @newsletter)
         try {
           await sock.sendMessage(channelJid, msgPayload);
           console.log(`📢 [Channel] Posted deal: ${deal.title.slice(0, 30)}`);
@@ -689,13 +704,24 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           console.error(`Failed to post to Channel:`, chanErr.message);
         }
 
-        // 2. Post to Group
+        // 2. Post to Group as Full-Width HD Image Message
         if (activeGroupJid) {
           try {
-            await sock.sendMessage(activeGroupJid, msgPayload);
-            console.log(`👥 [Group] Posted deal: ${deal.title.slice(0, 30)}`);
+            const groupPayload = fullImageBuffer
+              ? { image: fullImageBuffer, caption }
+              : (rawImg && rawImg.startsWith('http')
+                  ? { image: { url: rawImg }, caption }
+                  : msgPayload);
+
+            await sock.sendMessage(activeGroupJid, groupPayload);
+            console.log(`👥 [Group Full Photo] Posted deal: ${deal.title.slice(0, 30)}`);
           } catch (grpErr) {
-            console.error(`Failed to post to Group (${activeGroupJid}):`, grpErr.message);
+            console.error(`Failed to post image to Group (${activeGroupJid}), falling back to text:`, grpErr.message);
+            try {
+              await sock.sendMessage(activeGroupJid, msgPayload);
+            } catch (fallbackErr) {
+              console.error(`Group fallback also failed:`, fallbackErr.message);
+            }
           }
         }
 
