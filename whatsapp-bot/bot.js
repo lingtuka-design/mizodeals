@@ -115,25 +115,35 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
   );
 }
 
-async function postToFacebookPage(deal, caption) {
+async function postToFacebookPage(deal, caption, imageBuffer = null) {
   if (!FB_PAGE_ID || !FB_PAGE_ACCESS_TOKEN) return false;
   try {
-    let photoUrl = deal.imageUrl || '';
-    if ((!deal.store || deal.store === 'amazon') && deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
-      photoUrl = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`;
-    }
-
     const fbCaption = caption.replace(/\*/g, '').replace(/~/g, '');
     const fbApiUrl = `https://graph.facebook.com/v19.0/${FB_PAGE_ID}/photos`;
-    const res = await fetch(fbApiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: photoUrl,
-        caption: fbCaption,
-        access_token: FB_PAGE_ACCESS_TOKEN,
-      }),
-    });
+
+    let res;
+    if (imageBuffer) {
+      const fd = new FormData();
+      fd.append('source', new Blob([imageBuffer], { type: 'image/jpeg' }), 'deal.jpg');
+      fd.append('caption', fbCaption);
+      fd.append('access_token', FB_PAGE_ACCESS_TOKEN);
+
+      res = await fetch(fbApiUrl, {
+        method: 'POST',
+        body: fd,
+      });
+    } else {
+      let photoUrl = deal.imageUrl || '';
+      res = await fetch(fbApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: photoUrl,
+          caption: fbCaption,
+          access_token: FB_PAGE_ACCESS_TOKEN,
+        }),
+      });
+    }
 
     const data = await res.json();
     if (data.id) {
@@ -765,7 +775,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         // 3. Post to Facebook Page (if credentials provided)
         if (FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN) {
           try {
-            await postToFacebookPage(deal, caption);
+            await postToFacebookPage(deal, caption, fullImageBuffer);
           } catch (fbErr) {
             console.error(`Failed to post to Facebook Page:`, fbErr.message);
           }
