@@ -40,24 +40,29 @@ const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'all'];
 let currentSourceIndex = 0;
 
-// Load already posted deal IDs and ASINs
+// Load already posted deal IDs and ASINs with rolling 40-item window
 function getPostedDealIds() {
   try {
     if (fs.existsSync(POSTED_FILE)) {
       const data = JSON.parse(fs.readFileSync(POSTED_FILE, 'utf8'));
-      return new Set(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        // Cap to recent 30 items so old deals from previous weeks don't permanently freeze posting
+        const capped = data.length > 40 ? data.slice(-30) : data;
+        return new Set(capped);
+      }
     }
-  } catch (e) {
-    // fallback
-  }
+  } catch (e) {}
   return new Set();
 }
 
-// Record both deal ID and ASIN to guarantee 0 duplicate products
+// Record deal ID and ASIN with rolling cap to prevent permanent lockup
 function recordPostedDeal(deal) {
-  const ids = Array.from(getPostedDealIds());
+  let ids = Array.from(getPostedDealIds());
   if (deal.id && !ids.includes(deal.id)) ids.push(deal.id);
   if (deal.asin && !ids.includes(deal.asin)) ids.push(deal.asin);
+  if (ids.length > 50) {
+    ids = ids.slice(-40);
+  }
   fs.writeFileSync(POSTED_FILE, JSON.stringify(ids, null, 2));
 }
 
@@ -206,6 +211,18 @@ http
         <h2>🔄 Resetting WhatsApp Bot Session...</h2>
         <p>Old credentials wiped. Generating fresh QR code...</p>
         <script>setTimeout(() => { window.location.href = '/'; }, 3000);</script>
+      </body></html>`);
+    }
+
+    if (req.url === '/clear-posted' || req.url === '/reset-posted') {
+      console.log('🧹 Clearing posted deals history cache...');
+      try {
+        fs.writeFileSync(POSTED_FILE, '[]', 'utf8');
+      } catch (e) {}
+      return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:50px 20px;background:#FAF9F5;">
+        <h2>✅ History Cleared!</h2>
+        <p>Triggering immediate post of top active loots...</p>
+        <script>setTimeout(() => { window.location.href = '/post-now'; }, 1500);</script>
       </body></html>`);
     }
 
@@ -476,6 +493,26 @@ async function startBot() {
 async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
   if (!sock || !channelJid) return;
   lastCheckTime = new Date();
+
+  // Ensure target group is resolved
+  if (!activeGroupJid && GROUP_INVITE_CODE) {
+    try {
+      const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
+      if (inviteInfo && inviteInfo.id) {
+        activeGroupJid = inviteInfo.id;
+        console.log(`🎯 Target Group JID dynamically resolved: ${activeGroupJid}`);
+      }
+    } catch (e) {
+      try {
+        const groups = await sock.groupFetchAllParticipating();
+        for (const [jid, group] of Object.entries(groups)) {
+          activeGroupJid = jid;
+          console.log(`👥 Target Group from participating list: ${activeGroupJid}`);
+          break;
+        }
+      } catch (err) {}
+    }
+  }
 
   const currentSource = SCRAPER_SOURCES[currentSourceIndex % SCRAPER_SOURCES.length];
   currentSourceIndex++;
