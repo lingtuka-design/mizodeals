@@ -732,7 +732,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
             const gx = Math.round((groupSize - groupImg.bitmap.width) / 2);
             const gy = Math.round((groupSize - groupImg.bitmap.height) / 2);
             groupCanvas.composite(groupImg, gx, gy);
-            fullImageBuffer = await groupCanvas.getBuffer('image/jpeg', { quality: 85 });
+            fullImageBuffer = Buffer.from(await groupCanvas.getBuffer('image/jpeg', { quality: 85 }));
           } catch (e) {
             console.warn(`[GROUP IMAGE GENERATION FAILED] Deal ${deal.id}:`, e.message);
           }
@@ -750,7 +750,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           const y = Math.round((canvasH - img.bitmap.height) / 2);
           canvas.composite(img, x, y);
 
-          thumbBuffer = await canvas.getBuffer('image/jpeg', { quality: 80 });
+          thumbBuffer = Buffer.from(await canvas.getBuffer('image/jpeg', { quality: 80 }));
         }
       } catch (imgErr) {
         console.warn(`[THUMBNAIL NOTICE] Deal ${deal.id}:`, imgErr.message);
@@ -779,7 +779,31 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       };
 
       try {
-        // 1. Post to Channel (using linkPreview which works reliably on @newsletter)
+        // 1. Post to Group as Full-Width HD Photo Message (Group FIRST!)
+        if (activeGroupJid) {
+          try {
+            const groupPayload = fullImageBuffer
+              ? { image: Buffer.from(fullImageBuffer), caption }
+              : (rawImg && rawImg.startsWith('http')
+                  ? { image: { url: rawImg }, caption }
+                  : msgPayload);
+
+            await sock.sendMessage(activeGroupJid, groupPayload);
+            console.log(`👥 [Group Full Photo] Posted deal: ${deal.title.slice(0, 30)}`);
+          } catch (grpErr) {
+            console.error(`Failed to post photo to Group (${activeGroupJid}):`, grpErr.message);
+            try {
+              await sock.sendMessage(activeGroupJid, msgPayload);
+            } catch (fallbackErr) {
+              console.error(`Group fallback failed:`, fallbackErr.message);
+            }
+          }
+        }
+
+        // Wait 2.5 seconds to let the WebSocket pipeline settle cleanly
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+
+        // 2. Post to Channel (using linkPreview which works reliably on @newsletter)
         try {
           await sock.sendMessage(channelJid, msgPayload);
           console.log(`📢 [Channel] Posted deal: ${deal.title.slice(0, 30)}`);
@@ -787,15 +811,8 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           console.error(`Failed to post to Channel:`, chanErr.message);
         }
 
-        // 2. Post to Group (Ultra-reliable inline deal card)
-        if (activeGroupJid) {
-          try {
-            await sock.sendMessage(activeGroupJid, msgPayload);
-            console.log(`👥 [Group] Posted deal: ${deal.title.slice(0, 30)}`);
-          } catch (grpErr) {
-            console.error(`Failed to post to Group (${activeGroupJid}):`, grpErr.message);
-          }
-        }
+        // Wait 2 seconds before Facebook
+        await new Promise((resolve) => setTimeout(resolve, 2000));
 
         // 3. Post to Facebook Page (Smart Anti-Spam Gate)
         if (FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN && !postedToFbThisCycle) {
