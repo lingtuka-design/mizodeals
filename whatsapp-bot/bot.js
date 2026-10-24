@@ -787,24 +787,13 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           console.error(`Failed to post to Channel:`, chanErr.message);
         }
 
-        // 2. Post to Group as Full-Width HD Photo Message
+        // 2. Post to Group (Ultra-reliable inline deal card)
         if (activeGroupJid) {
           try {
-            const groupPayload = fullImageBuffer
-              ? { image: fullImageBuffer, caption }
-              : (rawImg && rawImg.startsWith('http')
-                  ? { image: { url: rawImg }, caption }
-                  : msgPayload);
-
-            await sock.sendMessage(activeGroupJid, groupPayload);
-            console.log(`👥 [Group Full Photo] Posted deal: ${deal.title.slice(0, 30)}`);
+            await sock.sendMessage(activeGroupJid, msgPayload);
+            console.log(`👥 [Group] Posted deal: ${deal.title.slice(0, 30)}`);
           } catch (grpErr) {
-            console.error(`Failed to post photo to Group (${activeGroupJid}), fallback to card:`, grpErr.message);
-            try {
-              await sock.sendMessage(activeGroupJid, msgPayload);
-            } catch (fallbackErr) {
-              console.error(`Group fallback failed:`, fallbackErr.message);
-            }
+            console.error(`Failed to post to Group (${activeGroupJid}):`, grpErr.message);
           }
         }
 
