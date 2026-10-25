@@ -471,7 +471,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.5-isolated-instant-posting</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.6-group-channel-stable</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
@@ -572,9 +572,11 @@ async function startBot() {
       auth: state,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,
-      keepAliveIntervalMs: 25_000,
+      keepAliveIntervalMs: 60_000,
       connectTimeoutMs: 60_000,
       defaultQueryTimeoutMs: 60_000,
+      retryRequestDelayMs: 500,
+      maxMsgRetryCount: 5,
     });
 
     const syncCredsToCloud = async () => {
@@ -731,19 +733,10 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
   currentSourceIndex++;
 
   console.log(`\n======================================================`);
-  console.log(`[${new Date().toLocaleTimeString()}] 🔄 AUTO-HARVEST CYCLE: [${currentSource.toUpperCase()}]`);
+  console.log(`[${new Date().toLocaleTimeString()}] 🔄 DEAL POSTING CYCLE: [Source rotation: ${currentSource.toUpperCase()}]`);
   console.log(`======================================================`);
 
-  // Trigger background harvest asynchronously without blocking deal posting
-  try {
-    const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=40`;
-    fetch(harvestUrl, { signal: AbortSignal.timeout(25000) })
-      .then((r) => r.json())
-      .then((d) => console.log(`🌾 Background harvest synced: ${d.count || 0} deals (${d.insertedCount || 0} new)`))
-      .catch((e) => console.log('🌾 Background sync notice:', e.message));
-  } catch (e) {}
-
-  // Step 2: Fetch newly synced live deals from database with safe fallback
+  // Step 1: Fetch live deals from database with safe fallback
   console.log(`[${new Date().toLocaleTimeString()}] Checking live unposted loot deals in catalog...`);
 
   try {
@@ -931,19 +924,7 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         let postedToChannel = false;
         let postedToGroup = false;
 
-        // 1. Post to Channel (Ultra-reliable native linkPreview card over WebSocket)
-        try {
-          await sock.sendMessage(channelJid, msgPayload);
-          postedToChannel = true;
-          console.log(`📢 [Channel] Posted deal: ${deal.title.slice(0, 30)}`);
-        } catch (chanErr) {
-          console.error(`Failed to post to Channel:`, chanErr.message);
-        }
-
-        // Wait 2 seconds to let the WebSocket pipeline settle cleanly
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // 2. Post to Group (Ultra-reliable native linkPreview deal card)
+        // 1. Post to Group (Ultra-reliable native linkPreview deal card)
         if (activeGroupJid) {
           try {
             await sock.sendMessage(activeGroupJid, msgPayload);
@@ -952,6 +933,18 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           } catch (grpErr) {
             console.error(`Failed to post to Group (${activeGroupJid}):`, grpErr.message);
           }
+        }
+
+        // Wait 1.5 seconds to let the WebSocket pipeline settle cleanly
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        // 2. Post to Channel (Ultra-reliable native linkPreview card over WebSocket)
+        try {
+          await sock.sendMessage(channelJid, msgPayload);
+          postedToChannel = true;
+          console.log(`📢 [Channel] Posted deal: ${deal.title.slice(0, 30)}`);
+        } catch (chanErr) {
+          console.error(`Failed to post to Channel:`, chanErr.message);
         }
 
         // Wait 2 seconds before Facebook
@@ -1011,6 +1004,15 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
     }
 
     console.log(`✨ Completed check cycle: Successfully posted ${postedCount} deals.`);
+
+    // Trigger background harvest for next cycle after deals are already posted
+    try {
+      const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=30`;
+      fetch(harvestUrl, { signal: AbortSignal.timeout(20000) })
+        .then((r) => r.json())
+        .then((d) => console.log(`🌾 Background harvest synced: ${d.count || 0} deals (${d.insertedCount || 0} new)`))
+        .catch((e) => console.log('🌾 Background sync notice:', e.message));
+    } catch (e) {}
   } catch (err) {
     console.error('Error in checkAndPostDeals:', err.message);
   }
