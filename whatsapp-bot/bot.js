@@ -316,6 +316,8 @@ let latestQrDataUrl = null;
 let isConnected = false;
 let activeSock = null;
 let lastCheckTime = null;
+let lastSuccessfulPostTime = 0;
+const MIN_AUTO_POST_INTERVAL_MS = 30 * 60 * 1000; // Strictly minimum 30 minutes between automated deal posts
 let isChecking = false;
 let reconnectTimer = null;
 let autoPostInterval = null;
@@ -442,7 +444,7 @@ http
       }
       isChecking = true;
       try {
-        await checkAndPostDeals(activeSock, CHANNEL_JID);
+        await checkAndPostDeals(activeSock, CHANNEL_JID, true);
       } catch (err) {
         console.error('Manual trigger error:', err.message);
       } finally {
@@ -471,10 +473,11 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.7-hd-group-photo-sharp</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.8-paced-cooldown-30m</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
+        <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
-        <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
+        <div>🔄 <b>Auto Frequency:</b> Strictly every 30 minutes (Anti-Spam)</div>
         <div>📘 <b>Facebook Page:</b> ${FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:600;">Active (Smart Anti-Spam: 60%+ Loot Only, 2.5h Cooldown)</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:6px;">Waiting for credentials</span>'}</div>
       </div>
 
@@ -691,7 +694,7 @@ async function startBot() {
           if (!isChecking && activeSock) {
             isChecking = true;
             try {
-              await checkAndPostDeals(activeSock, CHANNEL_JID);
+              await checkAndPostDeals(activeSock, CHANNEL_JID, false);
             } finally {
               isChecking = false;
             }
@@ -705,9 +708,17 @@ async function startBot() {
   }
 }
 
-async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
+async function checkAndPostDeals(sock, channelJid, isManual = false) {
   if (!sock || !channelJid) return;
   lastCheckTime = new Date();
+
+  // Rate Limiting Cooldown: strictly enforce minimum 30 minutes between automated deal posts
+  const now = Date.now();
+  if (!isManual && lastSuccessfulPostTime > 0 && now - lastSuccessfulPostTime < MIN_AUTO_POST_INTERVAL_MS) {
+    const minsLeft = Math.ceil((MIN_AUTO_POST_INTERVAL_MS - (now - lastSuccessfulPostTime)) / 60000);
+    console.log(`⏳ [Cooldown Active] Last deal post was only ${Math.round((now - lastSuccessfulPostTime) / 60000)}m ago. Next automated post eligible in ${minsLeft}m.`);
+    return;
+  }
 
   // Ensure target group is resolved
   if (!activeGroupJid && GROUP_INVITE_CODE) {
@@ -1017,6 +1028,9 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
     }
 
     console.log(`✨ Completed check cycle: Successfully posted ${postedCount} deals.`);
+    if (postedCount > 0) {
+      lastSuccessfulPostTime = Date.now();
+    }
 
     // Trigger background harvest for next cycle after deals are already posted
     try {
