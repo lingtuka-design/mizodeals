@@ -471,7 +471,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.6-group-channel-stable</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.7-hd-group-photo-sharp</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
@@ -924,14 +924,27 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
         let postedToChannel = false;
         let postedToGroup = false;
 
-        // 1. Post to Group (Ultra-reliable native linkPreview deal card)
+        // 1. Post to Group as Full-Width HD Photo Message (with native card fallback)
         if (activeGroupJid) {
           try {
-            await sock.sendMessage(activeGroupJid, msgPayload);
+            const groupPayload = fullImageBuffer
+              ? { image: fullImageBuffer, caption }
+              : (rawImg && rawImg.startsWith('http')
+                  ? { image: { url: rawImg }, caption }
+                  : msgPayload);
+
+            await sock.sendMessage(activeGroupJid, groupPayload);
             postedToGroup = true;
-            console.log(`👥 [Group] Posted deal: ${deal.title.slice(0, 30)}`);
+            console.log(`👥 [Group Full Photo] Posted deal: ${deal.title.slice(0, 30)}`);
           } catch (grpErr) {
-            console.error(`Failed to post to Group (${activeGroupJid}):`, grpErr.message);
+            console.error(`Failed to post photo to Group (${activeGroupJid}), fallback to card:`, grpErr.message);
+            try {
+              await sock.sendMessage(activeGroupJid, msgPayload);
+              postedToGroup = true;
+              console.log(`👥 [Group Card Fallback] Posted deal: ${deal.title.slice(0, 30)}`);
+            } catch (fallbackErr) {
+              console.error(`Group fallback failed:`, fallbackErr.message);
+            }
           }
         }
 
