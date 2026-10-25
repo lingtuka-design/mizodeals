@@ -40,30 +40,146 @@ const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'all'];
 let currentSourceIndex = 0;
 
-// Load already posted deal IDs and ASINs with rolling 40-item window
-function getPostedDealIds() {
+// Anti-Duplicate System: 14-day memory, multi-factor deduplication (ASIN, Deal ID, Title, Image), & Cloudflare D1 persistence
+const POSTED_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // Keep in memory for 14 days
+const MAX_POSTED_RECORDS = 2000;
+
+function getTitleKey(title) {
+  if (!title) return '';
+  return title
+    .toLowerCase()
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '')
+    .replace(/&#39;/g, "'")
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 35);
+}
+
+function getImageKey(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') return '';
+  try {
+    const clean = imageUrl.split('?')[0].split('#')[0];
+    const parts = clean.split('/').filter(Boolean);
+    const lastPart = parts[parts.length - 1] || '';
+    return lastPart.toLowerCase();
+  } catch (e) {
+    return imageUrl.slice(-40).toLowerCase();
+  }
+}
+
+function getPostedRecords() {
   try {
     if (fs.existsSync(POSTED_FILE)) {
       const data = JSON.parse(fs.readFileSync(POSTED_FILE, 'utf8'));
       if (Array.isArray(data)) {
-        // Cap to recent 30 items so old deals from previous weeks don't permanently freeze posting
-        const capped = data.length > 40 ? data.slice(-30) : data;
-        return new Set(capped);
+        const now = Date.now();
+        const valid = data.filter((item) => {
+          if (!item) return false;
+          if (typeof item === 'string') return true;
+          if (typeof item === 'object') {
+            if (!item.postedAt) return true;
+            return now - item.postedAt < POSTED_RETENTION_MS;
+          }
+          return false;
+        });
+        return valid.slice(-MAX_POSTED_RECORDS);
       }
     }
   } catch (e) {}
-  return new Set();
+  return [];
 }
 
-// Record deal ID and ASIN with rolling cap to prevent permanent lockup
-function recordPostedDeal(deal) {
-  let ids = Array.from(getPostedDealIds());
-  if (deal.id && !ids.includes(deal.id)) ids.push(deal.id);
-  if (deal.asin && !ids.includes(deal.asin)) ids.push(deal.asin);
-  if (ids.length > 50) {
-    ids = ids.slice(-40);
+function getPostedLookup() {
+  const records = getPostedRecords();
+  const ids = new Set();
+  const asins = new Set();
+  const titles = new Set();
+  const images = new Set();
+
+  for (const item of records) {
+    if (typeof item === 'string') {
+      ids.add(item);
+      if (/^[A-Z0-9]{10}$/i.test(item)) asins.add(item.toUpperCase());
+    } else if (typeof item === 'object') {
+      if (item.id) ids.add(item.id);
+      if (item.asin) asins.add(item.asin.toUpperCase());
+      if (item.titleKey) titles.add(item.titleKey);
+      if (item.imageKey) images.add(item.imageKey);
+    }
   }
-  fs.writeFileSync(POSTED_FILE, JSON.stringify(ids, null, 2));
+
+  return { ids, asins, titles, images, recordsCount: records.length };
+}
+
+function isDealAlreadyPosted(deal, lookup) {
+  if (!deal) return true;
+  if (deal.id && lookup.ids.has(deal.id)) return true;
+  if (deal.asin && lookup.asins.has(deal.asin.toUpperCase())) return true;
+  const tKey = getTitleKey(deal.title);
+  if (tKey && lookup.titles.has(tKey)) return true;
+  const imgKey = getImageKey(deal.imageUrl);
+  if (imgKey && lookup.images.has(imgKey)) return true;
+  return false;
+}
+
+function recordPostedDeal(deal) {
+  try {
+    let records = getPostedRecords();
+    const entry = {
+      id: deal.id,
+      asin: deal.asin ? deal.asin.toUpperCase() : undefined,
+      titleKey: getTitleKey(deal.title),
+      imageKey: getImageKey(deal.imageUrl),
+      postedAt: Date.now(),
+    };
+
+    const alreadyExists = records.some((r) => {
+      if (typeof r === 'string') return r === deal.id || (deal.asin && r === deal.asin);
+      return (
+        r.id === deal.id ||
+        (deal.asin && r.asin === deal.asin.toUpperCase()) ||
+        (entry.titleKey && r.titleKey === entry.titleKey) ||
+        (entry.imageKey && r.imageKey === entry.imageKey)
+      );
+    });
+
+    if (!alreadyExists) {
+      records.push(entry);
+    }
+
+    if (records.length > MAX_POSTED_RECORDS) {
+      records = records.slice(-MAX_POSTED_RECORDS);
+    }
+
+    const jsonStr = JSON.stringify(records, null, 2);
+    fs.writeFileSync(POSTED_FILE, jsonStr);
+
+    // Sync to Cloudflare D1 so restarts never wipe posted deals memory
+    fetch('https://mizodeals.com/api/bot-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: { 'posted_deals.json': jsonStr } }),
+    }).catch(() => {});
+  } catch (err) {
+    console.error('Failed to record posted deal:', err.message);
+  }
+}
+
+async function restorePostedDealsFromCloud() {
+  if (fs.existsSync(POSTED_FILE)) return;
+  try {
+    console.log('📦 Local posted_deals.json missing. Restoring history from Cloudflare D1...');
+    const authRes = await fetch('https://mizodeals.com/api/bot-auth', { signal: AbortSignal.timeout(15000) });
+    if (authRes.ok) {
+      const authData = await authRes.json();
+      if (authData.success && authData.files && authData.files['posted_deals.json']) {
+        fs.writeFileSync(POSTED_FILE, authData.files['posted_deals.json'], 'utf8');
+        console.log(`✅ Restored posted_deals.json from Cloudflare D1!`);
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Cloudflare D1 posted_deals.json restore notice:', err.message);
+  }
 }
 
 function formatINR(amount) {
@@ -338,7 +454,7 @@ ${recentLogs.slice(-15).join('\n')}
     }
 
     if (isConnected) {
-      const postedCount = getPostedDealIds().size;
+      const postedCount = getPostedRecords().length;
       res.end(`<!doctype html>
 <html>
   <head><title>Mizodeals Bot — 24/7 Cloud Active</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -349,7 +465,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.3-hd-group-photos</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.4-anti-duplicate-d1</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
@@ -426,7 +542,11 @@ async function startBot() {
           if (authData.success && authData.files) {
             if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
             for (const [fname, content] of Object.entries(authData.files)) {
-              fs.writeFileSync(path.join(AUTH_DIR, fname), content, 'utf8');
+              if (fname === 'posted_deals.json') {
+                fs.writeFileSync(POSTED_FILE, content, 'utf8');
+              } else {
+                fs.writeFileSync(path.join(AUTH_DIR, fname), content, 'utf8');
+              }
             }
             console.log(`✅ Restored ${Object.keys(authData.files).length} session auth files from Cloudflare D1!`);
             sessionRestoredFromD1 = true;
@@ -436,6 +556,9 @@ async function startBot() {
         console.warn('⚠️ Cloudflare D1 session restore notice:', d1Err.message);
       }
     }
+
+    // 2. Ensure posted_deals.json is restored even if credentials already existed
+    await restorePostedDealsFromCloud();
 
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
@@ -632,15 +755,14 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
     const data = await res.json();
     if (!data.success || !Array.isArray(data.deals)) return;
 
-    const postedIds = getPostedDealIds();
+    const lookup = getPostedLookup();
 
     const candidates = data.deals.filter(
       (d) =>
-        !postedIds.has(d.id) &&
+        !isDealAlreadyPosted(d, lookup) &&
         d.asin &&
         !d.asin.startsWith('DM') &&
         ((d.store && d.store !== 'amazon') || /^[A-Z0-9]{10}$/i.test(d.asin)) &&
-        !postedIds.has(d.asin) &&
         (!d.affiliateUrl || (!d.affiliateUrl.includes('/s?k=') && !d.affiliateUrl.includes('/deal/'))) &&
         (d.isLootDeal || d.discountPercent >= 50) &&
         d.imageUrl &&
@@ -678,8 +800,28 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       index++;
     }
 
-    // Select top 2 deals per run (exactly like the reliable dev version)
-    const toPost = orderedCandidates.slice(0, 2);
+    // Select top 2 deals per run, ensuring no duplicate title, image, or ASIN in the batch
+    const toPost = [];
+    const seenTitlesInBatch = new Set();
+    const seenImagesInBatch = new Set();
+    const seenAsinsInBatch = new Set();
+
+    for (const d of orderedCandidates) {
+      const tKey = getTitleKey(d.title);
+      const imgKey = getImageKey(d.imageUrl);
+      const asinKey = d.asin ? d.asin.toUpperCase() : null;
+
+      if (tKey && seenTitlesInBatch.has(tKey)) continue;
+      if (imgKey && seenImagesInBatch.has(imgKey)) continue;
+      if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
+
+      if (tKey) seenTitlesInBatch.add(tKey);
+      if (imgKey) seenImagesInBatch.add(imgKey);
+      if (asinKey) seenAsinsInBatch.add(asinKey);
+
+      toPost.push(d);
+      if (toPost.length >= 2) break;
+    }
     let postedCount = 0;
     let postedToFbThisCycle = false;
 
