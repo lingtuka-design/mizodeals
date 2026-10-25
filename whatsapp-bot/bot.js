@@ -39,6 +39,7 @@ const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'all'];
 let currentSourceIndex = 0;
+let hasSyncedAllAuth = false;
 
 // Anti-Duplicate System: 14-day memory, multi-factor deduplication (ASIN, Deal ID, Title, Image), & Cloudflare D1 persistence
 const POSTED_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // Keep in memory for 14 days
@@ -411,6 +412,11 @@ http
       console.log('🧹 Clearing posted deals history cache...');
       try {
         fs.writeFileSync(POSTED_FILE, '[]', 'utf8');
+        fetch('https://mizodeals.com/api/bot-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: { 'posted_deals.json': '[]' } }),
+        }).catch(() => {});
       } catch (e) {}
       return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:50px 20px;background:#FAF9F5;">
         <h2>✅ History Cleared!</h2>
@@ -465,7 +471,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.4-anti-duplicate-d1</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.5-isolated-instant-posting</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Every 30 minutes</div>
@@ -673,7 +679,8 @@ async function startBot() {
 
         console.log('======================================================\n');
 
-        if (!sessionRestoredFromD1) {
+        if (!sessionRestoredFromD1 && !hasSyncedAllAuth) {
+          hasSyncedAllAuth = true;
           syncAllAuthToCloud().catch(() => {});
         }
         ensureAutoPostScheduler();
@@ -921,36 +928,30 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
       };
 
       try {
-        // 1. Post to Group as Full-Width HD Photo Message (Group FIRST!)
-        if (activeGroupJid) {
-          try {
-            const groupPayload = fullImageBuffer
-              ? { image: Buffer.from(fullImageBuffer), caption }
-              : (rawImg && rawImg.startsWith('http')
-                  ? { image: { url: rawImg }, caption }
-                  : msgPayload);
+        let postedToChannel = false;
+        let postedToGroup = false;
 
-            await sock.sendMessage(activeGroupJid, groupPayload);
-            console.log(`👥 [Group Full Photo] Posted deal: ${deal.title.slice(0, 30)}`);
-          } catch (grpErr) {
-            console.error(`Failed to post photo to Group (${activeGroupJid}):`, grpErr.message);
-            try {
-              await sock.sendMessage(activeGroupJid, msgPayload);
-            } catch (fallbackErr) {
-              console.error(`Group fallback failed:`, fallbackErr.message);
-            }
-          }
-        }
-
-        // Wait 2.5 seconds to let the WebSocket pipeline settle cleanly
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-
-        // 2. Post to Channel (using linkPreview which works reliably on @newsletter)
+        // 1. Post to Channel (Ultra-reliable native linkPreview card over WebSocket)
         try {
           await sock.sendMessage(channelJid, msgPayload);
+          postedToChannel = true;
           console.log(`📢 [Channel] Posted deal: ${deal.title.slice(0, 30)}`);
         } catch (chanErr) {
           console.error(`Failed to post to Channel:`, chanErr.message);
+        }
+
+        // Wait 2 seconds to let the WebSocket pipeline settle cleanly
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // 2. Post to Group (Ultra-reliable native linkPreview deal card)
+        if (activeGroupJid) {
+          try {
+            await sock.sendMessage(activeGroupJid, msgPayload);
+            postedToGroup = true;
+            console.log(`👥 [Group] Posted deal: ${deal.title.slice(0, 30)}`);
+          } catch (grpErr) {
+            console.error(`Failed to post to Group (${activeGroupJid}):`, grpErr.message);
+          }
         }
 
         // Wait 2 seconds before Facebook
@@ -975,9 +976,19 @@ async function checkAndPostDeals(sock, channelJid, maxToPost = 3) {
           }
         }
 
-        recordPostedDeal(deal);
-        postedCount++;
-        console.log(`✅ [${postedCount}/${toPost.length}] Successfully broadcast deal card: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        // ONLY record deal if it actually got posted to at least one active destination
+        if (postedToChannel || postedToGroup || postedToFbThisCycle) {
+          recordPostedDeal(deal);
+          postedCount++;
+          console.log(`✅ [${postedCount}/${toPost.length}] Successfully broadcast deal card: ${deal.id} - ${deal.title.slice(0, 30)}`);
+        } else {
+          console.warn(`⚠️ Deal ${deal.id} not recorded: All destinations failed. Checking socket health...`);
+          if (!isConnected || !activeSock) {
+            console.error(`🚨 Fatal WhatsApp socket disconnect during cycle. Triggering instant reconnect...`);
+            triggerReconnect(2000);
+            break;
+          }
+        }
 
         // Wait 10 seconds between posts to keep broadcast clean
         if (postedCount < toPost.length) {
