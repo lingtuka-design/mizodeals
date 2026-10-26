@@ -49,6 +49,15 @@ async function convertWithEarnkaro(targetUrl: string): Promise<string | null> {
   return `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(targetUrl)}`;
 }
 
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36).toUpperCase();
+}
+
 // Category classifier helper
 function classifyCategory(title: string): string {
   const t = title.toLowerCase();
@@ -152,10 +161,29 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             if (collectedDeals.length >= limit) break;
             const block = messageBlocks[i];
 
-            // Extract Amazon URL
-            const linkMatch = block.match(/href="([^"]*(?:amzn\.to|amazon\.in)[^"]*)"/i);
-            if (!linkMatch) continue;
-            const rawAmznUrl = linkMatch[1];
+            // Extract store and product link
+            const amzMatch = block.match(/href="([^"]*(?:amzn\.to|amazon\.in)[^"]*)"/i);
+            const fkMatch = block.match(/href="([^"]*(?:fkrt\.it|fkrt\.co|flipkart\.com|dl\.flipkart\.com)[^"]*)"/i);
+            const myMatch = block.match(/href="([^"]*(?:myntr\.it|myntra\.com)[^"]*)"/i);
+            const nyMatch = block.match(/href="([^"]*(?:nykaa\.com|nykaa\.ly)[^"]*)"/i);
+
+            if (!amzMatch && !fkMatch && !myMatch && !nyMatch) continue;
+
+            let store: 'amazon' | 'flipkart' | 'myntra' | 'nykaa' = 'amazon';
+            let rawDealUrl = '';
+            if (amzMatch) {
+              store = 'amazon';
+              rawDealUrl = amzMatch[1];
+            } else if (fkMatch) {
+              store = 'flipkart';
+              rawDealUrl = fkMatch[1];
+            } else if (myMatch) {
+              store = 'myntra';
+              rawDealUrl = myMatch[1];
+            } else if (nyMatch) {
+              store = 'nykaa';
+              rawDealUrl = nyMatch[1];
+            }
 
             // Extract text
             const textMatch = block.match(/<div class="tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
@@ -212,29 +240,63 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const imgMatch = block.match(/background-image:url\('([^']+)'\)/i);
             let imageUrl = imgMatch ? imgMatch[1] : '';
 
-            // Resolve ASIN and clean affiliate URL
-            const { asin, cleanUrl } = await resolveAmazonUrl(rawAmznUrl, targetTag);
-            // CRITICAL: Only accept real individual product deals with a valid 10-char Amazon ASIN!
-            // Skip generic category/store search banner links (like "Winterwears", "Wildcraft Bags From 371", etc.)
-            if (!asin || !/^[A-Z0-9]{10}$/i.test(asin)) {
-              continue;
-            }
-            if (seenAsins.has(asin)) continue;
-            seenAsins.add(asin);
+            // Resolve PID/ASIN, Ultra-HD images, and Affiliate URLs based on store
+            let asin: string | null = null;
+            let cleanUrl = '';
 
-            // Prefer Amazon official Ultra-HD photo if available
-            const officialAmzImg = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
-            try {
-              const headImg = await fetch(officialAmzImg, {
-                method: 'HEAD',
-                signal: AbortSignal.timeout(1500),
-              });
-              const cl = parseInt(headImg.headers.get('content-length') || '0', 10);
-              if (headImg.ok && cl > 1000) {
-                imageUrl = officialAmzImg;
+            if (store === 'amazon') {
+              const res = await resolveAmazonUrl(rawDealUrl, targetTag);
+              asin = res.asin;
+              cleanUrl = res.cleanUrl;
+              if (!asin || !/^[A-Z0-9]{10}$/i.test(asin)) continue;
+              if (seenAsins.has(asin)) continue;
+              seenAsins.add(asin);
+
+              const officialAmzImg = `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg`;
+              try {
+                const headImg = await fetch(officialAmzImg, {
+                  method: 'HEAD',
+                  signal: AbortSignal.timeout(1500),
+                });
+                const cl = parseInt(headImg.headers.get('content-length') || '0', 10);
+                if (headImg.ok && cl > 1000) {
+                  imageUrl = officialAmzImg;
+                }
+              } catch (e) {}
+            } else if (store === 'flipkart') {
+              const pidMatch = rawDealUrl.match(/(?:pid=|itm)([a-zA-Z0-9]{16}|[a-zA-Z0-9]{10})/i) || rawDealUrl.match(/([a-zA-Z0-9]{16})/i);
+              asin = pidMatch ? pidMatch[1].toUpperCase() : 'FK' + simpleHash(rawDealUrl);
+              if (seenAsins.has(asin)) continue;
+              seenAsins.add(asin);
+
+              const converted = await convertWithEarnkaro(rawDealUrl);
+              cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(rawDealUrl)}`;
+
+              // Upgrade Flipkart photo to 832x832 Ultra-HD
+              if (imageUrl.includes('flixcart.com')) {
+                imageUrl = imageUrl.replace(/\/image\/\d+\/\d+\//, '/image/832/832/');
               }
-            } catch (e) {
-              // keep embedded telegram image
+            } else if (store === 'myntra') {
+              const myMatch = rawDealUrl.match(/\/(\d{6,10})/);
+              asin = myMatch ? myMatch[1] : 'MY' + simpleHash(rawDealUrl);
+              if (seenAsins.has(asin)) continue;
+              seenAsins.add(asin);
+
+              const converted = await convertWithEarnkaro(rawDealUrl);
+              cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(rawDealUrl)}`;
+
+              // Upgrade Myntra photo to 1080x1440 Ultra-HD Studio
+              if (imageUrl.includes('myntassets.com')) {
+                imageUrl = imageUrl.replace(/(?:dpr_[^,]+,)?(?:q_\d+,)?(?:w_\d+,)?(?:c_limit,)?(?:fl_progressive\/)?/, 'h_1440,q_95,w_1080/');
+              }
+            } else if (store === 'nykaa') {
+              const nyMatch = rawDealUrl.match(/\/p\/([a-zA-Z0-9_-]+)/i);
+              asin = nyMatch ? nyMatch[1] : 'NY' + simpleHash(rawDealUrl);
+              if (seenAsins.has(asin)) continue;
+              seenAsins.add(asin);
+
+              const converted = await convertWithEarnkaro(rawDealUrl);
+              cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(rawDealUrl)}`;
             }
 
             // Strictly require authentic photo
@@ -242,7 +304,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               continue;
             }
 
-            const category = classifyCategory(title);
+            let category = classifyCategory(title);
+            if (store === 'myntra' && (category === 'electronics' || category === 'gadgets')) {
+              category = 'shoes_fashion';
+            }
+            if (store === 'nykaa') {
+              category = 'beauty';
+            }
 
             collectedDeals.push({
               dealId: `tg-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
@@ -255,7 +323,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               imageUrl,
               asin,
               amazonUrl: cleanUrl,
-              store: 'amazon',
+              store,
               category,
               source: 'Telegram Deals',
               isLootDeal: discountPercent >= 50,
@@ -517,9 +585,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             }
             const store = rawStore as 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio';
 
-            // Ensure store diversity: prevent Amazon from consuming 100% of the limit so Myntra, Flipkart, Nykaa always get space
+            // Ensure store diversity: give plenty of room to Flipkart, Myntra, Nykaa, Ajio
             const storeCount = collectedDeals.filter((d) => d.store === store).length;
-            const maxPerStore = Math.max(Math.floor(limit * 0.5), 12);
+            const maxPerStore = store === 'amazon' ? Math.min(Math.floor(limit * 0.35), 20) : 40;
             if (storeCount >= maxPerStore) continue;
 
             const asinMatch = box.match(/pid=['"]([A-Z0-9]{10})['"]/i) || box.match(/redirectpid1=([A-Z0-9]{10})/i);
@@ -582,7 +650,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               }
             } else if (store === 'flipkart') {
               if (imageUrl.includes('flixcart.com')) {
-                imageUrl = imageUrl.replace(/\/image\/\d+\/\d+\//, '/image/612/612/');
+                imageUrl = imageUrl.replace(/\/image\/\d+\/\d+\//, '/image/832/832/');
+              }
+            } else if (store === 'myntra') {
+              if (imageUrl.includes('myntassets.com')) {
+                imageUrl = imageUrl.replace(/(?:dpr_[^,]+,)?(?:q_\d+,)?(?:w_\d+,)?(?:c_limit,)?(?:fl_progressive\/)?/, 'h_1440,q_95,w_1080/');
               }
             }
 

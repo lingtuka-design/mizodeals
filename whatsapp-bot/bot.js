@@ -473,7 +473,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.8-paced-cooldown-30m</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.9-hd-multi-store-interleaved</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -811,13 +811,39 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       index++;
     }
 
+    // Interleave stores so Flipkart, Myntra, Nykaa, and Ajio are regularly featured alongside Amazon
+    const byStore = {};
+    for (const d of orderedCandidates) {
+      const s = d.store || 'amazon';
+      if (!byStore[s]) byStore[s] = [];
+      byStore[s].push(d);
+    }
+
+    const diverseStoreCandidates = [];
+    const storeKeys = Object.keys(byStore);
+    // Prioritize non-amazon first so Flipkart & Myntra deals get fair representation
+    storeKeys.sort((a, b) => (a === 'amazon' ? 1 : b === 'amazon' ? -1 : 0));
+
+    let sIdx = 0;
+    let sAdded = true;
+    while (sAdded) {
+      sAdded = false;
+      for (const s of storeKeys) {
+        if (byStore[s][sIdx]) {
+          diverseStoreCandidates.push(byStore[s][sIdx]);
+          sAdded = true;
+        }
+      }
+      sIdx++;
+    }
+
     // Select top 2 deals per run, ensuring no duplicate title, image, or ASIN in the batch
     const toPost = [];
     const seenTitlesInBatch = new Set();
     const seenImagesInBatch = new Set();
     const seenAsinsInBatch = new Set();
 
-    for (const d of orderedCandidates) {
+    for (const d of diverseStoreCandidates) {
       const tKey = getTitleKey(d.title);
       const imgKey = getImageKey(d.imageUrl);
       const asinKey = d.asin ? d.asin.toUpperCase() : null;
@@ -849,7 +875,10 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         rawImg = rawImg.replace('-s-', '-m-');
       }
       if (deal.store === 'flipkart' && rawImg.includes('flixcart.com')) {
-        rawImg = rawImg.replace(/\/image\/\d+\/\d+\//, '/image/612/612/');
+        rawImg = rawImg.replace(/\/image\/\d+\/\d+\//, '/image/832/832/');
+      }
+      if (deal.store === 'myntra' && rawImg.includes('myntassets.com')) {
+        rawImg = rawImg.replace(/(?:dpr_[^,]+,)?(?:q_\d+,)?(?:w_\d+,)?(?:c_limit,)?(?:fl_progressive\/)?/, 'h_1440,q_95,w_1080/');
       }
 
       let targetImgUrl = null;
@@ -1034,7 +1063,8 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
     // Trigger background harvest for next cycle after deals are already posted
     try {
-      const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=30`;
+      const harvestLimit = currentSource === 'indiadesire' ? 70 : 35;
+      const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=${harvestLimit}`;
       fetch(harvestUrl, { signal: AbortSignal.timeout(20000) })
         .then((r) => r.json())
         .then((d) => console.log(`🌾 Background harvest synced: ${d.count || 0} deals (${d.insertedCount || 0} new)`))
