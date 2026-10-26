@@ -277,6 +277,7 @@ async function postToFacebookPage(deal, caption, imageBuffer = null) {
 }
 
 const CHANNEL_JID = '120363414138647022@newsletter';
+const OFFICIAL_GROUP_JID = '120363430926865877@g.us';
 const GROUP_INVITE_CODE = 'KCBEUuKs3Dk4TsowNE34dj';
 const FB_PAGE_ID = process.env.FB_PAGE_ID || '';
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || '';
@@ -311,7 +312,7 @@ function canPostToFacebook(deal) {
 
   return { allowed: true };
 }
-let activeGroupJid = null;
+let activeGroupJid = OFFICIAL_GROUP_JID;
 let latestQrDataUrl = null;
 let isConnected = false;
 let activeSock = null;
@@ -361,13 +362,6 @@ function ensureAutoPostScheduler() {
     }
   }, 2 * 60 * 1000);
 }
-
-// Active WebSocket presence keep-alive every 2 minutes
-setInterval(() => {
-  if (activeSock && isConnected) {
-    activeSock.sendPresenceUpdate('available').catch(() => {});
-  }
-}, 2 * 60 * 1000);
 
 // Keep Render Free Tier awake
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://mizodeals-whatsapp-bot.onrender.com';
@@ -472,7 +466,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.1-punctual-30m-scheduler</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.2-guaranteed-group-delivery</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -665,20 +659,26 @@ async function startBot() {
         console.log('✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
         console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);
 
-        // Automatically resolve Target Group JID
+        // Automatically resolve Target Group JID (with guaranteed fallback)
         try {
           const participatingGroups = await sock.groupFetchAllParticipating();
           for (const [jid, group] of Object.entries(participatingGroups)) {
             console.log(`👥 Found WhatsApp Group: "${group.subject}" (${jid})`);
-            activeGroupJid = jid;
+            activeGroupJid = jid.includes('@') ? jid : `${jid}@g.us`;
           }
           if (!activeGroupJid && GROUP_INVITE_CODE) {
             const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
-            activeGroupJid = inviteInfo.id;
+            if (inviteInfo && inviteInfo.id) {
+              activeGroupJid = inviteInfo.id.includes('@') ? inviteInfo.id : `${inviteInfo.id}@g.us`;
+            }
           }
-          console.log(`🎯 Target WhatsApp Group: ${activeGroupJid || 'None'}`);
+          if (!activeGroupJid) {
+            activeGroupJid = OFFICIAL_GROUP_JID;
+          }
+          console.log(`🎯 Target WhatsApp Group: ${activeGroupJid}`);
         } catch (gErr) {
-          console.warn('⚠️ Group resolution note:', gErr.message);
+          activeGroupJid = OFFICIAL_GROUP_JID;
+          console.warn('⚠️ Group resolution note, using default group:', activeGroupJid);
         }
 
         console.log('======================================================\n');
@@ -721,24 +721,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     return;
   }
 
-  // Ensure target group is resolved
-  if (!activeGroupJid && GROUP_INVITE_CODE) {
-    try {
-      const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
-      if (inviteInfo && inviteInfo.id) {
-        activeGroupJid = inviteInfo.id;
-        console.log(`🎯 Target Group JID dynamically resolved: ${activeGroupJid}`);
-      }
-    } catch (e) {
-      try {
-        const groups = await sock.groupFetchAllParticipating();
-        for (const [jid, group] of Object.entries(groups)) {
-          activeGroupJid = jid;
-          console.log(`👥 Target Group from participating list: ${activeGroupJid}`);
-          break;
-        }
-      } catch (err) {}
-    }
+  // Ensure target group is resolved with guaranteed fallback
+  if (!activeGroupJid) {
+    activeGroupJid = OFFICIAL_GROUP_JID;
   }
 
   const currentSource = SCRAPER_SOURCES[currentSourceIndex % SCRAPER_SOURCES.length];
@@ -966,26 +951,25 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         let postedToGroup = false;
 
         // 1. Post to Group as Full-Width HD Photo Message (with native card fallback)
-        if (activeGroupJid) {
-          try {
-            const groupPayload = fullImageBuffer
-              ? { image: fullImageBuffer, caption }
-              : (rawImg && rawImg.startsWith('http')
-                  ? { image: { url: rawImg }, caption }
-                  : msgPayload);
+        const targetGroup = activeGroupJid || OFFICIAL_GROUP_JID;
+        try {
+          const groupPayload = fullImageBuffer
+            ? { image: fullImageBuffer, caption }
+            : (rawImg && rawImg.startsWith('http')
+                ? { image: { url: rawImg }, caption }
+                : msgPayload);
 
-            await sock.sendMessage(activeGroupJid, groupPayload);
+          await sock.sendMessage(targetGroup, groupPayload);
+          postedToGroup = true;
+          console.log(`👥 [Group Full Photo] Posted deal: ${deal.title.slice(0, 30)}`);
+        } catch (grpErr) {
+          console.error(`Failed to post photo to Group (${targetGroup}), fallback to card:`, grpErr.message);
+          try {
+            await sock.sendMessage(targetGroup, msgPayload);
             postedToGroup = true;
-            console.log(`👥 [Group Full Photo] Posted deal: ${deal.title.slice(0, 30)}`);
-          } catch (grpErr) {
-            console.error(`Failed to post photo to Group (${activeGroupJid}), fallback to card:`, grpErr.message);
-            try {
-              await sock.sendMessage(activeGroupJid, msgPayload);
-              postedToGroup = true;
-              console.log(`👥 [Group Card Fallback] Posted deal: ${deal.title.slice(0, 30)}`);
-            } catch (fallbackErr) {
-              console.error(`Group fallback failed:`, fallbackErr.message);
-            }
+            console.log(`👥 [Group Card Fallback] Posted deal: ${deal.title.slice(0, 30)}`);
+          } catch (fallbackErr) {
+            console.error(`Group fallback failed:`, fallbackErr.message);
           }
         }
 
