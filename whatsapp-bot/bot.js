@@ -341,7 +341,7 @@ function triggerReconnect(delayMs = 3000) {
 
 function ensureAutoPostScheduler() {
   if (autoPostInterval) return;
-  console.log('⏰ Auto-post timer scheduled: Every 30 minutes');
+  console.log('⏰ Auto-post timer scheduled: Checks every 2 minutes (strictly 30m cooldown enforced)');
   autoPostInterval = setInterval(async () => {
     if (!activeSock || !isConnected) {
       console.log('⏳ Auto-post timer: Bot not connected, attempting reconnect...');
@@ -349,7 +349,6 @@ function ensureAutoPostScheduler() {
       return;
     }
     if (isChecking) {
-      console.log('⏳ Auto-post timer: Check already in progress, skipping.');
       return;
     }
     isChecking = true;
@@ -360,7 +359,7 @@ function ensureAutoPostScheduler() {
     } finally {
       isChecking = false;
     }
-  }, 30 * 60 * 1000);
+  }, 2 * 60 * 1000);
 }
 
 // Active WebSocket presence keep-alive every 2 minutes
@@ -473,7 +472,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.0-clean-minimal-caption</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.1-punctual-30m-scheduler</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -716,7 +715,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
   const now = Date.now();
   if (!isManual && lastSuccessfulPostTime > 0 && now - lastSuccessfulPostTime < MIN_AUTO_POST_INTERVAL_MS) {
     const minsLeft = Math.ceil((MIN_AUTO_POST_INTERVAL_MS - (now - lastSuccessfulPostTime)) / 60000);
-    console.log(`⏳ [Cooldown Active] Last deal post was only ${Math.round((now - lastSuccessfulPostTime) / 60000)}m ago. Next automated post eligible in ${minsLeft}m.`);
+    if (minsLeft % 5 === 0 || now - lastSuccessfulPostTime < 130000) {
+      console.log(`⏳ [Cooldown Active] Last deal post was only ${Math.round((now - lastSuccessfulPostTime) / 60000)}m ago. Next automated post eligible in ${minsLeft}m.`);
+    }
     return;
   }
 
