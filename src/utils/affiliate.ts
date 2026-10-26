@@ -78,9 +78,10 @@ export function getDealLandingUrl(deal: Deal): string {
 export function generateWhatsAppDealShareText(deal: Deal): string {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsFormatted = savings > 0 ? ` (Save ₹${savings.toLocaleString('en-IN')})` : '';
-  const lootHeader = deal.isLootDeal 
-    ? '🔥 *PRICE TLAHNIAM NASA!* 🔥\n' 
-    : '⚡ *PRICE TLAHNIAM!* ⚡\n';
+  const lootHeader =
+    deal.isLootDeal || deal.discountPercent >= 50
+      ? '*MAN TLAHNIAM NASA!*\n'
+      : '*MAN TLAHNIAM!*\n';
 
   const cleanTitle = (str: string) =>
     str
@@ -100,15 +101,15 @@ export function generateWhatsAppDealShareText(deal: Deal): string {
   return (
     `${lootHeader}` +
     `*${title}*\n\n` +
-    `💰 Deal Price: *₹${deal.dealPrice.toLocaleString('en-IN')}*` +
+    `• Deal Price: *₹${deal.dealPrice.toLocaleString('en-IN')}*` +
     ` ~₹${deal.originalPrice.toLocaleString('en-IN')}~${savingsFormatted}\n` +
-    `💥 Discount: *${deal.discountPercent}% OFF*\n` +
-    `🏬 Store: *${storeLabel}*\n` +
-    `⭐ Rating: ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews)\n` +
-    `${deal.couponText ? `🎟️ Coupon: ${deal.couponText}\n` : ''}` +
+    `• Discount: *${deal.discountPercent}% OFF*\n` +
+    `• Store: ${storeLabel}\n` +
+    `• Rating: ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews)\n` +
+    `${deal.couponText ? `• Coupon: ${deal.couponText}\n` : ''}` +
     `\n` +
     `👉 *Enna leh Leina (Deal Link):*\n${landingUrl}\n\n` +
-    `📲 _Shared via Mizodeals • Curated deals for Mizoram & NE_`
+    `📲 _Shared via Mizodeals VIP (mizodeals.com)_`
   );
 }
 

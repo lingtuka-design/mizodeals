@@ -206,27 +206,27 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
   const lootHeader = deal.isLootDeal || deal.discountPercent >= 50
-    ? '🔥 *MAN TLAHNIAM NASA!* 🔥\n'
-    : '⚡ *MAN TLAHNIAM!* ⚡\n';
+    ? '*MAN TLAHNIAM NASA!*\n'
+    : '*MAN TLAHNIAM!*\n';
 
   const title = cleanTitle(deal.title);
-  const storeEmoji = {
-    flipkart: '🛒 *Flipkart*',
-    myntra: '👗 *Myntra*',
-    nykaa: '💄 *Nykaa*',
-    ajio: '🛍️ *Ajio*',
-    hm: '👔 *H&M*',
-    amazon: '📦 *Amazon.in*'
-  }[deal.store || 'amazon'] || '📦 *Amazon.in*';
+  const storeName = {
+    flipkart: 'Flipkart',
+    myntra: 'Myntra',
+    nykaa: 'Nykaa',
+    ajio: 'Ajio',
+    hm: 'H&M',
+    amazon: 'Amazon.in'
+  }[deal.store || 'amazon'] || 'Amazon.in';
 
   return (
     `${lootHeader}` +
     `*${title}*\n\n` +
-    `💰 Deal Price: *${formatINR(deal.dealPrice)}* ~${formatINR(deal.originalPrice)}~${savingsText}\n` +
-    `💥 Discount: *${deal.discountPercent}% OFF*\n` +
-    `🏬 Store: ${storeEmoji}\n` +
-    `⭐ Rating: ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews)\n` +
-    `${deal.couponText ? `🎟️ Coupon: ${deal.couponText}\n` : ''}\n` +
+    `• Deal Price: *${formatINR(deal.dealPrice)}* ~${formatINR(deal.originalPrice)}~${savingsText}\n` +
+    `• Discount: *${deal.discountPercent}% OFF*\n` +
+    `• Store: ${storeName}\n` +
+    `• Rating: ${deal.rating}/5 (${deal.ratingsCount.toLocaleString('en-IN')}+ reviews)\n` +
+    `${deal.couponText ? `• Coupon: ${deal.couponText}\n` : ''}\n` +
     `👉 *Enna leh Leina (Deal Link):*\n${dealUrl}\n\n` +
     `📲 _Shared via Mizodeals VIP (mizodeals.com)_`
   );
@@ -473,7 +473,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v2.9-hd-multi-store-interleaved</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.0-clean-minimal-caption</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
