@@ -648,7 +648,7 @@ async function startBot() {
       auth: state,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,
-      keepAliveIntervalMs: 60_000,
+      keepAliveIntervalMs: 25_000,
       connectTimeoutMs: 60_000,
       defaultQueryTimeoutMs: 60_000,
       retryRequestDelayMs: 500,
