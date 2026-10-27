@@ -429,6 +429,49 @@ http
       </body></html>`);
     }
 
+    if (req.url === '/group-status') {
+      if (!activeSock) return res.end(JSON.stringify({ error: 'No active socket' }));
+      try {
+        const target = activeGroupJid || OFFICIAL_GROUP_JID;
+        const metadata = await activeSock.groupMetadata(target);
+        const botUser = activeSock.user;
+        const botParticipant = metadata.participants.find(
+          (p) => p.id.split(':')[0] === botUser?.id?.split(':')[0]
+        );
+        return res.end(
+          JSON.stringify(
+            {
+              groupSubject: metadata.subject,
+              groupId: metadata.id,
+              announce: metadata.announce,
+              restrict: metadata.restrict,
+              botUserId: botUser?.id,
+              botIsAdmin: !!botParticipant?.admin,
+              botRole: botParticipant?.admin || 'regular member',
+              participantsCount: metadata.participants.length,
+            },
+            null,
+            2
+          )
+        );
+      } catch (err) {
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+
+    if (req.url === '/send-test-group') {
+      if (!activeSock) return res.end(JSON.stringify({ error: 'No active socket' }));
+      try {
+        const target = activeGroupJid || OFFICIAL_GROUP_JID;
+        const msgRes = await activeSock.sendMessage(target, {
+          text: `🤖 Mizodeals Bot Diagnostic Test (${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })})`,
+        });
+        return res.end(JSON.stringify({ success: true, target, msgRes }, null, 2));
+      } catch (err) {
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    }
+
     if (req.url === '/post-now' || req.url === '/trigger') {
       if (!isConnected || !activeSock) {
         return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px;background:#FAF9F5;">
