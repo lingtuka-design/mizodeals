@@ -57,6 +57,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
+    if (body.clean_sessions === true) {
+      await env.DB.prepare("DELETE FROM bot_auth WHERE key NOT IN ('creds.json', 'posted_deals.json')").run();
+      return new Response(JSON.stringify({ success: true, message: 'Cleaned stale session keys, preserved credentials' }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const files = body.files as Record<string, string>;
     if (!files || typeof files !== 'object') {
       return new Response(JSON.stringify({ success: false, message: 'Invalid payload' }), {

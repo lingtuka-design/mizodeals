@@ -429,6 +429,31 @@ http
       </body></html>`);
     }
 
+    if (req.url === '/clean-auth') {
+      console.log('🧹 Purging stale session keys while keeping credentials...');
+      try {
+        if (fs.existsSync(AUTH_DIR)) {
+          const files = fs.readdirSync(AUTH_DIR);
+          for (const f of files) {
+            if (f !== 'creds.json' && !f.startsWith('app-state-sync-key-')) {
+              try { fs.unlinkSync(path.join(AUTH_DIR, f)); } catch (e) {}
+            }
+          }
+        }
+        await fetch('https://mizodeals.com/api/bot-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clean_sessions: true }),
+        });
+      } catch (e) {}
+      setTimeout(() => process.exit(0), 1000);
+      return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:50px 20px;background:#FAF9F5;">
+        <h2>✨ Stale Signal Session Keys Purged!</h2>
+        <p>Login credentials preserved. Bot is restarting fresh and will auto-negotiate clean group encryption keys.</p>
+        <script>setTimeout(() => { window.location.href = '/'; }, 6000);</script>
+      </body></html>`);
+    }
+
     if (req.url === '/group-status') {
       if (!activeSock) return res.end(JSON.stringify({ error: 'No active socket' }));
       try {
@@ -518,7 +543,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.3-active-feed-clean-reconnect</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.4-streamlined-session-clean-auth</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -528,6 +553,7 @@ ${recentLogs.slice(-15).join('\n')}
 
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
         <a href="/post-now" style="display:inline-block;padding:12px 20px;background:#ea580c;color:white;border-radius:12px;text-decoration:none;font-weight:bold;font-size:14px;box-shadow:0 4px 12px rgba(234,88,12,0.25);">⚡ Post Deals Now</a>
+        <a href="/clean-auth" style="display:inline-block;padding:12px 20px;background:#0284c7;color:white;border-radius:12px;text-decoration:none;font-weight:bold;font-size:14px;">✨ Clean Stale Keys</a>
         <a href="/restart" style="display:inline-block;padding:12px 20px;background:#475569;color:white;border-radius:12px;text-decoration:none;font-weight:bold;font-size:14px;">🔄 Reconnect Bot</a>
       </div>
       <p style="font-size:11px;color:#a8a29e;margin-top:10px;">Runs automatically every 30 mins. Click above to trigger an immediate check or reconnect.</p>
@@ -595,14 +621,16 @@ async function startBot() {
           const authData = await authRes.json();
           if (authData.success && authData.files) {
             if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
+            let restoredCount = 0;
             for (const [fname, content] of Object.entries(authData.files)) {
               if (fname === 'posted_deals.json') {
                 fs.writeFileSync(POSTED_FILE, content, 'utf8');
-              } else {
+              } else if (fname === 'creds.json' || fname.startsWith('app-state-sync-key-')) {
                 fs.writeFileSync(path.join(AUTH_DIR, fname), content, 'utf8');
+                restoredCount++;
               }
             }
-            console.log(`✅ Restored ${Object.keys(authData.files).length} session auth files from Cloudflare D1!`);
+            console.log(`✅ Restored ${restoredCount} essential auth session files from Cloudflare D1!`);
             sessionRestoredFromD1 = true;
           }
         }
@@ -646,21 +674,21 @@ async function startBot() {
       try {
         if (!fs.existsSync(AUTH_DIR)) return;
         const files = fs.readdirSync(AUTH_DIR);
-        const jsonFiles = files.filter((f) => f.endsWith('.json'));
-        console.log(`☁️ Syncing ${jsonFiles.length} auth session files to Cloudflare D1 in batches...`);
-        for (let i = 0; i < jsonFiles.length; i += 40) {
-          const chunk = jsonFiles.slice(i, i + 40);
-          const fileMap = {};
-          for (const f of chunk) {
-            fileMap[f] = fs.readFileSync(path.join(AUTH_DIR, f), 'utf8');
-          }
-          await fetch('https://mizodeals.com/api/bot-auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ files: fileMap }),
-          });
+        // Only back up essentials: creds and app-state-sync keys; avoid ephemeral lid/pre-key bloat
+        const essentialFiles = files.filter(
+          (f) => f === 'creds.json' || f.startsWith('app-state-sync-key-')
+        );
+        console.log(`☁️ Syncing ${essentialFiles.length} essential auth files to Cloudflare D1...`);
+        const fileMap = {};
+        for (const f of essentialFiles) {
+          fileMap[f] = fs.readFileSync(path.join(AUTH_DIR, f), 'utf8');
         }
-        console.log(`✅ All ${jsonFiles.length} auth files securely backed up to Cloudflare D1!`);
+        await fetch('https://mizodeals.com/api/bot-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: fileMap }),
+        });
+        console.log(`✅ Essential auth securely backed up to Cloudflare D1!`);
       } catch (e) {
         console.warn('⚠️ Cloud sync notice:', e.message);
       }
