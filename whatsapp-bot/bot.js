@@ -330,6 +330,7 @@ function triggerReconnect(delayMs = 3000) {
     try {
       activeSock.ev.removeAllListeners();
       activeSock.ws?.close();
+      activeSock.end(undefined);
     } catch (e) {}
     activeSock = null;
   }
@@ -377,11 +378,19 @@ http
 
     if (req.url === '/restart') {
       console.log('🔄 Manual restart requested via /restart endpoint');
-      triggerReconnect(1000);
+      if (activeSock) {
+        try {
+          activeSock.ev.removeAllListeners();
+          activeSock.ws?.close();
+          activeSock.end(undefined);
+        } catch (e) {}
+        activeSock = null;
+      }
+      setTimeout(() => process.exit(0), 1000);
       return res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:50px 20px;background:#FAF9F5;">
-        <h2>🔄 Reconnecting WhatsApp Bot...</h2>
-        <p>Please wait 5 seconds while the bot reconnects to WhatsApp.</p>
-        <script>setTimeout(() => { window.location.href = '/'; }, 5000);</script>
+        <h2>🔄 Clean Rebooting WhatsApp Bot...</h2>
+        <p>Container supervisor restarting with fresh memory. Please wait 6 seconds.</p>
+        <script>setTimeout(() => { window.location.href = '/'; }, 6000);</script>
       </body></html>`);
     }
 
@@ -466,7 +475,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.2-guaranteed-group-delivery</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.3-active-feed-clean-reconnect</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -633,10 +642,18 @@ async function startBot() {
 
       if (connection === 'close') {
         isConnected = false;
-        activeSock = null;
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const isLoggedOut = statusCode === DisconnectReason.loggedOut;
         console.log(`Connection closed (statusCode: ${statusCode}). Logged out: ${isLoggedOut}`);
+
+        // Thoroughly dismantle closed socket
+        try {
+          sock.ev.removeAllListeners();
+          sock.ws?.close();
+          sock.end(undefined);
+        } catch (e) {}
+        if (activeSock === sock) activeSock = null;
+
         if (isLoggedOut) {
           console.warn('⚠️ WhatsApp session logged out / expired (401). Purging stale auth for fresh QR...');
           try {
@@ -648,6 +665,9 @@ async function startBot() {
             body: JSON.stringify({ reset: true }),
           }).catch(() => {});
           triggerReconnect(1500);
+        } else if (statusCode === 440) {
+          console.warn('⚠️ Connection replaced (440). Backing off 20s to break collision loop...');
+          triggerReconnect(20000);
         } else {
           triggerReconnect(4000);
         }
@@ -739,10 +759,10 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
   try {
     let res;
     try {
-      res = await fetch('https://mizodeals.com/api/deals?status=all&limit=100', { signal: AbortSignal.timeout(8000) });
+      res = await fetch('https://mizodeals.com/api/deals?status=all&limit=300', { signal: AbortSignal.timeout(8000) });
     } catch (e) {
       console.warn('mizodeals.com API slow, falling back to pages.dev...');
-      res = await fetch('https://mizodeals.pages.dev/api/deals?status=all&limit=100', { signal: AbortSignal.timeout(8000) });
+      res = await fetch('https://mizodeals.pages.dev/api/deals?status=all&limit=300', { signal: AbortSignal.timeout(8000) });
     }
 
     if (!res.ok) {
@@ -768,6 +788,37 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         !d.imageUrl.includes('unsplash.com') &&
         !d.imageUrl.includes('photo-1523275335684-37898b6baf30')
     );
+
+    // If catalog is dry, harvest immediately so the cycle never stalls
+    if (candidates.length === 0) {
+      console.log(`🌾 Catalog dry (0 unposted candidates). Triggering instant harvest from ${currentSource}...`);
+      try {
+        const harvestLimit = currentSource === 'indiadesire' ? 60 : 35;
+        const hRes = await fetch(`https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=${harvestLimit}`, { signal: AbortSignal.timeout(20000) });
+        const hData = await hRes.json();
+        console.log(`🌾 Harvested ${hData.count || 0} deals (${hData.insertedCount || 0} new). Re-fetching catalog...`);
+        const refetchRes = await fetch('https://mizodeals.com/api/deals?status=all&limit=300', { signal: AbortSignal.timeout(8000) });
+        const refetchData = await refetchRes.json();
+        if (refetchData.success && Array.isArray(refetchData.deals)) {
+          candidates.push(...refetchData.deals.filter(
+            (d) =>
+              !isDealAlreadyPosted(d, lookup) &&
+              d.asin &&
+              !d.asin.startsWith('DM') &&
+              ((d.store && d.store !== 'amazon') || /^[A-Z0-9]{10}$/i.test(d.asin)) &&
+              (!d.affiliateUrl || (!d.affiliateUrl.includes('/s?k=') && !d.affiliateUrl.includes('/deal/'))) &&
+              (d.isLootDeal || d.discountPercent >= 50) &&
+              d.imageUrl &&
+              d.imageUrl.startsWith('http') &&
+              d.imageUrl.length > 15 &&
+              !d.imageUrl.includes('unsplash.com') &&
+              !d.imageUrl.includes('photo-1523275335684-37898b6baf30')
+          ));
+        }
+      } catch (hErr) {
+        console.warn('🌾 Instant harvest notice:', hErr.message);
+      }
+    }
 
     console.log(`Found ${candidates.length} unposted candidate loot deals.`);
 
