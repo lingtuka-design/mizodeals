@@ -78,13 +78,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       },
       body: JSON.stringify({
         partnerTag,
+        partnerType: 'Associates',
+        itemIdType: 'ASIN',
         itemIds: [asin],
         resources: [
           'itemInfo.title',
           'images.primary.large',
           'offersV2.listings.price',
-          'customerReviews.starRating',
-          'customerReviews.count',
         ],
       }),
     });
