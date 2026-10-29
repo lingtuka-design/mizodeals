@@ -19,6 +19,8 @@ interface ScrapedDeal {
 interface Env {
   DB?: D1Database;
   AMAZON_PARTNER_TAG?: string;
+  AMAZON_CLIENT_ID?: string;
+  AMAZON_CLIENT_SECRET?: string;
 }
 
 const EARNKARO_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YWQ2ZmI1ZGVmOTM2Y2JkNzEzZWRhYTUiLCJlYXJua2FybyI6IjU3MzAzOTIiLCJpYXQiOjE3OTI0NzQyMTJ9.yC7pF3WzcpVcl5yPEbe2rtg0DugrglJ64SUJqmDNOc0';
@@ -851,9 +853,159 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
+  // SYNC & AUTO-CORRECT WITH AMAZON CREATORS API
+  // ==========================================
+  async function syncAmazonDealsWithApi(
+    deals: ScrapedDeal[],
+    envConfig: Env
+  ): Promise<{ verified: number; updated: number; discarded: number }> {
+    const amzDeals = deals.filter(
+      (d) => (!d.store || d.store === 'amazon') && d.asin && /^[A-Z0-9]{10}$/i.test(d.asin)
+    );
+
+    if (amzDeals.length === 0) return { verified: 0, updated: 0, discarded: 0 };
+
+    const clientId = envConfig.AMAZON_CLIENT_ID;
+    const clientSecret = envConfig.AMAZON_CLIENT_SECRET;
+    const partnerTag = envConfig.AMAZON_PARTNER_TAG || 'lalmalsawmtlu-21';
+
+    if (!clientId || !clientSecret) {
+      return { verified: 0, updated: 0, discarded: 0 };
+    }
+
+    try {
+      const tokenRes = await fetch('https://api.amazon.com/auth/o2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'client_credentials',
+          client_id: clientId,
+          client_secret: clientSecret,
+          scope: 'creatorsapi::default',
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+
+      if (!tokenRes.ok) {
+        return { verified: 0, updated: 0, discarded: 0 };
+      }
+
+      const tokenData = (await tokenRes.json()) as { access_token?: string };
+      if (!tokenData?.access_token) return { verified: 0, updated: 0, discarded: 0 };
+
+      const token = tokenData.access_token;
+      let verifiedCount = 0;
+      let updatedCount = 0;
+      let discardedCount = 0;
+
+      const chunkSize = 10;
+      const chunks: ScrapedDeal[][] = [];
+      for (let i = 0; i < amzDeals.length; i += chunkSize) {
+        chunks.push(amzDeals.slice(i, i + chunkSize));
+      }
+
+      await Promise.all(
+        chunks.map(async (chunk) => {
+          const asins = chunk.map((c) => c.asin as string);
+          try {
+            const apiRes = await fetch('https://creatorsapi.amazon/catalog/v1/getItems', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'x-marketplace': 'www.amazon.in',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                partnerTag,
+                partnerType: 'Associates',
+                itemIdType: 'ASIN',
+                itemIds: asins,
+                resources: [
+                  'itemInfo.title',
+                  'images.primary.large',
+                  'offersV2.listings.price',
+                ],
+              }),
+              signal: AbortSignal.timeout(8000),
+            });
+
+            if (!apiRes.ok) return;
+
+            const data = (await apiRes.json()) as any;
+            const items: any[] = data?.itemsResult?.items || [];
+
+            for (const item of items) {
+              const itemAsin = item.asin;
+              const targetDeal = chunk.find((c) => c.asin?.toUpperCase() === itemAsin?.toUpperCase());
+              if (!targetDeal) continue;
+
+              verifiedCount++;
+              const listing =
+                item.offersV2?.listings?.find((l: any) => l.isBuyBoxWinner) ||
+                item.offersV2?.listings?.[0];
+              const livePrice = listing?.price?.money?.amount;
+              const liveMrp = listing?.price?.savingBasis?.money?.amount;
+              const liveSavings = listing?.price?.savings?.percentage;
+
+              if (item.images?.primary?.large?.url) {
+                targetDeal.imageUrl = item.images.primary.large.url;
+              }
+
+              if (item.itemInfo?.title?.displayValue) {
+                targetDeal.title = item.itemInfo.title.displayValue;
+              }
+
+              if (typeof livePrice === 'number' && livePrice > 0) {
+                const prevPrice = targetDeal.price;
+                targetDeal.price = Math.round(livePrice);
+                if (typeof liveMrp === 'number' && liveMrp > 0) {
+                  targetDeal.originalPrice = Math.round(liveMrp);
+                }
+                if (typeof liveSavings === 'number') {
+                  targetDeal.discountPercent = Math.round(liveSavings);
+                } else if (targetDeal.originalPrice > targetDeal.price) {
+                  targetDeal.discountPercent = Math.round(
+                    ((targetDeal.originalPrice - targetDeal.price) / targetDeal.originalPrice) * 100
+                  );
+                }
+
+                targetDeal.isLootDeal = targetDeal.discountPercent >= 50;
+                (targetDeal as any)._isAmazonLiveVerified = true;
+                if (prevPrice !== targetDeal.price) {
+                  updatedCount++;
+                }
+              } else {
+                (targetDeal as any)._isUnavailable = true;
+                discardedCount++;
+              }
+            }
+          } catch {
+            // Gracefully ignore chunk failure
+          }
+        })
+      );
+
+      return { verified: verifiedCount, updated: updatedCount, discarded: discardedCount };
+    } catch (err) {
+      console.warn('Amazon API batch sync error:', err);
+      return { verified: 0, updated: 0, discarded: 0 };
+    }
+  }
+
+  // ==========================================
   // AUTO-PUBLISH TO CLOUDFLARE D1 DATABASE
   // ==========================================
   let insertedCount = 0;
+  let amazonSyncStats = { verified: 0, updated: 0, discarded: 0 };
+
+  if (collectedDeals.length > 0) {
+    try {
+      amazonSyncStats = await syncAmazonDealsWithApi(collectedDeals, env);
+    } catch (e) {
+      console.warn('Amazon API sync failed, continuing with scraped deals:', e);
+    }
+  }
+
   if (shouldAutoPublish && env.DB && collectedDeals.length > 0) {
     const nowIso = new Date().toISOString();
     for (const deal of collectedDeals) {
@@ -863,8 +1015,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       // 3. Must have valid product image starting with http
       // 4. Must NOT have any Unsplash or stock placeholder images
       // 5. Must NOT have search collection URLs (/s?k= or /deal/)
+      // 6. Skip items marked unavailable (out of stock) by Amazon API
+      // 7. Skip items where discount has evaporated below 15%
       const isAmz = !deal.store || deal.store === 'amazon';
+      if ((deal as any)._isUnavailable) {
+        continue;
+      }
       if (isAmz && (!deal.asin || !/^[A-Z0-9]{10}$/i.test(deal.asin))) {
+        continue;
+      }
+      if (isAmz && deal.discountPercent < 15) {
         continue;
       }
       if (
@@ -881,6 +1041,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
       try {
         const finalAsin = deal.asin;
+        const verifiedTag = (deal as any)._isAmazonLiveVerified
+          ? 'Verified via Amazon Creators API'
+          : 'Verified via Multi-Source Harvester';
+
         await env.DB.prepare(
           `INSERT INTO deals (
             id, asin, title, category, store, original_price, deal_price, current_price,
@@ -889,10 +1053,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(asin) DO UPDATE SET
             deal_price = excluded.deal_price,
+            current_price = excluded.deal_price,
+            original_price = excluded.original_price,
             discount_percent = excluded.discount_percent,
+            title = excluded.title,
             image_url = excluded.image_url,
             last_checked_at = excluded.last_checked_at,
-            verified_at = 'Verified via Multi-Source Harvester'`
+            verified_at = excluded.verified_at`
         )
           .bind(
             `deal-${deal.dealId}`,
@@ -914,7 +1081,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             `Curated from ${deal.source}. 100% genuine ${deal.store ? deal.store.toUpperCase() : 'Amazon'} deal verified with ${deal.discountPercent}% OFF.`,
             nowIso,
             nowIso,
-            'Auto-harvested'
+            verifiedTag
           )
           .run();
         insertedCount++;
@@ -930,6 +1097,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       count: collectedDeals.length,
       insertedCount: shouldAutoPublish ? insertedCount : undefined,
       autoPublished: shouldAutoPublish,
+      amazonLiveSync: amazonSyncStats,
       deals: collectedDeals,
       timestamp: new Date().toISOString(),
     }),

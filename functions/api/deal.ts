@@ -1,4 +1,5 @@
 interface Env {
+  DB?: D1Database;
   AMAZON_CLIENT_ID?: string;
   AMAZON_CLIENT_SECRET?: string;
   AMAZON_PARTNER_TAG?: string;
@@ -110,11 +111,80 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
+    // 3. Extract live price and item details
+    const item = (creatorsData as any)?.itemsResult?.items?.[0];
+    const listing = item?.offersV2?.listings?.find((l: any) => l.isBuyBoxWinner) || item?.offersV2?.listings?.[0];
+    const livePrice = listing?.price?.money?.amount;
+    const liveMrp = listing?.price?.savingBasis?.money?.amount;
+    const liveSavings = listing?.price?.savings?.percentage;
+    const isAvailable = typeof livePrice === 'number' && livePrice > 0;
+    const officialTitle = item?.itemInfo?.title?.displayValue;
+    const officialImage = item?.images?.primary?.large?.url;
+
+    const roundedPrice = isAvailable ? Math.round(livePrice) : null;
+    const roundedMrp = typeof liveMrp === 'number' && liveMrp > 0 ? Math.round(liveMrp) : null;
+    const computedDiscount = typeof liveSavings === 'number'
+      ? Math.round(liveSavings)
+      : (roundedMrp && roundedPrice ? Math.round(((roundedMrp - roundedPrice) / roundedMrp) * 100) : 0);
+
+    // 4. Auto-update live price in Cloudflare D1 database if DB is bound
+    if (env.DB && asin) {
+      try {
+        const nowIso = new Date().toISOString();
+        if (isAvailable && roundedPrice) {
+          const status = computedDiscount >= 15 ? 'active' : 'expired';
+          await env.DB.prepare(
+            `UPDATE deals SET
+              deal_price = ?,
+              current_price = ?,
+              original_price = COALESCE(?, original_price),
+              discount_percent = ?,
+              title = COALESCE(?, title),
+              image_url = COALESCE(?, image_url),
+              status = ?,
+              last_checked_at = ?,
+              verified_at = 'Verified via Amazon Creators API'
+            WHERE asin = ?`
+          )
+            .bind(
+              roundedPrice,
+              roundedPrice,
+              roundedMrp,
+              computedDiscount,
+              officialTitle || null,
+              officialImage || null,
+              status,
+              nowIso,
+              asin
+            )
+            .run();
+        } else {
+          await env.DB.prepare(
+            `UPDATE deals SET
+              status = 'expired',
+              last_checked_at = ?,
+              verified_at = 'Amazon API (Out of Stock)'
+            WHERE asin = ?`
+          )
+            .bind(nowIso, asin)
+            .run();
+        }
+      } catch (dbErr) {
+        console.error('Failed to sync deal to D1 database:', dbErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         asin,
         partnerTag,
+        livePrice: roundedPrice,
+        liveMrp: roundedMrp,
+        discountPercent: computedDiscount,
+        isAvailable,
+        title: officialTitle,
+        imageUrl: officialImage,
         data: creatorsData,
       }),
       {
@@ -122,7 +192,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=300',
+          'Cache-Control': 'public, max-age=120',
         },
       }
     );

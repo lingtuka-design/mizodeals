@@ -34,6 +34,13 @@ export const DealDetailView: React.FC = () => {
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [fetchedDeal, setFetchedDeal] = useState<Deal | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [liveSync, setLiveSync] = useState<{
+    price?: number;
+    originalPrice?: number;
+    discountPercent?: number;
+    isAvailable?: boolean;
+    isLive: boolean;
+  } | null>(null);
 
   const currentId = id?.toLowerCase() || '';
   const initialDeal = deals.find(
@@ -60,6 +67,25 @@ export const DealDetailView: React.FC = () => {
     }
   }, [currentId, deal]);
 
+  useEffect(() => {
+    if (deal?.asin && (!deal.store || deal.store === 'amazon') && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
+      fetch(`/api/deal?asin=${deal.asin}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((data: any) => {
+          if (data?.success) {
+            setLiveSync({
+              price: typeof data.livePrice === 'number' ? data.livePrice : undefined,
+              originalPrice: typeof data.liveMrp === 'number' ? data.liveMrp : undefined,
+              discountPercent: typeof data.discountPercent === 'number' ? data.discountPercent : undefined,
+              isAvailable: data.isAvailable,
+              isLive: true,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [deal?.asin, deal?.store]);
+
   if (isSearching) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-24 text-center">
@@ -85,11 +111,15 @@ export const DealDetailView: React.FC = () => {
     );
   }
 
-  const { savingsAmount } = getDealSavings(deal.originalPrice, deal.dealPrice);
+  const currentDealPrice = liveSync?.price ?? deal.dealPrice;
+  const currentOriginalPrice = liveSync?.originalPrice ?? deal.originalPrice;
+  const currentDiscountPercent = liveSync?.discountPercent ?? deal.discountPercent;
+  const { savingsAmount } = getDealSavings(currentOriginalPrice, currentDealPrice);
   const storeBadge = STORE_BADGES[deal.store] || STORE_BADGES.amazon;
   const bookmarked = isBookmarked(deal.id);
-  const isExpired = isDealExpired(deal);
-  const isLoot = isLootDeal(deal);
+  const isAvailable = liveSync ? liveSync.isAvailable !== false : true;
+  const isExpired = isDealExpired(deal) || !isAvailable || (liveSync?.isLive && currentDiscountPercent < 15);
+  const isLoot = !isExpired && currentDiscountPercent >= 50;
 
   // Active alternative deals (same category or active loot deals)
   const activeAlternatives = deals
@@ -171,7 +201,7 @@ export const DealDetailView: React.FC = () => {
             ) : (
               <div className="absolute top-3 left-3">
                 <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl shadow-sm">
-                  {deal.discountPercent}% OFF
+                  {currentDiscountPercent}% OFF
                 </span>
               </div>
             )}
@@ -219,33 +249,41 @@ export const DealDetailView: React.FC = () => {
 
             {/* Pricing Card */}
             <div className="p-4 bg-[#FAF9F5] border border-[#EAE6DF] rounded-2xl">
+              {liveSync?.isLive && isAvailable && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 mb-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Amazon Official Live Price Sync</span>
+                </div>
+              )}
               {isExpired ? (
                 <div>
                   <div className="flex items-baseline gap-3">
                     <span className="text-2xl font-bold text-stone-600">
-                      Was Deal Price: {formatINR(deal.dealPrice)}
+                      Was Deal Price: {formatINR(currentDealPrice)}
                     </span>
                     <span className="text-sm font-semibold text-stone-400 line-through">
-                      MRP {formatINR(deal.originalPrice)}
+                      MRP {formatINR(currentOriginalPrice)}
                     </span>
                   </div>
                   <p className="text-xs font-medium text-amber-800 mt-1">
-                    Special promotional discount has expired. Amazon live price may be higher.
+                    {!isAvailable
+                      ? 'He thil hi Amazon-ah a zo rih (Out of Stock) a ni.'
+                      : 'Special promotional discount has expired. Amazon live price may be higher.'}
                   </p>
                 </div>
               ) : (
                 <div>
                   <div className="flex items-baseline gap-3">
                     <span className="text-3xl font-black text-stone-900 tracking-tight">
-                      {formatINR(deal.dealPrice)}
+                      {formatINR(currentDealPrice)}
                     </span>
                     <span className="text-base font-semibold text-stone-400 line-through">
-                      {formatINR(deal.originalPrice)}
+                      {formatINR(currentOriginalPrice)}
                     </span>
                   </div>
                   {savingsAmount > 0 && (
                     <p className="text-xs font-bold text-emerald-700 mt-1">
-                      Instant Discount: {formatINR(savingsAmount)} ({deal.discountPercent}% OFF)
+                      Instant Discount: {formatINR(savingsAmount)} ({currentDiscountPercent}% OFF)
                     </p>
                   )}
                   {deal.couponText && (
