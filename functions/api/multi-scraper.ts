@@ -632,6 +632,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const imgMatch = box.match(/data-src=['"]([^'"]+)['"]/i) || box.match(/src=['"](https:\/\/[^'"]+)['"]/i);
             let imageUrl = imgMatch ? imgMatch[1] : '';
 
+            // Reject placeholder SVG icons (like gears.svg or star SVGs)
+            if (imageUrl.includes('.svg') || imageUrl.includes('gears') || imageUrl.includes('placeholder')) {
+              continue;
+            }
+
             if (store === 'amazon') {
               if (imageUrl.includes('_SL300_')) {
                 imageUrl = imageUrl.replace('_SL300_', '_SL600_');
@@ -653,10 +658,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             } else if (store === 'flipkart') {
               if (imageUrl.includes('flixcart.com')) {
                 imageUrl = imageUrl.replace(/\/image\/\d+\/\d+\//, '/image/832/832/');
-              }
-            } else if (store === 'myntra') {
-              if (imageUrl.includes('myntassets.com')) {
-                imageUrl = imageUrl.replace(/(?:dpr_[^,]+,)?(?:q_\d+,)?(?:w_\d+,)?(?:c_limit,)?(?:fl_progressive\/)?/, 'h_1440,q_95,w_1080/');
               }
             }
 
@@ -1035,6 +1036,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         deal.imageUrl.length < 15 ||
         deal.imageUrl.includes('unsplash.com') ||
         deal.imageUrl.includes('photo-1523275335684-37898b6baf30') ||
+        deal.imageUrl.includes('.svg') ||
+        deal.imageUrl.includes('gears') ||
+        deal.imageUrl.includes('placeholder') ||
+        deal.imageUrl.includes('white-star-display') ||
         (deal.amazonUrl && (deal.amazonUrl.includes('/s?k=') || deal.amazonUrl.includes('/deal/')))
       ) {
         continue;

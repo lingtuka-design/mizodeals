@@ -52,12 +52,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const targetTag = env.AMAZON_PARTNER_TAG || 'lalmalsawmtlu-21';
     const { results } = await env.DB.prepare(query).bind(...params).all();
 
-    // Filter out any stale/legacy deals that contain search collection URLs (/s?k=)
+    // Filter out any stale/legacy deals that contain search collection URLs (/s?k=) or broken placeholder images
     const validRows = (results || []).filter((row: any) => {
       if (!row.asin || row.asin.startsWith('DM')) return false;
       const isAmz = !row.store || row.store === 'amazon';
       if (isAmz && !/^[A-Z0-9]{10}$/i.test(row.asin)) return false;
       if (row.affiliate_url && (row.affiliate_url.includes('/s?k=') || row.affiliate_url.includes('/deal/'))) return false;
+      if (row.image_url && (row.image_url.includes('.svg') || row.image_url.includes('gears') || row.image_url.includes('placeholder'))) return false;
       return true;
     });
 
