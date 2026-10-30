@@ -66,14 +66,14 @@ function classifyCategory(title: string): string {
   if (/lipstick|perfume|serum|sunscreen|lotion|cream|shampoo|skincare|cosmetic|kajal|beauty|makeup|facewash/i.test(t)) {
     return 'beauty';
   }
-  if (/phone|iphone|samsung|oneplus|realme|redmi|mobile|smartphone|case|charger|earbud|airpod|headphone|earphone|audio|speaker|bluetooth|gadget|smartwatch|watch|strap|tws|band/i.test(t)) {
-    if (/phone|mobile|case|charger|headphone|earbud|speaker|smartwatch/i.test(t)) return 'gadgets';
+  // Dedicated Gadgets classification: Smart devices, audio, phones, wearables, and mobile accessories
+  if (/phone|iphone|samsung|oneplus|realme|redmi|xiaomi|poco|motorola|moto|vivo|oppo|iqoo|mobile|smartphone|earbud|airpod|headphone|earphone|neckband|tws|audio|speaker|soundbar|bluetooth|gadget|smartwatch|watch|strap|band|tracker|power\s*bank|powerbank|charger|adapter|cable|usb|magsafe|tripod|selfie\s*stick|gimbal|mount|stylus|pen\s*drive|pendrive|otg/i.test(t)) {
+    return 'gadgets';
+  }
+  if (/laptop|macbook|monitor|keyboard|mouse|ssd|hard\s*drive|hdd|ram|cpu|gpu|motherboard|router|wifi|printer|scanner|pc|computer|tablet|ipad|camera|lens|projector|television|tv|ups/i.test(t)) {
     return 'electronics';
   }
-  if (/laptop|macbook|monitor|keyboard|mouse|ssd|hard drive|ram|cpu|gpu|router|printer|pc|computer|tablet|ipad/i.test(t)) {
-    return 'electronics';
-  }
-  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|jacket|sock|sandal|wallet|bag|fashion|cloth|wear/i.test(t)) {
+  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|jacket|sock|sandal|wallet|bag|backpack|fashion|cloth|wear/i.test(t)) {
     return 'shoes_fashion';
   }
   if (/cooker|bottle|pan|bedsheet|pillow|light|lamp|curtain|mop|cleaner|purifier|kettle|knife|kitchen|home|room|towel/i.test(t)) {
