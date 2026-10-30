@@ -852,7 +852,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         !d.asin.startsWith('DM') &&
         ((d.store && d.store !== 'amazon') || /^[A-Z0-9]{10}$/i.test(d.asin)) &&
         (!d.affiliateUrl || (!d.affiliateUrl.includes('/s?k=') && !d.affiliateUrl.includes('/deal/'))) &&
-        (d.isLootDeal || d.discountPercent >= 50) &&
+        (d.isLootDeal || d.discountPercent >= 40) &&
         d.imageUrl &&
         d.imageUrl.startsWith('http') &&
         d.imageUrl.length > 15 &&
@@ -878,7 +878,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
               !d.asin.startsWith('DM') &&
               ((d.store && d.store !== 'amazon') || /^[A-Z0-9]{10}$/i.test(d.asin)) &&
               (!d.affiliateUrl || (!d.affiliateUrl.includes('/s?k=') && !d.affiliateUrl.includes('/deal/'))) &&
-              (d.isLootDeal || d.discountPercent >= 50) &&
+              (d.isLootDeal || d.discountPercent >= 40) &&
               d.imageUrl &&
               d.imageUrl.startsWith('http') &&
               d.imageUrl.length > 15 &&
