@@ -139,6 +139,15 @@ export const HomeView: React.FC = () => {
         if (store !== activeFilters.store) return false;
       }
 
+      // Smart Homepage Feed Filter:
+      // When viewing general all-feed on homepage (no specific category or search active),
+      // keep the feed high-impact by showing deals with 40%+ discount (or explicit loot deals).
+      // Modest discount gadgets (20%-39%) stay organized in the dedicated 'Gadgets' category.
+      const isGeneralFeed = (!activeFilters.category || activeFilters.category === 'all') && !activeFilters.search?.trim();
+      if (isGeneralFeed && deal.discountPercent < 40 && !isLootDeal(deal)) {
+        return false;
+      }
+
       // Category filter
       if (activeFilters.category && activeFilters.category !== 'all' && deal.category !== activeFilters.category) {
         return false;
