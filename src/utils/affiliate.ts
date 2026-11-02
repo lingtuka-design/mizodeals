@@ -124,7 +124,8 @@ export function generateWhatsAppDealShareText(deal: Deal): string {
 
   const title = cleanTitle(deal.title);
   const landingUrl = getDealLandingUrl(deal);
-  const storeLabel = (deal.store && STORE_BADGES[deal.store]?.name) || 'Amazon.in';
+  const cleanStore = (deal.store || 'amazon').toLowerCase().trim();
+  const storeLabel = STORE_BADGES[cleanStore]?.name || (cleanStore === 'meesho' ? 'Meesho' : 'Amazon.in');
 
   return (
     `${lootHeader}` +

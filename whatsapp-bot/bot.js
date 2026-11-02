@@ -4,6 +4,7 @@ import qrcode from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import http from 'http';
 import { Jimp } from 'jimp';
+import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
@@ -210,6 +211,7 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     : '*MAN TLAHNIAM!*\n';
 
   const title = cleanTitle(deal.title);
+  const cleanStore = (deal.store || 'amazon').toLowerCase().trim();
   const storeName = {
     flipkart: 'Flipkart',
     meesho: 'Meesho',
@@ -218,7 +220,7 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     ajio: 'Ajio',
     hm: 'H&M',
     amazon: 'Amazon.in'
-  }[deal.store || 'amazon'] || 'Amazon.in';
+  }[cleanStore] || (cleanStore === 'meesho' ? 'Meesho' : 'Amazon.in');
 
   return (
     `${lootHeader}` +
@@ -544,7 +546,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.4-streamlined-session-clean-auth</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.5-meesho-verified-store</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -989,6 +991,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (deal.store === 'myntra' && rawImg.includes('myntassets.com')) {
         rawImg = rawImg.replace(/(?:dpr_[^,]+,)?(?:q_\d+,)?(?:w_\d+,)?(?:c_limit,)?(?:fl_progressive\/)?/, 'h_1440,q_95,w_1080/');
       }
+      if (deal.store === 'meesho' && rawImg.includes('images.meesho.com') && rawImg.endsWith('.webp')) {
+        rawImg = rawImg.replace(/\.webp$/i, '.jpg');
+      }
 
       let targetImgUrl = null;
       if ((!deal.store || deal.store === 'amazon') && deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
@@ -1010,7 +1015,21 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         }
 
         if (!img && rawImg && rawImg.startsWith('http')) {
-          img = await Jimp.read(rawImg);
+          try {
+            img = await Jimp.read(rawImg);
+          } catch (readErr) {
+            // If Jimp fails on modern webp or progressive format, decode with sharp first!
+            try {
+              const fetchRes = await fetch(rawImg, { signal: AbortSignal.timeout(6000) });
+              if (fetchRes.ok) {
+                const rawBuffer = Buffer.from(await fetchRes.arrayBuffer());
+                const convertedJpeg = await sharp(rawBuffer).jpeg({ quality: 90 }).toBuffer();
+                img = await Jimp.read(convertedJpeg);
+              }
+            } catch (sharpErr) {
+              console.warn(`[IMAGE DECODE NOTICE] Deal ${deal.id}:`, sharpErr.message);
+            }
+          }
         }
 
         if (img) {
