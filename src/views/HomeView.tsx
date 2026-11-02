@@ -142,10 +142,14 @@ export const HomeView: React.FC = () => {
 
       // Smart Homepage Feed Filter:
       // When viewing general all-feed on homepage (no specific category or search active),
-      // show high-impact deals: gadgets with 30%-75% discount, and other categories with 40%+ discount (or marked loot).
+      // show high-impact deals: gadgets with 30%-75% discount, Nov/Dec festive lighting with 30%+ discount,
+      // and other categories with 40%+ discount (or marked loot).
       const isGeneralFeed = (!activeFilters.category || activeFilters.category === 'all') && !activeFilters.search?.trim();
       const isGadget = deal.category === 'gadgets' || deal.category === 'electronics';
-      const minDiscount = isGadget ? 30 : 40;
+      const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec
+      const isFestive = (currentMonth === 10 || currentMonth === 11) && 
+        /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i.test(deal.title);
+      const minDiscount = isGadget || isFestive ? 30 : 40;
       if (isGeneralFeed && deal.discountPercent < minDiscount && !isLootDeal(deal)) {
         return false;
       }

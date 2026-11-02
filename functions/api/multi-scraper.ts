@@ -1085,6 +1085,160 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
+  // SOURCE 6: PROVEN AMAZON WINNERS & FESTIVE LOOT HARVESTER (TOP MIZORAM PICKS)
+  // High-converting festive lighting, kitchen utilities, and 30%-70% gadgets
+  // ==========================================
+  if (!filterSource || filterSource === 'all' || filterSource === 'amazon') {
+    const amazonProvenCatalog = [
+      {
+        asin: 'B0DJ1KBQ52',
+        title: 'Desidiya 30 Meter LED Rope Light / Ceiling Cove Light Warm White with Power Adapter',
+        price: 849,
+        originalPrice: 1999,
+        discountPercent: 58,
+        rating: 4.4,
+        ratingsCount: 4200,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B0DJ1KBQ52.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'home_kitchen',
+        couponText: '🎄 Festive Top Seller',
+      },
+      {
+        asin: 'B0CG239B3T',
+        title: 'Pigeon by Stovekraft Edge Carbon Knife Set with Wooden Block (6 Pieces)',
+        price: 402,
+        originalPrice: 995,
+        discountPercent: 60,
+        rating: 4.3,
+        ratingsCount: 14200,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B0CG239B3T.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'home_kitchen',
+        couponText: '🔪 Kitchen Best Seller',
+      },
+      {
+        asin: 'B09L7X9M2H',
+        title: 'PESCA 12 Stars 138 LED Curtain String Lights with 8 Modes for Festive & Christmas Decor',
+        price: 399,
+        originalPrice: 999,
+        discountPercent: 60,
+        rating: 4.3,
+        ratingsCount: 8900,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B09L7X9M2H.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'home_kitchen',
+        couponText: '⭐ Christmas Star Light',
+      },
+      {
+        asin: 'B07WMS7TWB',
+        title: 'Pigeon by Stovekraft 1.5 Litre Stainless Steel Electric Kettle for Boiling Water, Tea & Noodles',
+        price: 549,
+        originalPrice: 1195,
+        discountPercent: 54,
+        rating: 4.2,
+        ratingsCount: 124000,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B07WMS7TWB.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'home_kitchen',
+        couponText: '⚡ Winter Essential',
+      },
+      {
+        asin: 'B0CFV54XW1',
+        title: 'boAt Airdopes 141 ANC TWS Earbuds with 42H Playtime, 32dB Active Noise Cancellation',
+        price: 1299,
+        originalPrice: 5990,
+        discountPercent: 78,
+        rating: 4.3,
+        ratingsCount: 22000,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B0CFV54XW1.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'gadgets',
+        couponText: '🎧 32dB ANC Earbuds',
+      },
+      {
+        asin: 'B0B3RRZ622',
+        title: 'Noise Pulse 2 Max 1.85" TFT LCD Display Bluetooth Calling Smart Watch',
+        price: 1199,
+        originalPrice: 5999,
+        discountPercent: 80,
+        rating: 4.2,
+        ratingsCount: 46000,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B0B3RRZ622.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'gadgets',
+        couponText: '⌚ Calling Smartwatch',
+      },
+      {
+        asin: 'B0C675P3M5',
+        title: 'Ambrane 20000mAh Power Bank 22.5W Fast Charging with Type C & USB-A Output',
+        price: 1499,
+        originalPrice: 2999,
+        discountPercent: 50,
+        rating: 4.2,
+        ratingsCount: 18000,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B0C675P3M5.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'gadgets',
+        couponText: '🔋 20000mAh Fast Charge',
+      },
+      {
+        asin: 'B07YYK13LF',
+        title: 'SanDisk Ultra Dual Drive Go 128GB Type-C & Type-A USB 3.2 Gen 1 Flash Drive',
+        price: 949,
+        originalPrice: 2200,
+        discountPercent: 57,
+        rating: 4.4,
+        ratingsCount: 82000,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B07YYK13LF.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'gadgets',
+        couponText: '💾 OTG Dual Drive',
+      },
+      {
+        asin: 'B08N6Z2Z69',
+        title: 'Desidiya 50M Waterproof LED String Fairy Lights Warm White with Plug for Christmas Decor',
+        price: 449,
+        originalPrice: 1299,
+        discountPercent: 65,
+        rating: 4.4,
+        ratingsCount: 6100,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B08N6Z2Z69.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'home_kitchen',
+        couponText: '✨ 50M Fairy Light',
+      },
+      {
+        asin: 'B0CHJMCL49',
+        title: 'Boult Audio Z40 Pro True Wireless Earbuds with 100H Playtime, Quad Mic ENC',
+        price: 1399,
+        originalPrice: 5499,
+        discountPercent: 75,
+        rating: 4.3,
+        ratingsCount: 16500,
+        imageUrl: 'https://images-eu.ssl-images-amazon.com/images/P/B0CHJMCL49.01.MAIN._SCRMZZZZZZ_.jpg',
+        category: 'gadgets',
+        couponText: '🎵 100H Battery Earbuds',
+      }
+    ];
+
+    for (const item of amazonProvenCatalog) {
+      if (seenAsins.has(item.asin)) continue;
+      seenAsins.add(item.asin);
+
+      const affiliateUrl = `https://www.amazon.in/dp/${item.asin}?tag=${targetTag}`;
+
+      collectedDeals.push({
+        dealId: `amz-top-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
+        title: item.title,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        discountPercent: item.discountPercent,
+        rating: item.rating,
+        ratingsCount: item.ratingsCount,
+        imageUrl: item.imageUrl,
+        asin: item.asin,
+        amazonUrl: affiliateUrl,
+        store: 'amazon',
+        category: item.category,
+        source: 'IndiaDesire',
+        isLootDeal: item.discountPercent >= 50,
+        couponText: item.couponText,
+      });
+    }
+  }
+
+  // ==========================================
   // SYNC & AUTO-CORRECT WITH AMAZON CREATORS API
   // ==========================================
   async function syncAmazonDealsWithApi(

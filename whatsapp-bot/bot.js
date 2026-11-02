@@ -861,6 +861,13 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         // Gadgets sweet spot: 30% to 75% discount
         return (d.discountPercent >= 30 && d.discountPercent <= 75) || d.isLootDeal;
       }
+
+      // Seasonal festive / Christmas decor (Nov & Dec): room lights, LED rope, fairy lights at 30%+ discount
+      const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec
+      if ((currentMonth === 10 || currentMonth === 11) && /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i.test(d.title || '')) {
+        return d.discountPercent >= 30 || d.isLootDeal;
+      }
+
       // Other categories: Solid high discounts (40%+ or marked loot)
       return d.isLootDeal || d.discountPercent >= 40;
     };
@@ -904,6 +911,15 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       // 3. High-demand customer categories (Kitchen, Gadgets, Fashion/Shoes, Beauty)
       if (['home_kitchen', 'gadgets', 'shoes_fashion', 'beauty'].includes(d.category)) {
         score += 15;
+      }
+
+      // 3b. Seasonal Festive Peak Boost (November & December in Mizoram: Room lighting, rope lights, fairy lights, Christmas decor)
+      const currentMonth = new Date().getMonth();
+      if (currentMonth === 10 || currentMonth === 11) {
+        const festiveRegex = /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i;
+        if (festiveRegex.test(d.title || '') || festiveRegex.test(d.description || '')) {
+          score += 25;
+        }
       }
 
       // 4. Significant rupee savings (value-for-money brand deals)
