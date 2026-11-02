@@ -10,6 +10,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
   const url = new URL(request.url);
   const category = url.searchParams.get('category');
+  const store = url.searchParams.get('store');
   const status = url.searchParams.get('status') || 'active';
   const isLoot = url.searchParams.get('loot');
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
@@ -40,6 +41,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     if (category && category !== 'all') {
       query += ' AND category = ?';
       params.push(category);
+    }
+
+    if (store && store !== 'all') {
+      query += ' AND store = ?';
+      params.push(store);
     }
 
     if (isLoot === 'true') {
