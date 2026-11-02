@@ -142,10 +142,11 @@ export const HomeView: React.FC = () => {
 
       // Smart Homepage Feed Filter:
       // When viewing general all-feed on homepage (no specific category or search active),
-      // keep the feed high-impact by showing deals with 40%+ discount (or explicit loot deals).
-      // Modest discount gadgets (20%-39%) stay organized in the dedicated 'Gadgets' category.
+      // show high-impact deals: gadgets with 30%-75% discount, and other categories with 40%+ discount (or marked loot).
       const isGeneralFeed = (!activeFilters.category || activeFilters.category === 'all') && !activeFilters.search?.trim();
-      if (isGeneralFeed && deal.discountPercent < 40 && !isLootDeal(deal)) {
+      const isGadget = deal.category === 'gadgets' || deal.category === 'electronics';
+      const minDiscount = isGadget ? 30 : 40;
+      if (isGeneralFeed && deal.discountPercent < minDiscount && !isLootDeal(deal)) {
         return false;
       }
 

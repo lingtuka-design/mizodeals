@@ -546,7 +546,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.5-meesho-verified-store</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.6-high-discount-gadget-focus</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -848,20 +848,24 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
     const lookup = getPostedLookup();
 
-    const candidates = data.deals.filter(
-      (d) =>
-        !isDealAlreadyPosted(d, lookup) &&
-        d.asin &&
-        !d.asin.startsWith('DM') &&
-        ((d.store && d.store !== 'amazon') || /^[A-Z0-9]{10}$/i.test(d.asin)) &&
-        (!d.affiliateUrl || (!d.affiliateUrl.includes('/s?k=') && !d.affiliateUrl.includes('/deal/'))) &&
-        (d.isLootDeal || d.discountPercent >= 40) &&
-        d.imageUrl &&
-        d.imageUrl.startsWith('http') &&
-        d.imageUrl.length > 15 &&
-        !d.imageUrl.includes('unsplash.com') &&
-        !d.imageUrl.includes('photo-1523275335684-37898b6baf30')
-    );
+    const isEligibleDeal = (d) => {
+      if (isDealAlreadyPosted(d, lookup)) return false;
+      if (!d.asin || d.asin.startsWith('DM')) return false;
+      if ((!d.store || d.store === 'amazon') && !/^[A-Z0-9]{10}$/i.test(d.asin)) return false;
+      if (d.affiliateUrl && (d.affiliateUrl.includes('/s?k=') || d.affiliateUrl.includes('/deal/'))) return false;
+      if (!d.imageUrl || !d.imageUrl.startsWith('http') || d.imageUrl.length < 15) return false;
+      if (d.imageUrl.includes('unsplash.com') || d.imageUrl.includes('photo-1523275335684-37898b6baf30')) return false;
+
+      const isGadget = d.category === 'gadgets' || d.category === 'electronics';
+      if (isGadget) {
+        // Gadgets sweet spot: 30% to 75% discount
+        return (d.discountPercent >= 30 && d.discountPercent <= 75) || d.isLootDeal;
+      }
+      // Other categories: Solid high discounts (40%+ or marked loot)
+      return d.isLootDeal || d.discountPercent >= 40;
+    };
+
+    const candidates = data.deals.filter(isEligibleDeal);
 
     // If catalog is dry, harvest immediately so the cycle never stalls
     if (candidates.length === 0) {
@@ -874,20 +878,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         const refetchRes = await fetch('https://mizodeals.com/api/deals?status=all&limit=300', { signal: AbortSignal.timeout(8000) });
         const refetchData = await refetchRes.json();
         if (refetchData.success && Array.isArray(refetchData.deals)) {
-          candidates.push(...refetchData.deals.filter(
-            (d) =>
-              !isDealAlreadyPosted(d, lookup) &&
-              d.asin &&
-              !d.asin.startsWith('DM') &&
-              ((d.store && d.store !== 'amazon') || /^[A-Z0-9]{10}$/i.test(d.asin)) &&
-              (!d.affiliateUrl || (!d.affiliateUrl.includes('/s?k=') && !d.affiliateUrl.includes('/deal/'))) &&
-              (d.isLootDeal || d.discountPercent >= 40) &&
-              d.imageUrl &&
-              d.imageUrl.startsWith('http') &&
-              d.imageUrl.length > 15 &&
-              !d.imageUrl.includes('unsplash.com') &&
-              !d.imageUrl.includes('photo-1523275335684-37898b6baf30')
-          ));
+          candidates.push(...refetchData.deals.filter(isEligibleDeal));
         }
       } catch (hErr) {
         console.warn('🌾 Instant harvest notice:', hErr.message);
@@ -896,8 +887,37 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
     console.log(`Found ${candidates.length} unposted candidate loot deals.`);
 
-    // Sort deals by highest discount first so top loot deals get prioritized
-    candidates.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+    // Quality-weighted scoring: Prioritize genuine high discounts, 30%-70% gadgets, high ratings, and customer favorites
+    const computeDealScore = (d) => {
+      let score = d.discountPercent || 0;
+      const isGadget = d.category === 'gadgets' || d.category === 'electronics';
+
+      // 1. Gadgets sweet spot (30%-70% discount) get prioritized
+      if (isGadget && d.discountPercent >= 30 && d.discountPercent <= 75) {
+        score += 25;
+      }
+
+      // 2. High customer rating: ensures quality over cheap junk
+      if (d.rating >= 4.3) score += 20;
+      else if (d.rating >= 4.0) score += 10;
+
+      // 3. High-demand customer categories (Kitchen, Gadgets, Fashion/Shoes, Beauty)
+      if (['home_kitchen', 'gadgets', 'shoes_fashion', 'beauty'].includes(d.category)) {
+        score += 15;
+      }
+
+      // 4. Significant rupee savings (value-for-money brand deals)
+      const savings = (d.originalPrice || 0) - (d.dealPrice || 0);
+      if (savings >= 1000) score += 15;
+      else if (savings >= 500) score += 10;
+
+      // 5. High review volume (trusted products)
+      if ((d.ratingsCount || 0) >= 1000) score += 10;
+
+      return score;
+    };
+
+    candidates.sort((a, b) => computeDealScore(b) - computeDealScore(a));
 
     // Diverse category ordering: group by category and interleave
     const byCategory = {};
