@@ -11,20 +11,47 @@ const EARNKARO_FNAME = 'lingtuka';
 export const MEESHO_CREATOR_ID = '611878749';
 export const MEESHO_CAMPAIGN_ID = '15245137';
 
-export function buildMeeshoAffiliateUrl(productIdOrUrl: string): string {
+export function buildMeeshoAffiliateUrl(productIdOrUrl: string, explicitExtId?: string): string {
   const clean = productIdOrUrl.trim();
   if (clean.includes(`af_invite/${MEESHO_CREATOR_ID}`)) {
+    if (!clean.includes('ext_id=')) {
+      const pIdMatch = clean.match(/[?&]p_id=([0-9a-zA-Z]+)/i);
+      if (pIdMatch && pIdMatch[1]) {
+        return clean.includes('?') ? `${clean}&ext_id=${pIdMatch[1]}` : `${clean}?ext_id=${pIdMatch[1]}`;
+      }
+    }
     return clean;
   }
-  const pIdMatch = clean.match(/[?&]p_id=([0-9]+)/i) || clean.match(/\/p\/([a-zA-Z0-9]+)/i);
+  const pIdMatch = clean.match(/[?&]p_id=([0-9a-zA-Z]+)/i);
+  const extIdMatch = clean.match(/[?&]ext_id=([0-9a-zA-Z]+)/i);
+  const slugMatch = clean.match(/\/p\/([a-zA-Z0-9]+)/i);
+
   let pid = '';
+  let extId = explicitExtId || '';
+
   if (pIdMatch && pIdMatch[1]) {
     pid = pIdMatch[1];
-  } else {
-    const numMatch = clean.match(/([0-9]{6,12})/);
-    pid = numMatch ? numMatch[1] : clean;
   }
-  return `https://www.meesho.com/af_invite/${MEESHO_CREATOR_ID}:facebook:${MEESHO_CAMPAIGN_ID}?p_id=${encodeURIComponent(pid)}&utm_source=facebook`;
+  if (extIdMatch && extIdMatch[1]) {
+    extId = extIdMatch[1];
+  }
+  if (slugMatch && slugMatch[1]) {
+    if (!extId) extId = slugMatch[1];
+    if (!pid) pid = slugMatch[1];
+  }
+
+  if (!pid && !extId) {
+    const numMatch = clean.match(/([0-9]{6,12})/);
+    const candidate = numMatch ? numMatch[1] : clean;
+    pid = candidate;
+    extId = candidate;
+  } else if (!extId) {
+    extId = pid;
+  } else if (!pid) {
+    pid = extId;
+  }
+
+  return `https://www.meesho.com/af_invite/${MEESHO_CREATOR_ID}:facebook:${MEESHO_CAMPAIGN_ID}?p_id=${encodeURIComponent(pid)}&ext_id=${encodeURIComponent(extId)}&utm_source=facebook`;
 }
 
 export function buildAffiliateUrl(asinOrUrl: string, store: Deal['store'] = 'amazon'): string {
@@ -63,6 +90,12 @@ export function buildAffiliateUrl(asinOrUrl: string, store: Deal['store'] = 'ama
  */
 export function ensureAffiliateTag(url: string): string {
   if (url.includes(`af_invite/${MEESHO_CREATOR_ID}`)) {
+    if (!url.includes('ext_id=')) {
+      const pIdMatch = url.match(/[?&]p_id=([0-9a-zA-Z]+)/i);
+      if (pIdMatch && pIdMatch[1]) {
+        return url.includes('?') ? `${url}&ext_id=${pIdMatch[1]}` : `${url}?ext_id=${pIdMatch[1]}`;
+      }
+    }
     return url;
   }
   if (url.includes('meesho.com') || url.includes('msho.in')) {

@@ -75,6 +75,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       if (!affiliateUrl || store === 'amazon') {
         const cleanAsin = row.asin.toUpperCase();
         affiliateUrl = `https://www.amazon.in/dp/${cleanAsin}?tag=${targetTag}`;
+      } else if (store === 'meesho' && affiliateUrl && affiliateUrl.includes('af_invite/') && !affiliateUrl.includes('ext_id=')) {
+        const pIdMatch = affiliateUrl.match(/[?&]p_id=([0-9a-zA-Z]+)/i);
+        if (pIdMatch && pIdMatch[1]) {
+          affiliateUrl = affiliateUrl.includes('?') ? `${affiliateUrl}&ext_id=${pIdMatch[1]}` : `${affiliateUrl}?ext_id=${pIdMatch[1]}`;
+        }
       }
 
       return {

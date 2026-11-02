@@ -95,8 +95,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .then((data) => {
         if (isMounted && data.success && Array.isArray(data.deals) && data.deals.length > 0) {
-          // Cloudflare D1 database is the single source of truth - do not merge stale deleted deals
-          setDeals(data.deals);
+          // Cloudflare D1 database is the single source of truth - normalize affiliate tags
+          const sanitized = data.deals.map((d) => ({
+            ...d,
+            affiliateUrl: ensureAffiliateTag(d.affiliateUrl || buildAffiliateUrl(d.asin, d.store)),
+          }));
+          setDeals(sanitized);
         }
       })
       .catch((err) => {

@@ -26,17 +26,47 @@ interface Env {
 const MEESHO_CREATOR_ID = '611878749';
 const MEESHO_CAMPAIGN_ID = '15245137';
 
-function buildMeeshoAffiliateUrl(pidOrUrl: string): string {
+function buildMeeshoAffiliateUrl(pidOrUrl: string, explicitExtId?: string): string {
   const clean = pidOrUrl.trim();
-  const pIdMatch = clean.match(/[?&]p_id=([0-9]+)/i) || clean.match(/\/p\/([a-zA-Z0-9]+)/i);
+  if (clean.includes(`af_invite/${MEESHO_CREATOR_ID}`)) {
+    if (!clean.includes('ext_id=')) {
+      const pIdMatch = clean.match(/[?&]p_id=([0-9a-zA-Z]+)/i);
+      if (pIdMatch && pIdMatch[1]) {
+        return clean.includes('?') ? `${clean}&ext_id=${pIdMatch[1]}` : `${clean}?ext_id=${pIdMatch[1]}`;
+      }
+    }
+    return clean;
+  }
+  const pIdMatch = clean.match(/[?&]p_id=([0-9a-zA-Z]+)/i);
+  const extIdMatch = clean.match(/[?&]ext_id=([0-9a-zA-Z]+)/i);
+  const slugMatch = clean.match(/\/p\/([a-zA-Z0-9]+)/i);
+
   let pid = '';
+  let extId = explicitExtId || '';
+
   if (pIdMatch && pIdMatch[1]) {
     pid = pIdMatch[1];
-  } else {
-    const numMatch = clean.match(/([0-9]{6,12})/);
-    pid = numMatch ? numMatch[1] : clean;
   }
-  return `https://www.meesho.com/af_invite/${MEESHO_CREATOR_ID}:facebook:${MEESHO_CAMPAIGN_ID}?p_id=${encodeURIComponent(pid)}&utm_source=facebook`;
+  if (extIdMatch && extIdMatch[1]) {
+    extId = extIdMatch[1];
+  }
+  if (slugMatch && slugMatch[1]) {
+    if (!extId) extId = slugMatch[1];
+    if (!pid) pid = slugMatch[1];
+  }
+
+  if (!pid && !extId) {
+    const numMatch = clean.match(/([0-9]{6,12})/);
+    const candidate = numMatch ? numMatch[1] : clean;
+    pid = candidate;
+    extId = candidate;
+  } else if (!extId) {
+    extId = pid;
+  } else if (!pid) {
+    pid = extId;
+  }
+
+  return `https://www.meesho.com/af_invite/${MEESHO_CREATOR_ID}:facebook:${MEESHO_CAMPAIGN_ID}?p_id=${encodeURIComponent(pid)}&ext_id=${encodeURIComponent(extId)}&utm_source=facebook`;
 }
 
 const EARNKARO_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YWQ2ZmI1ZGVmOTM2Y2JkNzEzZWRhYTUiLCJlYXJua2FybyI6IjU3MzAzOTIiLCJpYXQiOjE3OTI0NzQyMTJ9.yC7pF3WzcpVcl5yPEbe2rtg0DugrglJ64SUJqmDNOc0';
@@ -325,13 +355,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               const converted = await convertWithEarnkaro(rawDealUrl);
               cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(rawDealUrl)}`;
             } else if (store === 'meesho') {
-              const meePidMatch = rawDealUrl.match(/[?&]p_id=([0-9]+)/i) || rawDealUrl.match(/\/p\/([a-zA-Z0-9]+)/i);
-              asin = meePidMatch ? `MSH-${meePidMatch[1]}` : 'MSH-' + simpleHash(rawDealUrl);
+              const meePidMatch = rawDealUrl.match(/[?&]p_id=([0-9a-zA-Z]+)/i);
+              const meeExtMatch = rawDealUrl.match(/[?&]ext_id=([0-9a-zA-Z]+)/i);
+              const meeSlugMatch = rawDealUrl.match(/\/p\/([a-zA-Z0-9]+)/i);
+
+              const pid = meePidMatch ? meePidMatch[1] : (meeSlugMatch ? meeSlugMatch[1] : simpleHash(rawDealUrl));
+              const extId = meeExtMatch ? meeExtMatch[1] : (meeSlugMatch ? meeSlugMatch[1] : pid);
+              asin = `MSH-${pid}`;
               if (seenAsins.has(asin)) continue;
               seenAsins.add(asin);
 
-              const pid = meePidMatch ? meePidMatch[1] : simpleHash(rawDealUrl);
-              cleanUrl = buildMeeshoAffiliateUrl(pid);
+              cleanUrl = buildMeeshoAffiliateUrl(pid, extId);
             }
 
             // Strictly require authentic photo
@@ -1028,7 +1062,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       seenAsins.add(item.pid);
 
       const pid = item.pid.replace('MSH-', '');
-      const affiliateUrl = buildMeeshoAffiliateUrl(item.extId || pid);
+      const affiliateUrl = buildMeeshoAffiliateUrl(pid, item.extId);
 
       collectedDeals.push({
         dealId: `msh-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
