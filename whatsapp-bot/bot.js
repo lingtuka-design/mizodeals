@@ -37,7 +37,7 @@ const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
 const API_URL = 'https://mizodeals.com/api/deals?status=all&limit=200';
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
-const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'all'];
+const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'meesho', 'all'];
 let currentSourceIndex = 0;
 let hasSyncedAllAuth = false;
 
@@ -212,6 +212,7 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
   const title = cleanTitle(deal.title);
   const storeName = {
     flipkart: 'Flipkart',
+    meesho: 'Meesho',
     myntra: 'Myntra',
     nykaa: 'Nykaa',
     ajio: 'Ajio',

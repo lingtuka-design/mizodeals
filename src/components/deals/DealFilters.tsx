@@ -35,6 +35,7 @@ const STORES: { id: StoreType | 'all'; label: string }[] = [
   { id: 'all', label: 'All Stores' },
   { id: 'amazon', label: 'Amazon.in' },
   { id: 'flipkart', label: 'Flipkart' },
+  { id: 'meesho', label: 'Meesho' },
   { id: 'myntra', label: 'Myntra' },
   { id: 'nykaa', label: 'Nykaa' },
   { id: 'ajio', label: 'Ajio' },

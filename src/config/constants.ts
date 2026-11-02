@@ -57,4 +57,10 @@ export const STORE_BADGES: Record<string, { name: string; bg: string; text: stri
     text: 'text-emerald-800',
     border: 'border-emerald-200',
   },
+  meesho: {
+    name: 'Meesho',
+    bg: 'bg-pink-50',
+    text: 'text-pink-900',
+    border: 'border-pink-300',
+  },
 };

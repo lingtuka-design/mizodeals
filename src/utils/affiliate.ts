@@ -8,10 +8,32 @@ import type { Deal } from '../types';
 const EARNKARO_USER_ID = '5730392';
 const EARNKARO_FNAME = 'lingtuka';
 
+export const MEESHO_CREATOR_ID = '611878749';
+export const MEESHO_CAMPAIGN_ID = '15245137';
+
+export function buildMeeshoAffiliateUrl(productIdOrUrl: string): string {
+  const clean = productIdOrUrl.trim();
+  if (clean.includes(`af_invite/${MEESHO_CREATOR_ID}`)) {
+    return clean;
+  }
+  const pIdMatch = clean.match(/[?&]p_id=([0-9]+)/i) || clean.match(/\/p\/([a-zA-Z0-9]+)/i);
+  let pid = '';
+  if (pIdMatch && pIdMatch[1]) {
+    pid = pIdMatch[1];
+  } else {
+    const numMatch = clean.match(/([0-9]{6,12})/);
+    pid = numMatch ? numMatch[1] : clean;
+  }
+  return `https://www.meesho.com/af_invite/${MEESHO_CREATOR_ID}:facebook:${MEESHO_CAMPAIGN_ID}?p_id=${encodeURIComponent(pid)}&utm_source=facebook`;
+}
+
 export function buildAffiliateUrl(asinOrUrl: string, store: Deal['store'] = 'amazon'): string {
   const clean = asinOrUrl.trim();
   if (clean.startsWith('http://') || clean.startsWith('https://')) {
     return ensureAffiliateTag(clean);
+  }
+  if (store === 'meesho') {
+    return buildMeeshoAffiliateUrl(clean);
   }
   const asinMatch = clean.match(/(?:dp|gp\/product|product)\/([A-Z0-9]{10})/i) || clean.match(/^([A-Z0-9]{10})$/i);
   if (store === 'amazon' && asinMatch && asinMatch[1]) {
@@ -37,9 +59,15 @@ export function buildAffiliateUrl(asinOrUrl: string, store: Deal['store'] = 'ama
 
 /**
  * Ensures an Amazon URL has the affiliate tag appended properly,
- * while safely preserving non-Amazon EarnKaro / converted affiliate links.
+ * while safely preserving non-Amazon EarnKaro / Meesho / converted affiliate links.
  */
 export function ensureAffiliateTag(url: string): string {
+  if (url.includes(`af_invite/${MEESHO_CREATOR_ID}`)) {
+    return url;
+  }
+  if (url.includes('meesho.com') || url.includes('msho.in')) {
+    return buildMeeshoAffiliateUrl(url);
+  }
   // If it's already an EarnKaro, Flipkart shortlink, Myntra shortlink, Nykaa shortlink, or Ajio shortlink, preserve it 100%
   if (
     url.includes('fktr.in') ||

@@ -7,7 +7,7 @@ export type DealCategory =
   | 'gadgets'
   | 'beauty';
 
-export type StoreType = 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'hm' | 'ajio';
+export type StoreType = 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'hm' | 'ajio' | 'meesho';
 
 export type DealStatus = 'active' | 'expired';
 

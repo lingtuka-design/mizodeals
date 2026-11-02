@@ -9,9 +9,9 @@ interface ScrapedDeal {
   imageUrl: string;
   asin: string | null;
   amazonUrl: string;
-  store: 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio';
+  store: 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio' | 'meesho';
   category: string;
-  source: 'Telegram Deals' | 'DealsMagnet' | 'IndiaFreeStuff' | 'IndiaDesire';
+  source: 'Telegram Deals' | 'DealsMagnet' | 'IndiaFreeStuff' | 'IndiaDesire' | 'Meesho Deals';
   isLootDeal: boolean;
   couponText?: string | null;
 }
@@ -21,6 +21,22 @@ interface Env {
   AMAZON_PARTNER_TAG?: string;
   AMAZON_CLIENT_ID?: string;
   AMAZON_CLIENT_SECRET?: string;
+}
+
+const MEESHO_CREATOR_ID = '611878749';
+const MEESHO_CAMPAIGN_ID = '15245137';
+
+function buildMeeshoAffiliateUrl(pidOrUrl: string): string {
+  const clean = pidOrUrl.trim();
+  const pIdMatch = clean.match(/[?&]p_id=([0-9]+)/i) || clean.match(/\/p\/([a-zA-Z0-9]+)/i);
+  let pid = '';
+  if (pIdMatch && pIdMatch[1]) {
+    pid = pIdMatch[1];
+  } else {
+    const numMatch = clean.match(/([0-9]{6,12})/);
+    pid = numMatch ? numMatch[1] : clean;
+  }
+  return `https://www.meesho.com/af_invite/${MEESHO_CREATOR_ID}:facebook:${MEESHO_CAMPAIGN_ID}?p_id=${encodeURIComponent(pid)}&utm_source=facebook`;
 }
 
 const EARNKARO_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YWQ2ZmI1ZGVmOTM2Y2JkNzEzZWRhYTUiLCJlYXJua2FybyI6IjU3MzAzOTIiLCJpYXQiOjE3OTI0NzQyMTJ9.yC7pF3WzcpVcl5yPEbe2rtg0DugrglJ64SUJqmDNOc0';
@@ -137,7 +153,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // ==========================================
   // SOURCE 1: TELEGRAM PUBLIC DEALS HUBS (7 ACTIVE VERIFIED CHANNELS)
   // ==========================================
-  if (!filterSource || filterSource === 'all' || filterSource === 'telegram') {
+  if (!filterSource || filterSource === 'all' || filterSource === 'telegram' || filterSource === 'meesho') {
     const telegramChannels = [
       'dealbee',
       'deals_loot',
@@ -145,7 +161,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'looter_deals',
       'online_loot_deals',
       'dealsprime',
-      'loot_offers_india'
+      'loot_offers_india',
+      'meesho_deal',
+      'meeshodealsloot'
     ];
     for (const ch of telegramChannels) {
       if (collectedDeals.length >= limit) break;
@@ -168,14 +186,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const fkMatch = block.match(/href="([^"]*(?:fkrt\.it|fkrt\.co|flipkart\.com|dl\.flipkart\.com)[^"]*)"/i);
             const myMatch = block.match(/href="([^"]*(?:myntr\.it|myntra\.com)[^"]*)"/i);
             const nyMatch = block.match(/href="([^"]*(?:nykaa\.com|nykaa\.ly)[^"]*)"/i);
+            const meeMatch = block.match(/href="([^"]*(?:meesho\.com|msho\.in)[^"]*)"/i);
 
-            if (!amzMatch && !fkMatch && !myMatch && !nyMatch) continue;
+            if (!amzMatch && !fkMatch && !myMatch && !nyMatch && !meeMatch) continue;
 
-            let store: 'amazon' | 'flipkart' | 'myntra' | 'nykaa' = 'amazon';
+            let store: 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'meesho' = 'amazon';
             let rawDealUrl = '';
             if (amzMatch) {
               store = 'amazon';
               rawDealUrl = amzMatch[1];
+            } else if (meeMatch) {
+              store = 'meesho';
+              rawDealUrl = meeMatch[1];
             } else if (fkMatch) {
               store = 'flipkart';
               rawDealUrl = fkMatch[1];
@@ -299,6 +321,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
               const converted = await convertWithEarnkaro(rawDealUrl);
               cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(rawDealUrl)}`;
+            } else if (store === 'meesho') {
+              const meePidMatch = rawDealUrl.match(/[?&]p_id=([0-9]+)/i) || rawDealUrl.match(/\/p\/([a-zA-Z0-9]+)/i);
+              asin = meePidMatch ? `MSH-${meePidMatch[1]}` : 'MSH-' + simpleHash(rawDealUrl);
+              if (seenAsins.has(asin)) continue;
+              seenAsins.add(asin);
+
+              const pid = meePidMatch ? meePidMatch[1] : simpleHash(rawDealUrl);
+              cleanUrl = buildMeeshoAffiliateUrl(pid);
             }
 
             // Strictly require authentic photo
@@ -848,6 +878,170 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         category: 'beauty',
         source: 'IndiaDesire',
         isLootDeal: item.discountPercent >= 20,
+        couponText: item.couponText,
+      });
+    }
+  }
+
+  // ==========================================
+  // SOURCE 5: CURATED MEESHO MEGA LOOT HARVESTER (TOP MIZORAM PICKS)
+  // ==========================================
+  if (!filterSource || filterSource === 'all' || filterSource === 'meesho') {
+    const meeshoCatalog = [
+      {
+        pid: 'MSH-533821031',
+        title: 'SW-MEXICO T-Blue Dailywear Sports Sneakers Running Shoes For Men',
+        price: 305,
+        originalPrice: 799,
+        discountPercent: 62,
+        rating: 4.5,
+        ratingsCount: 2650,
+        imageUrl: 'https://cdn5.telesco.pe/file/VK7jxr-HwBT6U1vmctRisfPBp4MW-s7w4BDiSxMqho0MvBed-iMFUmN-pFXl_eGVpfO9B5_ZpHikvIca4_Ni_kZJqbt_FdmXDYbxsDt82fuHXmW6FDPNWqTAg3JXQldM94ZChN6XxDz4l0v5OLWw77oZLq2S2GDdxEEfiQDeTYp8atFLc1EkHx4tYiZJ7GroyXCREIO5_P9soM3dpLilWYe7lpqg2vGzjr-Ps7o_YH3MDt0b2utohJoDF0Lbe2yGnz6TryactCoGYG3k2xBwimsmD8wbZWk-u_ZjxjAo9RB5amcDdRdGqNEtelPFEfe-G0qIHbhCpah5KK7Ms33Q-Q.jpg',
+        extId: '8ttmxz',
+        category: 'shoes_fashion',
+        couponText: '👟 Mizo Top Pick',
+      },
+      {
+        pid: 'MSH-489214731',
+        title: 'Urban Trend Korean Oversized Drop-Shoulder Heavy Cotton T-Shirt',
+        price: 249,
+        originalPrice: 699,
+        discountPercent: 64,
+        rating: 4.4,
+        ratingsCount: 8400,
+        imageUrl: 'https://cdn5.telesco.pe/file/LVbcsGqWuFhRaPWr7FOVJaz5EtWJKDKKheETyJlGyvHEkeVlQiylEXIhPZqkUUIhDT-tzzVJKcC24gl_O_DoE7QuwQ6gknjNmyTWvgxeBoKQsvZ7NMinOFFxmBOnpJr-9PdoaKvkpJl7AulXnMBcguJxIxacdqvN7p9kPLLsk3MSwTWw--wYWUZCZjmk8AC9DMOCJAu2KzqcY2uuyzMcsHcBIUwjAci4ex1cKXCu0U4jKMTyZeZhv5uXggciH3SYpRJz16vB0FOJjmBQ0TYZMgRO1ZZluw9rxv5SlawXtcatV2Nh89s1eJzMcAUPwXXLU73C6ehnGobnYLgRQ-HKwA.jpg',
+        extId: '7wxq1a',
+        category: 'shoes_fashion',
+        couponText: '🔥 Korean Oversized',
+      },
+      {
+        pid: 'MSH-412891045',
+        title: 'T800 Ultra Smartwatch with Bluetooth Calling, Heart Rate & Fitness Modes',
+        price: 399,
+        originalPrice: 1499,
+        discountPercent: 73,
+        rating: 4.3,
+        ratingsCount: 15400,
+        imageUrl: 'https://cdn5.telesco.pe/file/shyvYBcsH_5XHdpgohDdOGIYYlRMeiuNJNmEfuZSSJmaNN3pqIEiUi1Z4ShdDkSj4mJ-BKNb5ry4XBwq0ATo3WfD-ce8T-9Kiulf3YdAGyDovUw6lbzYy5UqfpMK3z9kbw86lct5pgt6gMb3nmN1WcVOZYqTxHMWYzk4_DpaaEsjaKgmuE4ux-DoTP-Cx91isLN0aVorOCoZI7dco2frkXO1oTzUeUoN0wBgn6NI-LWQPqW0RqiUQdc4weKkF-JMtoB18IsBiU8meB_M5pof_0oPoWvHyx9c6VxPT6uAZkSG3Q0u065gY5_CHNYtsx4__1A5tg2f9C0ev3RFUWCmPw.jpg',
+        extId: '6kmno9',
+        category: 'gadgets',
+        couponText: '⚡ Calling Smartwatch',
+      },
+      {
+        pid: 'MSH-367812903',
+        title: 'M10 TWS Wireless Gaming Earbuds with Digital LED Display & Powerbank Case',
+        price: 299,
+        originalPrice: 999,
+        discountPercent: 70,
+        rating: 4.3,
+        ratingsCount: 32000,
+        imageUrl: 'https://cdn5.telesco.pe/file/TK2sROkEJ7esEAivHOACe334I32BT6s4FfXoKCYLfTfkSr0zHt4p2eMQW6KWGHrH0j6D2fheJIt8MHCn52mypWLpeH2CyJ31V1FEyhfXWWYQr_tcMph0rpxPJToKu9MenyPAneB8UQzhlGFYxET6lkc6BZYEm5Tyg5SHUOP2vS2T-BENWZrGZ1VeTL0JVDT5kEhryvXHdXKuVxSVy2GbJxHU8S0bfUaGomxFtXUnBVsaNFiPTeD399WmKwqV1sMzx0lEyhyrK0jooqb2Bl29Sda-ILHtWbfPQ6QIWCgux_IWmGY6z3TIejuzVmcJENtgrcFpO3mlo4tLgVn-Z3Wt2w.jpg',
+        extId: '5yrt3p',
+        category: 'gadgets',
+        couponText: '🎧 Deep Bass Gaming',
+      },
+      {
+        pid: 'MSH-456721098',
+        title: 'Multipurpose 4-Tier Rotating Kitchen Spice Rack & Storage Organizer',
+        price: 289,
+        originalPrice: 699,
+        discountPercent: 59,
+        rating: 4.5,
+        ratingsCount: 4200,
+        imageUrl: 'https://cdn5.telesco.pe/file/kGxTVHKYLZyP4Sc5-7XLR4z-zZm1Zc1dG5aUWRF95_aRuz-A2xjDNJMeVcl6rklXPgoazp20oh3LR2LdUCIJfjqHl7Mpco2jP2vKLmm2Mv3damiMAZzlRJ13gwIKQXuivLsCPuFsOyJ0dhLz9pE_6BZsAJxYx-M7H4pEeuMScdwAcWOkZuElM-WEFXy6-CxDau_JxEwUXU6VsOZYy_uHskB6-09J4W764mqltsMxkUJVUkT1r75phFJf58f6FHCy8g4Qfcc_Q2El5WDpT3LNAnEi4-M4WPyv8wnl5NRPhDLEf7Q8w5uHRWM9RDliYvQTL_634wYddJrG6YW2xUWJ0A.jpg',
+        extId: '8hjk2l',
+        category: 'home_kitchen',
+        couponText: '🏠 Kitchen Organizer',
+      },
+      {
+        pid: 'MSH-512903847',
+        title: 'Men Luxury Roman Numerals Dial Analog Watch with Brown Leather Strap',
+        price: 199,
+        originalPrice: 599,
+        discountPercent: 67,
+        rating: 4.4,
+        ratingsCount: 9100,
+        imageUrl: 'https://cdn5.telesco.pe/file/ZjVWFUiyTZQmyAQDnrIwFNzbn5qJupCEojtsHDGCOCVbT0HSbmrebWsHuTeNE__etbQNnzMhQD7NwgpUHfT4_jijkUAgvu6SyjJp6grA0axKm-hCoxtBtK0ySp5i7WRLVQc3Y_TJPj4urkWZoi_iUVllZLKSQOKuMrgUsWK8LP2agWaW84yGlR6S_--6MK9yR45VbYueDPajU8tWjRKyAdOGb844YEGEpcx7YQNWNhNDrBcclcfA6slOsJ8lamAarsAa8k5iUNkoQGQobJodP_QIxnoyH2diLKUaYOPJ6W0rZAP_AEjLpTqg5vNh341OW3A28OSDAE_eci0v3L7yfw.jpg',
+        extId: '9vbn5m',
+        category: 'gadgets',
+        couponText: '⌚ Under ₹200 Watch',
+      },
+      {
+        pid: 'MSH-498123049',
+        title: 'Women Printed Rayon Flared Anarkali Kurti with Front Slit Design',
+        price: 319,
+        originalPrice: 899,
+        discountPercent: 65,
+        rating: 4.4,
+        ratingsCount: 14600,
+        imageUrl: 'https://cdn5.telesco.pe/file/JO2MdCjPZsVIJSBGmbHaeFIBsQkKIYx-vsymhkEx5Nu8xFcpQgRE9tppGCqEZ-azSQ0eGrt9Jna6Up8uXaDE7YWF1c2lzrl4gpjM9-swv8Dkfvxt4vZ6iLPuKFrA1ueoEXj7hJqRV10zPkAc_2BnaBLnVNjBR5r3EoiknoWVFWy8P56XktzAjDAqtiouvAX5T0f8nzbPURSQmJv77JjVlFFEKlHiPN3EnBJ5fiutINYElRvLW9fFttCycvPwzjzdnagaUk9uNEf0GcGVP5wtaioPToX8BrPKauCa6PDQA0xskWE6cVwKPgqqHmNXC-ZwbXAkDr-O4K57VUZUBtSI0A.jpg',
+        extId: '8qaz4w',
+        category: 'shoes_fashion',
+        couponText: '👗 Trending Kurti',
+      },
+      {
+        pid: 'MSH-439012874',
+        title: 'Professional 2-in-1 Ceramic Hair Straightener & Curler Styling Machine',
+        price: 279,
+        originalPrice: 799,
+        discountPercent: 65,
+        rating: 4.3,
+        ratingsCount: 11200,
+        imageUrl: 'https://cdn5.telesco.pe/file/VWw5akjpFbmnXEW6GEu8nwyUnaW7s3TAs5R9gj0-aDIa6sl5be8__DjFhN7xylpN1xgREzh8mT6esjgIF7wI2fUvA8PMPXcIIFrI-ixDDMILJpLKO0B8HIJTBmsvSSz2oa8SiGC5hMR93tbhch8F3GKtMdGv1eaxcHoPaPaYLGvtoHEB8dN0byyKXPgjrSAHTWgUdI2fNIQGT9ecjeJYtEcD4U0nCXDVttAplOjWcS3xYSMg-11-BEasefnWEWkzHyQWzxetgQv_fLMro0x4--IB2K3HPt2GCWOBEkXCejBZxrc8vSAidC0nwuFO5djBolJ7dQk2wXdNBPymcBNBMQ.jpg',
+        extId: '7edc3v',
+        category: 'beauty',
+        couponText: '✨ Quick Styling',
+      },
+      {
+        pid: 'MSH-523491028',
+        title: 'Waterproof Anti-Theft Travel & College Laptop Backpack with USB Charging Port',
+        price: 399,
+        originalPrice: 1199,
+        discountPercent: 67,
+        rating: 4.5,
+        ratingsCount: 7800,
+        imageUrl: 'https://cdn5.telesco.pe/file/XWt6yG0Bm0KN2b1BEXTp4l4_6ENCNJTk2Mv_CXDyOnWDoIgEC9YoPV8mYu-RtO7a93iCjJ-LQCNUIixDv1HvWCv3lXwQXcPVsBFxmW66DsTRU9b2cEmDWP-KTzdJlNvGsVlRzlMrvQbVaYSaK2TysbYaqOKYaJTBZ-egXAFOmVLC92yGvr75h-OvLQ_Aghw_jcAgm324hBlgiSnP89Ybb6OqcFPSQIoNJFMvUQmNLZJprnzbfYno_wXeUVhjEGdPXS23A8HhvXmCBe6TB-A-4q5oxVDxvc3bsLvnIq8hAjBb-tPaILjuj6PVQro7hUITnGzJAi-ZhBGY_eZ9CggX_A.jpg',
+        extId: '9plm0k',
+        category: 'shoes_fashion',
+        couponText: '🎒 Anti-Theft USB',
+      },
+      {
+        pid: 'MSH-541298401',
+        title: 'Casual Breathable Lightweight Mesh Walking Sneakers For Men',
+        price: 299,
+        originalPrice: 899,
+        discountPercent: 67,
+        rating: 4.4,
+        ratingsCount: 5600,
+        imageUrl: 'https://cdn5.telesco.pe/file/mgJmI1J6Nbm8tX3m40Lkm6GCM68oCqjRuCiuYS8XkopsjZBCB3m90OZJLrPbYDHRFpbKRcq1xvEn1pBQ6oiGDDd8nnjTh0cCc4BZ3E7xMeuiL2HWZM7F0h3K7gcuECWh8Wm7csz1kPFwbYVloGDJrKnPLG3uxKeAOTzZNPfisQohLRxaP6GT1CFnyRloT0insIOuO3tVXgEGU-ArQHtXXyTtE_VjE_zW_cIVfLx374b76jCVjwh7sjQWj9xGMUoeyFFQZDfFoHcrLXf2SUiGi-AwAwmYuQs_YyxWN7DxuMMEHYaA3eKxe3lMrYGBbAMYH68T1r5mV_yX5OTSX2OAVw.jpg',
+        extId: '8ttmxz',
+        category: 'shoes_fashion',
+        couponText: '👟 Lightweight Sneakers',
+      }
+    ];
+
+    for (const item of meeshoCatalog) {
+      if (seenAsins.has(item.pid)) continue;
+      seenAsins.add(item.pid);
+
+      const pid = item.pid.replace('MSH-', '');
+      const affiliateUrl = buildMeeshoAffiliateUrl(item.extId || pid);
+
+      collectedDeals.push({
+        dealId: `msh-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
+        title: item.title,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        discountPercent: item.discountPercent,
+        rating: item.rating,
+        ratingsCount: item.ratingsCount,
+        imageUrl: item.imageUrl,
+        asin: item.pid,
+        amazonUrl: affiliateUrl,
+        store: 'meesho',
+        category: item.category,
+        source: 'Meesho Deals',
+        isLootDeal: item.discountPercent >= 50,
         couponText: item.couponText,
       });
     }

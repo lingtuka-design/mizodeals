@@ -1566,7 +1566,11 @@ export const AdminView: React.FC = () => {
                     className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#EAE6DF] rounded-xl text-xs font-semibold text-stone-900 cursor-pointer"
                   >
                     <option value="amazon">Amazon.in</option>
+                    <option value="meesho">Meesho</option>
                     <option value="flipkart">Flipkart</option>
+                    <option value="myntra">Myntra</option>
+                    <option value="nykaa">Nykaa</option>
+                    <option value="ajio">Ajio</option>
                     <option value="hm">H&M</option>
                   </select>
                 </div>
