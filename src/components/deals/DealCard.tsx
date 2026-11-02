@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { Deal } from '../../types';
 import { STORE_BADGES } from '../../config/constants';
+import { StoreLogo } from '../common/StoreLogo';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../../utils/formatters';
 import { shareDealToWhatsApp, generateWhatsAppDealShareText } from '../../utils/affiliate';
 import { isLootDeal, isNewDeal, isDealExpired, formatDealTime, getHighResImageUrl } from '../../utils/dealLogic';
@@ -116,8 +117,9 @@ export const DealCard: React.FC<DealCardProps> = ({
               </>
             )}
 
-            <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
-              {storeBadge.name}
+            <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
+              <StoreLogo store={deal.store} className="w-3 h-3 rounded-[3px] shrink-0" />
+              <span>{storeBadge.name}</span>
             </span>
 
             {/* Relative Timestamp */}
@@ -296,6 +298,7 @@ export const DealCard: React.FC<DealCardProps> = ({
             rel="noopener noreferrer nofollow"
             className="w-full flex items-center justify-center gap-1.5 py-3 px-4 bg-stone-900 hover:bg-stone-800 active:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-all duration-150 cursor-pointer"
           >
+            <StoreLogo store={deal.store} className="w-3.5 h-3.5 rounded-[3px] shrink-0" />
             <span>Buy on {storeBadge.name}</span>
             <ExternalLink className="w-3.5 h-3.5 text-stone-300" />
           </a>

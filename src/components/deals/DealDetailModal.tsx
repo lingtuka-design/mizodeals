@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { Deal } from '../../types';
 import { STORE_BADGES } from '../../config/constants';
+import { StoreLogo } from '../common/StoreLogo';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../../utils/formatters';
 import { shareDealToWhatsApp, generateWhatsAppDealShareText, getDealLandingUrl } from '../../utils/affiliate';
 import { PriceHistoryChart } from './PriceHistoryChart';
@@ -212,6 +213,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     rel="noopener noreferrer nofollow"
                     className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
                   >
+                    <StoreLogo store={deal.store} className="w-4 h-4 rounded-[3px] shrink-0" />
                     <span>Grab Deal on {storeBadge.name}</span>
                     <ExternalLink className="w-4 h-4" />
                   </a>

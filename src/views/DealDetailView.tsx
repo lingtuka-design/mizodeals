@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from '@tanstack/react-router';
 import { useData } from '../context/DataContext';
 import { STORE_BADGES } from '../config/constants';
+import { StoreLogo } from '../components/common/StoreLogo';
 import { formatINR, getDealSavings, copyTextToClipboard } from '../utils/formatters';
 import { shareDealToWhatsApp, generateWhatsAppDealShareText, getDealLandingUrl } from '../utils/affiliate';
 import { isLootDeal, isDealExpired, formatDealTime, getHighResImageUrl } from '../utils/dealLogic';
@@ -221,8 +222,9 @@ export const DealDetailView: React.FC = () => {
                 </span>
               ) : null}
 
-              <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
-                {storeBadge.name}
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
+                <StoreLogo store={deal.store} className="w-3.5 h-3.5 rounded-[3px] shrink-0" />
+                <span>{storeBadge.name}</span>
               </span>
               <span className="text-xs text-stone-500">{formatDealTime(deal.createdAt)}</span>
             </div>
@@ -322,6 +324,7 @@ export const DealDetailView: React.FC = () => {
                   rel="noopener noreferrer nofollow"
                   className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl shadow-xs transition-colors"
                 >
+                  <StoreLogo store={deal.store} className="w-4 h-4 rounded-[3px] shrink-0" />
                   <span>Buy Now on {storeBadge.name}</span>
                   <ExternalLink className="w-4 h-4" />
                 </a>

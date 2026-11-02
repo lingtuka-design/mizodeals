@@ -13,6 +13,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import type { DealCategory, DealsFilterParams, StoreType } from '../../types';
+import { StoreLogo } from '../common/StoreLogo';
 
 interface DealFiltersProps {
   filters: DealsFilterParams;
@@ -196,13 +197,14 @@ export const DealFilters: React.FC<DealFiltersProps> = ({
               key={s.id}
               type="button"
               onClick={() => onFilterChange({ store: s.id })}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
                 isSelected
-                  ? 'bg-orange-600 text-white border-orange-600 shadow-2xs'
+                  ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
                   : 'bg-white text-stone-700 border-[#EAE6DF] hover:border-stone-300 hover:bg-stone-50'
               }`}
             >
-              {s.label}
+              <StoreLogo store={s.id} className="w-4 h-4 shrink-0 rounded-sm" />
+              <span>{s.label}</span>
             </button>
           );
         })}

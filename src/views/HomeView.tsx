@@ -23,6 +23,7 @@ import {
   Info
 } from 'lucide-react';
 import { WHATSAPP_CHANNEL_URL, WHATSAPP_COMMUNITY_MEMBERS, STORE_BADGES } from '../config/constants';
+import { StoreLogo } from '../components/common/StoreLogo';
 import { HeroBuyingGuides } from '../components/home/HeroBuyingGuides';
 
 export const HomeView: React.FC = () => {
@@ -308,8 +309,9 @@ export const HomeView: React.FC = () => {
                         <Flame className="w-2.5 h-2.5 fill-current" />
                         {deal.discountPercent}% OFF LOOT
                       </span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
-                        {storeBadge.name}
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
+                        <StoreLogo store={deal.store} className="w-3 h-3 rounded-[3px] shrink-0" />
+                        <span>{storeBadge.name}</span>
                       </span>
                     </div>
 

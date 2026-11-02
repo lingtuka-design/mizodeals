@@ -4,6 +4,7 @@ import type { Deal } from '../../types';
 import { formatINR, getDealSavings } from '../../utils/formatters';
 import { shareDealToWhatsApp } from '../../utils/affiliate';
 import { STORE_BADGES } from '../../config/constants';
+import { StoreLogo } from '../common/StoreLogo';
 import { getHighResImageUrl } from '../../utils/dealLogic';
 
 interface EmbeddedDealCardProps {
@@ -50,8 +51,9 @@ export const EmbeddedDealCard: React.FC<EmbeddedDealCardProps> = ({ deal }) => {
         {/* Details */}
         <div className="flex-1 min-w-0 text-center sm:text-left">
           <div className="flex items-center gap-2 justify-center sm:justify-start mb-1 flex-wrap">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
-              {storeBadge.name}
+            <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-md border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
+              <StoreLogo store={deal.store} className="w-3 h-3 rounded-[3px] shrink-0" />
+              <span>{storeBadge.name}</span>
             </span>
             <span className="text-[10px] font-medium text-emerald-700 flex items-center gap-0.5">
               <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified Deal
