@@ -35,7 +35,7 @@ console.warn = (...args) => {
 };
 
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
-const API_URL = 'https://mizodeals.com/api/deals?status=all&limit=200';
+const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=200';
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'meesho', 'all'];
@@ -850,6 +850,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
     const isEligibleDeal = (d) => {
       if (isDealAlreadyPosted(d, lookup)) return false;
+      // Strictly reject any expired or inactive deals
+      if (d.status && d.status !== 'active') return false;
+      if (d.isExpired) return false;
       if (!d.asin || d.asin.startsWith('DM')) return false;
       if ((!d.store || d.store === 'amazon') && !/^[A-Z0-9]{10}$/i.test(d.asin)) return false;
       if (d.affiliateUrl && (d.affiliateUrl.includes('/s?k=') || d.affiliateUrl.includes('/deal/'))) return false;
@@ -1021,9 +1024,50 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       const caption = formatMessage(deal, dealUrl);
       console.log(`Evaluating deal: "${deal.title.slice(0, 40)}..." (${deal.discountPercent}% OFF, store: ${deal.store || 'amazon'})`);
 
+      let rawImg = deal.imageUrl || '';
+
+      // 1. Live Amazon Availability & Deal Status Verification Gate
+      if ((!deal.store || deal.store === 'amazon') && deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
+        try {
+          const verifyRes = await fetch(`https://mizodeals.com/api/deal?asin=${deal.asin}`, { signal: AbortSignal.timeout(6000) });
+          if (verifyRes.ok) {
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              if (verifyData.isAvailable === false) {
+                console.warn(`[SKIP - LIVE OUT OF STOCK] Deal ${deal.id} (${deal.asin}) is out of stock / expired on Amazon. Skipping.`);
+                recordPostedDeal(deal);
+                continue;
+              }
+              if (typeof verifyData.discountPercent === 'number' && verifyData.discountPercent < 15) {
+                console.warn(`[SKIP - LIVE DISCOUNT TOO LOW] Deal ${deal.id} discount dropped to ${verifyData.discountPercent}%. Skipping.`);
+                recordPostedDeal(deal);
+                continue;
+              }
+              if (verifyData.imageUrl && verifyData.imageUrl.startsWith('http') && !verifyData.imageUrl.includes('images-eu.ssl-images-amazon')) {
+                rawImg = verifyData.imageUrl;
+              }
+              if (verifyData.title) {
+                deal.title = verifyData.title;
+              }
+              if (typeof verifyData.livePrice === 'number' && verifyData.livePrice > 0) {
+                deal.dealPrice = verifyData.livePrice;
+              }
+              if (typeof verifyData.liveMrp === 'number' && verifyData.liveMrp > 0) {
+                deal.originalPrice = verifyData.liveMrp;
+              }
+              if (typeof verifyData.discountPercent === 'number') {
+                deal.discountPercent = verifyData.discountPercent;
+              }
+            }
+          }
+        } catch (vErr) {
+          console.warn(`[LIVE VERIFY NOTICE] Deal ${deal.id}:`, vErr.message);
+        }
+      }
+
       let thumbBuffer = null;
       let fullImageBuffer = null;
-      let rawImg = deal.imageUrl || '';
+
       if (rawImg.includes('dealsmagnet.com/images/') && rawImg.includes('-s-')) {
         rawImg = rawImg.replace('-s-', '-m-');
       }
@@ -1036,81 +1080,69 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (deal.store === 'meesho' && rawImg.includes('images.meesho.com') && rawImg.endsWith('.webp')) {
         rawImg = rawImg.replace(/\.webp$/i, '.jpg');
       }
-
-      let targetImgUrl = null;
-      if ((!deal.store || deal.store === 'amazon') && deal.asin && /^[A-Z0-9]{10}$/i.test(deal.asin)) {
-        targetImgUrl = `https://images-eu.ssl-images-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SCRMZZZZZZ_.jpg`;
+      if (rawImg.includes('media-amazon.com')) {
+        rawImg = rawImg.replace(/\._[A-Z0-9_,]+_\./i, '._SL800_.');
+      }
+      if (rawImg.includes('images-eu.ssl-images-amazon.com')) {
+        rawImg = `https://m.media-amazon.com/images/P/${deal.asin.toUpperCase()}.01.MAIN._SL800_.jpg`;
       }
 
-      // Try Amazon Ultra-HD first, then seamlessly fallback to rawImg
+      // Fetch authentic image and decode via sharp into Jimp
+      let img = null;
       try {
-        let img = null;
-        if (targetImgUrl) {
-          try {
-            img = await Jimp.read(targetImgUrl);
-            if (img.bitmap.width <= 2 || img.bitmap.height <= 2) {
-              img = null;
-            }
-          } catch (e) {
-            img = null;
-          }
-        }
-
-        if (!img && rawImg && rawImg.startsWith('http')) {
-          try {
-            img = await Jimp.read(rawImg);
-          } catch (readErr) {
-            // If Jimp fails on modern webp or progressive format, decode with sharp first!
-            try {
-              const fetchRes = await fetch(rawImg, { signal: AbortSignal.timeout(6000) });
-              if (fetchRes.ok) {
-                const rawBuffer = Buffer.from(await fetchRes.arrayBuffer());
-                const convertedJpeg = await sharp(rawBuffer).jpeg({ quality: 90 }).toBuffer();
-                img = await Jimp.read(convertedJpeg);
-              }
-            } catch (sharpErr) {
-              console.warn(`[IMAGE DECODE NOTICE] Deal ${deal.id}:`, sharpErr.message);
+        if (rawImg && rawImg.startsWith('http')) {
+          const fetchRes = await fetch(rawImg, { signal: AbortSignal.timeout(7000) });
+          if (fetchRes.ok) {
+            const rawBuffer = Buffer.from(await fetchRes.arrayBuffer());
+            if (rawBuffer.length > 200) {
+              const convertedJpeg = await sharp(rawBuffer).jpeg({ quality: 90 }).toBuffer();
+              img = await Jimp.read(convertedJpeg);
             }
           }
-        }
-
-        if (img) {
-          // 1. High-resolution square canvas (800x800) for WhatsApp Group full-width photo
-          try {
-            const groupSize = 800;
-            const groupCanvas = new Jimp({ width: groupSize, height: groupSize, color: 0xffffffff });
-            const groupImg = img.clone();
-            groupImg.scaleToFit({ w: 760, h: 760 });
-            const gx = Math.round((groupSize - groupImg.bitmap.width) / 2);
-            const gy = Math.round((groupSize - groupImg.bitmap.height) / 2);
-            groupCanvas.composite(groupImg, gx, gy);
-            fullImageBuffer = Buffer.from(await groupCanvas.getBuffer('image/jpeg', { quality: 85 }));
-          } catch (e) {
-            console.warn(`[GROUP IMAGE GENERATION FAILED] Deal ${deal.id}:`, e.message);
-          }
-
-          // 2. Generate 1.91:1 widescreen canvas (500x262) for WhatsApp Channel Hero Card
-          const canvasW = 500;
-          const canvasH = 262;
-          const canvas = new Jimp({ width: canvasW, height: canvasH, color: 0xffffffff });
-
-          // Gracefully scale product image with comfortable margins
-          img.scaleToFit({ w: 460, h: 242 });
-
-          // Center product image on pure white canvas
-          const x = Math.round((canvasW - img.bitmap.width) / 2);
-          const y = Math.round((canvasH - img.bitmap.height) / 2);
-          canvas.composite(img, x, y);
-
-          thumbBuffer = Buffer.from(await canvas.getBuffer('image/jpeg', { quality: 80 }));
         }
       } catch (imgErr) {
-        console.warn(`[THUMBNAIL NOTICE] Deal ${deal.id}:`, imgErr.message);
+        console.warn(`[IMAGE FETCH/DECODE NOTICE] Deal ${deal.id}:`, imgErr.message);
       }
 
-      // Strictly require a valid thumbnail before posting so no deal is posted without photo
-      if (!thumbBuffer) {
-        console.warn(`[SKIP - NO THUMBNAIL] Deal ${deal.id} has no valid thumbnail. Skipping to next deal.`);
+      // STRICT BLANK/CORRUPT IMAGE CHECK: Reject any image smaller than 80x80 pixels
+      if (!img || img.bitmap.width < 80 || img.bitmap.height < 80) {
+        console.warn(`[SKIP - BLANK/CORRUPT IMAGE] Deal ${deal.id} (${deal.title.slice(0, 30)}) has invalid image size ${img ? img.bitmap.width + 'x' + img.bitmap.height : 'null'}. Skipping.`);
+        recordPostedDeal(deal);
+        continue;
+      }
+
+      try {
+        // 1. High-resolution square canvas (800x800) for WhatsApp Group full-width photo
+        const groupSize = 800;
+        const groupCanvas = new Jimp({ width: groupSize, height: groupSize, color: 0xffffffff });
+        const groupImg = img.clone();
+        groupImg.scaleToFit({ w: 760, h: 760 });
+        const gx = Math.round((groupSize - groupImg.bitmap.width) / 2);
+        const gy = Math.round((groupSize - groupImg.bitmap.height) / 2);
+        groupCanvas.composite(groupImg, gx, gy);
+        fullImageBuffer = Buffer.from(await groupCanvas.getBuffer('image/jpeg', { quality: 85 }));
+
+        // 2. Generate 1.91:1 widescreen canvas (500x262) for WhatsApp Channel Hero Card
+        const canvasW = 500;
+        const canvasH = 262;
+        const canvas = new Jimp({ width: canvasW, height: canvasH, color: 0xffffffff });
+
+        // Gracefully scale product image with comfortable margins
+        img.scaleToFit({ w: 460, h: 242 });
+
+        // Center product image on pure white canvas
+        const x = Math.round((canvasW - img.bitmap.width) / 2);
+        const y = Math.round((canvasH - img.bitmap.height) / 2);
+        canvas.composite(img, x, y);
+
+        thumbBuffer = Buffer.from(await canvas.getBuffer('image/jpeg', { quality: 80 }));
+      } catch (renderErr) {
+        console.warn(`[CANVAS RENDER FAILED] Deal ${deal.id}:`, renderErr.message);
+      }
+
+      // Strictly require both valid full image and thumbnail before posting
+      if (!fullImageBuffer || !thumbBuffer) {
+        console.warn(`[SKIP - NO BUFFERS] Deal ${deal.id} canvas buffers missing. Skipping.`);
         recordPostedDeal(deal);
         continue;
       }
