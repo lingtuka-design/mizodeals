@@ -131,6 +131,13 @@ function classifyCategory(title: string): string {
   return 'electronics';
 }
 
+// Block products that do not sell well on affiliate channels, clutter the feed, or cause customer fatigue
+// Strictly filters out phone back covers, mobile cases, and tempered glass screen protectors
+function isBlockedProduct(title: string): boolean {
+  if (!title) return false;
+  return /(?:back\s*cover|mobile\s*cover|phone\s*cover|phone\s*case|bumper\s*case|magnetic\s*case|tempered\s*glass|screen\s*protector|camera\s*lens\s*protector|cases?\s*(?:&|and)\s*covers?|\bcase\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad)|\bcover\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad))/i.test(title);
+}
+
 // Resolve Amazon shortlink or URL to get clean ASIN & affiliate link
 async function resolveAmazonUrl(rawUrl: string, targetTag: string): Promise<{ asin: string | null; cleanUrl: string }> {
   try {
@@ -286,7 +293,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               title = title.slice(0, 90) + '...';
             }
 
-            if (!title || title.length < 5 || /^(?:loot|deal|bigg?\s*lo+t)$/i.test(title)) {
+            if (!title || title.length < 5 || /^(?:loot|deal|bigg?\s*lo+t)$/i.test(title) || isBlockedProduct(title)) {
               continue;
             }
             if (/proof|invoice|delivered|order\s*details|received\s*by|bill/i.test(title) || /proof|invoice|delivered|order\s*details|received\s*by/i.test(rawText)) {
@@ -427,6 +434,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const titleMatch = block.match(/<p class="title">\s*([\s\S]*?)\s*<\/p>/i);
             if (!titleMatch) continue;
             let title = titleMatch[1].replace(/<[^>]+>/g, '').trim();
+            if (isBlockedProduct(title)) continue;
 
             // Discount
             const discountMatch = title.match(/(\d+)%\s*off/i) || block.match(/(\d+)%\s*off/i);
@@ -567,6 +575,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               const titleMatch = article.match(/class="[^"]*deal-title[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
               if (!titleMatch) continue;
               const title = titleMatch[1].replace(/<[^>]+>/g, '').trim();
+              if (isBlockedProduct(title)) continue;
 
               const imgMatch = article.match(/<img[^>]+src="([^"]+)"/i) || article.match(/data-src="([^"]+)"/i);
               if (!imgMatch || !imgMatch[1] || !imgMatch[1].startsWith('http') || imgMatch[1].includes('unsplash.com')) {
@@ -675,6 +684,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               .replace(/^(?:Amazon|Flipkart|Myntra|Nykaa|Ajio)\s*:\s*/i, '')
               .replace(/^(?:flat|up\s*to)?\s*\d+%\s*off\s*[-:]?\s*/i, '')
               .trim();
+
+            if (isBlockedProduct(title)) continue;
 
             // 4. Extract prices
             const currPriceMatch = box.match(/currentprice[^"]*">[^0-9]*([0-9,]+)/i);

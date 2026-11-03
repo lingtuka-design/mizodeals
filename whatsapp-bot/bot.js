@@ -856,6 +856,12 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (!d.imageUrl || !d.imageUrl.startsWith('http') || d.imageUrl.length < 15) return false;
       if (d.imageUrl.includes('unsplash.com') || d.imageUrl.includes('photo-1523275335684-37898b6baf30')) return false;
 
+      // Strictly exclude phone back covers, mobile cases, and tempered glass screen protectors
+      // (Model-specific, low conversion, clutter/spam for customers)
+      if (/(?:back\s*cover|mobile\s*cover|phone\s*cover|phone\s*case|bumper\s*case|magnetic\s*case|tempered\s*glass|screen\s*protector|camera\s*lens\s*protector|cases?\s*(?:&|and)\s*covers?|\bcase\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad)|\bcover\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad))/i.test(d.title || '')) {
+        return false;
+      }
+
       const isGadget = d.category === 'gadgets' || d.category === 'electronics';
       if (isGadget) {
         // Gadgets sweet spot: 30% to 75% discount
