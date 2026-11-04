@@ -119,7 +119,7 @@ function classifyCategory(title: string): string {
   if (/laptop|macbook|monitor|keyboard|mouse|ssd|hard\s*drive|hdd|ram|cpu|gpu|motherboard|router|wifi|printer|scanner|pc|computer|tablet|ipad|camera|lens|projector|television|tv|ups/i.test(t)) {
     return 'electronics';
   }
-  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|jacket|sock|sandal|wallet|bag|backpack|fashion|cloth|wear/i.test(t)) {
+  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|jacket|hoodie|sweatshirt|sweater|beanie|muffler|scarf|gloves|thermal|cardigan|fleece|coat|woolen|sock|sandal|wallet|bag|backpack|fashion|cloth|wear/i.test(t)) {
     return 'shoes_fashion';
   }
   if (/cooker|bottle|pan|bedsheet|pillow|light|lamp|curtain|mop|cleaner|purifier|kettle|knife|kitchen|home|room|towel/i.test(t)) {
@@ -1065,6 +1065,45 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         extId: '8ttmxz',
         category: 'shoes_fashion',
         couponText: '👕 100% Cotton Tee',
+      },
+      {
+        pid: 'MSH-612984102',
+        title: 'Winter Warm Woolen Beanie Cap with Neck Warmer Muffler Scarf Set for Men & Women',
+        price: 229,
+        originalPrice: 699,
+        discountPercent: 67,
+        rating: 4.5,
+        ratingsCount: 9400,
+        imageUrl: 'https://images.meesho.com/images/products/374521098/fkmwp_512.jpg',
+        extId: '9wkm1z',
+        category: 'shoes_fashion',
+        couponText: '🧣 Lukhum & Muffler Set',
+      },
+      {
+        pid: 'MSH-623491873',
+        title: 'Korean Style Solid Oversized Unisex Fleece Hoodie with Kangaroo Pockets',
+        price: 399,
+        originalPrice: 999,
+        discountPercent: 60,
+        rating: 4.4,
+        ratingsCount: 12800,
+        imageUrl: 'https://images.meesho.com/images/products/398124501/yzkle_512.jpg',
+        extId: '8plq4c',
+        category: 'shoes_fashion',
+        couponText: '🧥 Korean Fleece Hoodie',
+      },
+      {
+        pid: 'MSH-631029485',
+        title: 'Winter Thermal Windproof Touchscreen Riding Hand Gloves for Men & Women',
+        price: 149,
+        originalPrice: 499,
+        discountPercent: 70,
+        rating: 4.4,
+        ratingsCount: 7200,
+        imageUrl: 'https://images.meesho.com/images/products/412958301/mbzxt_512.jpg',
+        extId: '7tnx2v',
+        category: 'shoes_fashion',
+        couponText: '🧤 Riding Gloves',
       }
     ];
 

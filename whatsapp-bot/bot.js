@@ -206,9 +206,18 @@ function cleanTitle(str) {
 function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`) {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
-  const lootHeader = deal.isLootDeal || deal.discountPercent >= 50
+  const isWinter = /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(deal.title || '');
+  const isFestive = /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i.test(deal.title || '');
+
+  let lootHeader = deal.isLootDeal || deal.discountPercent >= 50
     ? '*MAN TLAHNIAM NASA!*\n'
     : '*MAN TLAHNIAM!*\n';
+
+  if (isWinter) {
+    lootHeader = '*🧥 THLASIK INTHUAM LUMNA!*\n';
+  } else if (isFestive) {
+    lootHeader = '*🎄 KRISMAS & ROOM CHEINA!*\n';
+  }
 
   const title = cleanTitle(deal.title);
   const cleanStore = (deal.store || 'amazon').toLowerCase().trim();
@@ -877,6 +886,11 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         return d.discountPercent >= 30 || d.isLootDeal;
       }
 
+      // Seasonal winterwear & warm accessories (Nov to Feb in Mizoram): Lukhum lum, mufflers, hoodies, jackets, gloves at 30%+ discount
+      if ([10, 11, 0, 1].includes(currentMonth) && /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(d.title || '')) {
+        return d.discountPercent >= 30 || d.isLootDeal;
+      }
+
       // Other categories: Solid high discounts (40%+ or marked loot)
       return d.isLootDeal || d.discountPercent >= 40;
     };
@@ -891,7 +905,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         const hRes = await fetch(`https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=${harvestLimit}`, { signal: AbortSignal.timeout(20000) });
         const hData = await hRes.json();
         console.log(`🌾 Harvested ${hData.count || 0} deals (${hData.insertedCount || 0} new). Re-fetching catalog...`);
-        const refetchRes = await fetch('https://mizodeals.com/api/deals?status=all&limit=300', { signal: AbortSignal.timeout(8000) });
+        const refetchRes = await fetch('https://mizodeals.com/api/deals?status=active&limit=300', { signal: AbortSignal.timeout(8000) });
         const refetchData = await refetchRes.json();
         if (refetchData.success && Array.isArray(refetchData.deals)) {
           candidates.push(...refetchData.deals.filter(isEligibleDeal));
@@ -927,6 +941,14 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (currentMonth === 10 || currentMonth === 11) {
         const festiveRegex = /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i;
         if (festiveRegex.test(d.title || '') || festiveRegex.test(d.description || '')) {
+          score += 25;
+        }
+      }
+
+      // 3c. Seasonal Winterwear & Warm Accessories Boost (November to February: Lukhum lum, mufflers, gloves, beanies, hoodies, jackets, thermal wear)
+      if ([10, 11, 0, 1].includes(currentMonth)) {
+        const winterRegex = /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i;
+        if (winterRegex.test(d.title || '') || winterRegex.test(d.description || '')) {
           score += 25;
         }
       }

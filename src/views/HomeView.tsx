@@ -146,10 +146,12 @@ export const HomeView: React.FC = () => {
       // and other categories with 40%+ discount (or marked loot).
       const isGeneralFeed = (!activeFilters.category || activeFilters.category === 'all') && !activeFilters.search?.trim();
       const isGadget = deal.category === 'gadgets' || deal.category === 'electronics';
-      const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec
+      const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec, 0 = Jan, 1 = Feb
       const isFestive = (currentMonth === 10 || currentMonth === 11) && 
         /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i.test(deal.title);
-      const minDiscount = isGadget || isFestive ? 30 : 40;
+      const isWinter = [10, 11, 0, 1].includes(currentMonth) &&
+        /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(deal.title);
+      const minDiscount = isGadget || isFestive || isWinter ? 30 : 40;
       if (isGeneralFeed && deal.discountPercent < minDiscount && !isLootDeal(deal)) {
         return false;
       }
