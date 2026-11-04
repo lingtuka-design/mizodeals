@@ -130,8 +130,12 @@ function recordPostedDeal(deal) {
     const entry = {
       id: deal.id,
       asin: deal.asin ? deal.asin.toUpperCase() : undefined,
+      title: deal.title,
       titleKey: getTitleKey(deal.title),
       imageKey: getImageKey(deal.imageUrl),
+      productType: getProductType(deal),
+      category: deal.category || 'general',
+      store: deal.store || 'amazon',
       postedAt: Date.now(),
     };
 
@@ -201,6 +205,22 @@ function cleanTitle(str) {
     .replace(/buy\s+max\s+q(?:nty|ty)\s*:?/gi, '')
     .replace(/^[:\s\-\.\,]+|[:\s\-\.\,]+$/g, '')
     .trim();
+}
+
+function getProductType(deal) {
+  if (!deal) return 'general';
+  const t = (deal.title || '').toLowerCase();
+  const cat = (deal.category || '').toLowerCase();
+  if (/shoe|sneaker|derby|loafer|boot|footwear|sandal|flip\s*flop|clog|oxford|formal\s*shoe/i.test(t)) return 'footwear';
+  if (/hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(t)) return 'winterwear';
+  if (/shirt|t-shirt|pant|jeans|dress|kurta|saree|trouser|boxer|legging|trackpant/i.test(t)) return 'apparel';
+  if (/light|led|rope|strip|decor|fairy|curtain|lamp|cove|christmas/i.test(t)) return 'festive_lights';
+  if (/kettle|cooker|pan|knife|bottle|chopper|fryer|blender|toaster|mixer|heater|geyser|iron|vacuum/i.test(t)) return 'kitchen_home';
+  if (/earbud|earphone|headphone|airdope|basspod|neckband|tws|headset/i.test(t)) return 'audio_gadgets';
+  if (/smart\s*watch|smartwatch|watch|fitness\s*band/i.test(t)) return 'smartwatches';
+  if (/power\s*bank|charger|cable|adapter|keyboard|mouse|ssd|hard\s*drive/i.test(t)) return 'tech_accessories';
+  if (/shampoo|serum|facewash|cream|perfume|deodorant|lotion|sunscreen|loofah|soap|grooming/i.test(t)) return 'beauty_grooming';
+  return cat || 'general';
 }
 
 function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`) {
@@ -917,10 +937,22 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
     console.log(`Found ${candidates.length} unposted candidate loot deals.`);
 
+    // Extract recent post history for dynamic anti-clustering and variety balancing
+    const postedRecords = getPostedRecords();
+    const validRecent = postedRecords
+      .filter((r) => typeof r === 'object' && r.postedAt)
+      .sort((a, b) => b.postedAt - a.postedAt);
+
+    const recentTypes = validRecent.slice(0, 6).map((r) => r.productType || (r.title ? getProductType(r) : ''));
+    const lastPostedType = recentTypes[0] || '';
+    const lastPostedCategory = (validRecent[0] && validRecent[0].category) || '';
+    const footwearCountRecent = recentTypes.filter((t) => t === 'footwear').length;
+
     // Quality-weighted scoring: Prioritize genuine high discounts, 30%-70% gadgets, high ratings, and customer favorites
     const computeDealScore = (d) => {
       let score = d.discountPercent || 0;
       const isGadget = d.category === 'gadgets' || d.category === 'electronics';
+      const pType = getProductType(d);
 
       // 1. Gadgets sweet spot (30%-70% discount) get prioritized
       if (isGadget && d.discountPercent >= 30 && d.discountPercent <= 75) {
@@ -931,8 +963,8 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (d.rating >= 4.3) score += 20;
       else if (d.rating >= 4.0) score += 10;
 
-      // 3. High-demand customer categories (Kitchen, Gadgets, Fashion/Shoes, Beauty)
-      if (['home_kitchen', 'gadgets', 'shoes_fashion', 'beauty'].includes(d.category)) {
+      // 3. High-demand customer categories (Kitchen, Gadgets, Winterwear, Grooming)
+      if (['home_kitchen', 'gadgets', 'beauty'].includes(d.category) || pType === 'winterwear') {
         score += 15;
       }
 
@@ -946,11 +978,8 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       }
 
       // 3c. Seasonal Winterwear & Warm Accessories Boost (November to February: Lukhum lum, mufflers, gloves, beanies, hoodies, jackets, thermal wear)
-      if ([10, 11, 0, 1].includes(currentMonth)) {
-        const winterRegex = /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i;
-        if (winterRegex.test(d.title || '') || winterRegex.test(d.description || '')) {
-          score += 25;
-        }
+      if ([10, 11, 0, 1].includes(currentMonth) && pType === 'winterwear') {
+        score += 25;
       }
 
       // 4. Significant rupee savings (value-for-money brand deals)
@@ -960,6 +989,31 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
       // 5. High review volume (trusted products)
       if ((d.ratingsCount || 0) >= 1000) score += 10;
+
+      // 6. DYNAMIC ANTI-CLUSTERING & CATEGORY VARIETY BALANCING:
+      // a. Immediate back-to-back duplicate product type penalty
+      if (lastPostedType && pType === lastPostedType) {
+        score -= 50; // Hard suppression so we never post the same product type twice in a row
+      }
+
+      // b. Strict Shoe / Footwear Throttling (Keep shoes as occasional highlights, never spamming)
+      if (pType === 'footwear') {
+        if (recentTypes.slice(0, 2).includes('footwear')) {
+          score -= 60; // Absolute block if shoes were posted in any of the last 2 runs
+        } else if (footwearCountRecent >= 2) {
+          score -= 35; // Throttled if shoes already appeared 2+ times in recent history
+        }
+      }
+
+      // c. Category alternation penalty
+      if (lastPostedCategory && d.category === lastPostedCategory) {
+        score -= 15;
+      }
+
+      // d. Freshness bonus for product types not seen in recent history
+      if (!recentTypes.includes(pType)) {
+        score += 20; // Reward unrepresented categories/types
+      }
 
       return score;
     };
@@ -989,7 +1043,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       index++;
     }
 
-    // Interleave stores so Flipkart, Myntra, Nykaa, and Ajio are regularly featured alongside Amazon
+    // Interleave stores so Flipkart, Myntra, Nykaa, and Ajio are regularly featured alongside Amazon without static bias
     const byStore = {};
     for (const d of orderedCandidates) {
       const s = d.store || 'amazon';
@@ -999,14 +1053,15 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
     const diverseStoreCandidates = [];
     const storeKeys = Object.keys(byStore);
-    // Prioritize non-amazon first so Flipkart & Myntra deals get fair representation
-    storeKeys.sort((a, b) => (a === 'amazon' ? 1 : b === 'amazon' ? -1 : 0));
+    // Rotate store keys dynamically based on hour to avoid single-store domination
+    const rotOffset = storeKeys.length > 0 ? new Date().getHours() % storeKeys.length : 0;
+    const rotatedStoreKeys = [...storeKeys.slice(rotOffset), ...storeKeys.slice(0, rotOffset)];
 
     let sIdx = 0;
     let sAdded = true;
     while (sAdded) {
       sAdded = false;
-      for (const s of storeKeys) {
+      for (const s of rotatedStoreKeys) {
         if (byStore[s][sIdx]) {
           diverseStoreCandidates.push(byStore[s][sIdx]);
           sAdded = true;
@@ -1015,24 +1070,39 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       sIdx++;
     }
 
-    // Select top 2 deals per run, ensuring no duplicate title, image, or ASIN in the batch
+    // Select top 2 deals per run, ensuring strict variety: no duplicate title, image, ASIN, category, or product type!
     const toPost = [];
     const seenTitlesInBatch = new Set();
     const seenImagesInBatch = new Set();
     const seenAsinsInBatch = new Set();
+    const seenCategoriesInBatch = new Set();
+    const seenProductTypesInBatch = new Set();
 
     for (const d of diverseStoreCandidates) {
       const tKey = getTitleKey(d.title);
       const imgKey = getImageKey(d.imageUrl);
       const asinKey = d.asin ? d.asin.toUpperCase() : null;
+      const pType = getProductType(d);
+      const cat = d.category || 'general';
 
       if (tKey && seenTitlesInBatch.has(tKey)) continue;
       if (imgKey && seenImagesInBatch.has(imgKey)) continue;
       if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
 
+      // STRICT BATCH DIVERSITY: Never post 2 items of the same product type in one run!
+      if (seenProductTypesInBatch.has(pType)) continue;
+
+      // Ensure distinct categories within the batch if possible
+      if (seenCategoriesInBatch.has(cat) && toPost.length < 1) continue;
+
+      // Extra safety: If footwear was posted in the last run, skip it entirely this run
+      if (pType === 'footwear' && lastPostedType === 'footwear') continue;
+
       if (tKey) seenTitlesInBatch.add(tKey);
       if (imgKey) seenImagesInBatch.add(imgKey);
       if (asinKey) seenAsinsInBatch.add(asinKey);
+      seenProductTypesInBatch.add(pType);
+      seenCategoriesInBatch.add(cat);
 
       toPost.push(d);
       if (toPost.length >= 2) break;
