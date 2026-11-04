@@ -1,0 +1,17 @@
+name: 24/7 Render Bot Keep-Alive
+
+on:
+  schedule:
+    # Run every 10 minutes to prevent Render free instance from spinning down
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Mizodeals WhatsApp Bot
+        run: |
+          echo "Pinging Mizodeals WhatsApp Bot on Render..."
+          curl -sS -m 20 https://mizodeals-whatsapp-bot.onrender.com/ > /dev/null || true
+          echo "Ping successful!"

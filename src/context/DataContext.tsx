@@ -107,6 +107,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Silently keep local seed deals if offline or in dev
       });
 
+    // Silent keep-alive ping to Render WhatsApp bot to prevent free instance sleep
+    fetch('https://mizodeals-whatsapp-bot.onrender.com/', { mode: 'no-cors' }).catch(() => {});
+
     return () => {
       isMounted = false;
     };
