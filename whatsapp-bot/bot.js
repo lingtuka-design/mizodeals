@@ -36,6 +36,7 @@ console.warn = (...args) => {
 
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
 const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=200';
+const PRIORITY_ASINS = ['B0FRMXLW3N'];
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'meesho', 'all'];
@@ -237,6 +238,8 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     lootHeader = '*🧥 THLASIK INTHUAM LUMNA!*\n';
   } else if (isFestive) {
     lootHeader = '*🎄 KRISMAS & ROOM CHEINA!*\n';
+  } else if (/shoe|sneaker|derby|loafer|boot|reebok|puma|adidas|nike/i.test(deal.title || '')) {
+    lootHeader = '*👟 SNEAKER & SHOES DEALS!*\n';
   }
 
   const title = cleanTitle(deal.title);
@@ -954,6 +957,11 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       const isGadget = d.category === 'gadgets' || d.category === 'electronics';
       const pType = getProductType(d);
 
+      // 0. Manual Priority ASIN Boost (Top-of-Queue immediate post requested by admin)
+      if (d.asin && PRIORITY_ASINS.includes(d.asin.toUpperCase())) {
+        score += 500;
+      }
+
       // 1. Gadgets sweet spot (30%-70% discount) get prioritized
       if (isGadget && d.discountPercent >= 30 && d.discountPercent <= 75) {
         score += 25;
@@ -1070,6 +1078,13 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       sIdx++;
     }
 
+    // Ensure priority ASINs are placed at the absolute front of diverseStoreCandidates
+    diverseStoreCandidates.sort((a, b) => {
+      const aPrio = a.asin && PRIORITY_ASINS.includes(a.asin.toUpperCase()) ? 1 : 0;
+      const bPrio = b.asin && PRIORITY_ASINS.includes(b.asin.toUpperCase()) ? 1 : 0;
+      return bPrio - aPrio;
+    });
+
     // Select top 2 deals per run, ensuring strict variety: no duplicate title, image, ASIN, category, or product type!
     const toPost = [];
     const seenTitlesInBatch = new Set();
@@ -1084,19 +1099,18 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       const asinKey = d.asin ? d.asin.toUpperCase() : null;
       const pType = getProductType(d);
       const cat = d.category || 'general';
+      const isPriority = d.asin && PRIORITY_ASINS.includes(d.asin.toUpperCase());
 
       if (tKey && seenTitlesInBatch.has(tKey)) continue;
       if (imgKey && seenImagesInBatch.has(imgKey)) continue;
       if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
 
-      // STRICT BATCH DIVERSITY: Never post 2 items of the same product type in one run!
-      if (seenProductTypesInBatch.has(pType)) continue;
-
-      // Ensure distinct categories within the batch if possible
-      if (seenCategoriesInBatch.has(cat) && toPost.length < 1) continue;
-
-      // Extra safety: If footwear was posted in the last run, skip it entirely this run
-      if (pType === 'footwear' && lastPostedType === 'footwear') continue;
+      // STRICT BATCH DIVERSITY: Never post 2 items of the same product type in one run (unless explicitly priority)!
+      if (!isPriority) {
+        if (seenProductTypesInBatch.has(pType)) continue;
+        if (seenCategoriesInBatch.has(cat) && toPost.length < 1) continue;
+        if (pType === 'footwear' && lastPostedType === 'footwear') continue;
+      }
 
       if (tKey) seenTitlesInBatch.add(tKey);
       if (imgKey) seenImagesInBatch.add(imgKey);
