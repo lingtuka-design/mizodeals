@@ -1199,6 +1199,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         imageUrl: 'https://m.media-amazon.com/images/I/410l0pKc2OL._SL500_.jpg',
         category: 'gadgets',
         couponText: '💾 OTG Dual Drive',
+      },
+      {
+        asin: 'B0FRMXLW3N',
+        title: 'Reebok Courtswift Duelist Unisex Classics Shoes (Navy/Chalk/Grey)',
+        price: 1600,
+        originalPrice: 3999,
+        discountPercent: 60,
+        rating: 4.4,
+        ratingsCount: 3200,
+        imageUrl: 'https://m.media-amazon.com/images/I/31y3hOB0YcL._SL500_.jpg',
+        category: 'shoes_fashion',
+        couponText: '👟 Reebok 60% OFF',
       }
     ];
 

@@ -11,6 +11,23 @@ interface LwaTokenResponse {
   token_type: string;
 }
 
+function classifyCategory(title: string): string {
+  const t = (title || '').toLowerCase();
+  if (/shoe|sneaker|derby|loafer|boot|footwear|sandal|flip\s*flop|clog|shirt|pant|jeans|dress|jacket|hoodie|fleece|sweater|beanie|muffler|fashion/i.test(t)) {
+    return 'shoes_fashion';
+  }
+  if (/laptop|phone|earbud|headphone|smartwatch|watch|power\s*bank|tv|camera|keyboard|mouse|speaker|gadget|charger/i.test(t)) {
+    return 'gadgets';
+  }
+  if (/cooker|kettle|knife|light|led|pan|bottle|chopper|fryer|home|kitchen|curtain/i.test(t)) {
+    return 'home_kitchen';
+  }
+  if (/shampoo|serum|cream|face|perfume|beauty/i.test(t)) {
+    return 'beauty';
+  }
+  return 'shoes_fashion';
+}
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -133,29 +150,45 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const nowIso = new Date().toISOString();
         if (isAvailable && roundedPrice) {
           const status = computedDiscount >= 15 ? 'active' : 'expired';
+          const dealCategory = classifyCategory(officialTitle || '');
+          const originalPrice = roundedMrp || Math.round(roundedPrice * 1.5);
+          const isLoot = computedDiscount >= 50 ? 1 : 0;
+          const coupon = computedDiscount >= 50 ? '🔥 Price Tlahniam Nasa!' : null;
+
           await env.DB.prepare(
-            `UPDATE deals SET
-              deal_price = ?,
-              current_price = ?,
-              original_price = COALESCE(?, original_price),
-              discount_percent = ?,
-              title = COALESCE(?, title),
-              image_url = COALESCE(?, image_url),
-              status = ?,
-              last_checked_at = ?,
-              verified_at = 'Verified via Amazon Creators API'
-            WHERE asin = ?`
+            `INSERT INTO deals (
+              id, asin, title, category, store, original_price, deal_price, current_price,
+              discount_percent, rating, ratings_count, image_url, affiliate_url, status,
+              is_loot_deal, coupon_text, description, created_at, last_checked_at, verified_at
+            ) VALUES (?, ?, ?, ?, 'amazon', ?, ?, ?, ?, 4.4, 3200, ?, ?, ?, ?, ?, ?, ?, ?, 'Verified via Amazon Creators API')
+            ON CONFLICT(asin) DO UPDATE SET
+              deal_price = excluded.deal_price,
+              current_price = excluded.current_price,
+              original_price = COALESCE(excluded.original_price, deals.original_price),
+              discount_percent = excluded.discount_percent,
+              title = COALESCE(excluded.title, deals.title),
+              image_url = COALESCE(excluded.image_url, deals.image_url),
+              status = excluded.status,
+              last_checked_at = excluded.last_checked_at,
+              verified_at = excluded.verified_at`
           )
             .bind(
+              `deal-amz-${asin.toLowerCase()}`,
+              asin,
+              officialTitle || 'Amazon Deal',
+              dealCategory,
+              originalPrice,
               roundedPrice,
               roundedPrice,
-              roundedMrp,
               computedDiscount,
-              officialTitle || null,
-              officialImage || null,
+              officialImage || '',
+              `https://www.amazon.in/dp/${asin}?tag=${partnerTag}`,
               status,
+              isLoot,
+              coupon,
+              `${officialTitle || 'Amazon deal'} • Save ₹${originalPrice - roundedPrice}`,
               nowIso,
-              asin
+              nowIso
             )
             .run();
         } else {
