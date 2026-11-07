@@ -145,6 +145,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       : (roundedMrp && roundedPrice ? Math.round(((roundedMrp - roundedPrice) / roundedMrp) * 100) : 0);
 
     // 4. Auto-update live price in Cloudflare D1 database if DB is bound
+    let dbSyncStatus = 'skipped';
+    let dbErrorMsg: string | null = null;
     if (env.DB && asin) {
       try {
         const nowIso = new Date().toISOString();
@@ -191,6 +193,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               nowIso
             )
             .run();
+          dbSyncStatus = 'success';
         } else {
           await env.DB.prepare(
             `UPDATE deals SET
@@ -201,10 +204,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           )
             .bind(nowIso, asin)
             .run();
+          dbSyncStatus = 'marked_expired';
         }
-      } catch (dbErr) {
+      } catch (dbErr: any) {
+        dbSyncStatus = 'failed';
+        dbErrorMsg = dbErr?.message || String(dbErr);
         console.error('Failed to sync deal to D1 database:', dbErr);
       }
+    } else {
+      dbSyncStatus = !env.DB ? 'no_db_binding' : 'no_asin';
     }
 
     return new Response(
@@ -218,6 +226,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         isAvailable,
         title: officialTitle,
         imageUrl: officialImage,
+        dbSyncStatus,
+        dbErrorMsg,
         data: creatorsData,
       }),
       {
