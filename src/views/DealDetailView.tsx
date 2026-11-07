@@ -52,15 +52,24 @@ export const DealDetailView: React.FC = () => {
   useEffect(() => {
     if (!deal && currentId) {
       setIsSearching(true);
-      fetch('/api/deals?status=all&limit=100')
+      fetch(`/api/deal?id=${encodeURIComponent(currentId)}`)
         .then((res) => (res.ok ? res.json() : Promise.reject()))
         .then((data: any) => {
-          if (data?.success && Array.isArray(data.deals)) {
-            const match = data.deals.find(
-              (d: any) =>
-                d.id?.toLowerCase() === currentId || d.asin?.toLowerCase() === currentId
-            );
-            if (match) setFetchedDeal(match);
+          if (data?.success && data.deal) {
+            setFetchedDeal(data.deal);
+          } else {
+            // Secondary fallback: check catalog
+            return fetch('/api/deals?status=all&limit=300')
+              .then((r) => (r.ok ? r.json() : Promise.reject()))
+              .then((catalog: any) => {
+                if (catalog?.success && Array.isArray(catalog.deals)) {
+                  const match = catalog.deals.find(
+                    (d: any) =>
+                      d.id?.toLowerCase() === currentId || d.asin?.toLowerCase() === currentId
+                  );
+                  if (match) setFetchedDeal(match);
+                }
+              });
           }
         })
         .catch(() => {})

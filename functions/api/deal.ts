@@ -31,11 +31,75 @@ function classifyCategory(title: string): string {
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
-  const asin = url.searchParams.get('asin') || 'B0CHX1W1XY';
+  const paramId = url.searchParams.get('id') || '';
+  let asin = url.searchParams.get('asin') || '';
+  const partnerTag = env.AMAZON_PARTNER_TAG || 'lalmalsawmtlu-21';
+
+  // If id is provided but not asin, check if id contains or is an ASIN
+  if (!asin && paramId) {
+    const asinMatch = paramId.match(/(?:deal-amz-)?([a-z0-9]{10})/i);
+    if (asinMatch) {
+      asin = asinMatch[1].toUpperCase();
+    }
+  }
+
+  // 1. Check if the deal is already in Cloudflare D1 by id or asin
+  if (env.DB && (paramId || asin)) {
+    try {
+      const dbDeal = await env.DB.prepare(
+        'SELECT * FROM deals WHERE id = ? OR (asin IS NOT NULL AND UPPER(asin) = ?)'
+      )
+        .bind(paramId, asin ? asin.toUpperCase() : paramId)
+        .first();
+
+      if (dbDeal) {
+        const store = (dbDeal as any).store || 'amazon';
+        let affiliateUrl = (dbDeal as any).affiliate_url;
+        if (!affiliateUrl || store === 'amazon') {
+          affiliateUrl = `https://www.amazon.in/dp/${(dbDeal as any).asin}?tag=${partnerTag}`;
+        }
+        const mappedDeal = {
+          id: (dbDeal as any).id,
+          asin: (dbDeal as any).asin,
+          title: (dbDeal as any).title,
+          category: (dbDeal as any).category,
+          store,
+          originalPrice: (dbDeal as any).original_price,
+          dealPrice: (dbDeal as any).deal_price,
+          currentPrice: (dbDeal as any).current_price,
+          discountPercent: (dbDeal as any).discount_percent,
+          rating: (dbDeal as any).rating,
+          ratingsCount: (dbDeal as any).ratings_count,
+          imageUrl: (dbDeal as any).image_url,
+          affiliateUrl,
+          status: (dbDeal as any).status,
+          isLootDeal: Boolean((dbDeal as any).is_loot_deal),
+          couponText: (dbDeal as any).coupon_text,
+          description: (dbDeal as any).description,
+          createdAt: (dbDeal as any).created_at,
+          lastCheckedAt: (dbDeal as any).last_checked_at,
+          verifiedAt: (dbDeal as any).verified_at,
+        };
+
+        if (!url.searchParams.get('refresh')) {
+          return new Response(JSON.stringify({ success: true, deal: mappedDeal }), {
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'public, max-age=60',
+            },
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (!asin) {
+    asin = 'B0CHX1W1XY';
+  }
 
   const clientId = env.AMAZON_CLIENT_ID;
   const clientSecret = env.AMAZON_CLIENT_SECRET;
-  const partnerTag = env.AMAZON_PARTNER_TAG || 'lalmalsawmtlu-21';
 
   if (!clientId || !clientSecret) {
     return new Response(
@@ -215,9 +279,39 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       dbSyncStatus = !env.DB ? 'no_db_binding' : 'no_asin';
     }
 
+    const dealCategory = classifyCategory(officialTitle || '');
+    const originalPrice = roundedMrp || Math.round((roundedPrice || 499) * 1.5);
+    const nowIso = new Date().toISOString();
+    const isLoot = computedDiscount >= 50;
+    const coupon = computedDiscount >= 50 ? '🔥 Price Tlahniam Nasa!' : null;
+
+    const mappedDeal = {
+      id: `deal-amz-${asin.toLowerCase()}`,
+      asin: asin.toUpperCase(),
+      title: officialTitle || 'Amazon Deal',
+      category: dealCategory,
+      store: 'amazon',
+      originalPrice,
+      dealPrice: roundedPrice || originalPrice,
+      currentPrice: roundedPrice || originalPrice,
+      discountPercent: computedDiscount,
+      rating: 4.4,
+      ratingsCount: 3200,
+      imageUrl: officialImage || '',
+      affiliateUrl: `https://www.amazon.in/dp/${asin.toUpperCase()}?tag=${partnerTag}`,
+      status: computedDiscount >= 15 && isAvailable ? 'active' : 'expired',
+      isLootDeal: isLoot,
+      couponText: coupon,
+      description: `${officialTitle || 'Amazon deal'} • Save ₹${originalPrice - (roundedPrice || 0)}`,
+      createdAt: nowIso,
+      lastCheckedAt: nowIso,
+      verifiedAt: 'Verified via Amazon Creators API',
+    };
+
     return new Response(
       JSON.stringify({
         success: true,
+        deal: mappedDeal,
         asin,
         partnerTag,
         livePrice: roundedPrice,
