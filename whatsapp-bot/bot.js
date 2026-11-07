@@ -36,7 +36,7 @@ console.warn = (...args) => {
 
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
 const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=200';
-const PRIORITY_ASINS = ['B0FRMXLW3N'];
+const PRIORITY_ASINS = ['B0DJ1KBQ52', 'B084HG5XPP', 'B0FZKZ9RY5'];
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'meesho', 'all'];
@@ -881,7 +881,8 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     const lookup = getPostedLookup();
 
     const isEligibleDeal = (d) => {
-      if (isDealAlreadyPosted(d, lookup)) return false;
+      const isPriority = d.asin && PRIORITY_ASINS.includes(d.asin.toUpperCase());
+      if (!isPriority && isDealAlreadyPosted(d, lookup)) return false;
       // Strictly reject any expired or inactive deals
       if (d.status && d.status !== 'active') return false;
       if (d.isExpired) return false;
