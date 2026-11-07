@@ -24,6 +24,7 @@ interface DealFiltersProps {
 
 const CATEGORIES: { id: DealCategory; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: 'all', label: 'All Deals', icon: Sparkles },
+  { id: 'festive_lights', label: '🎄 Krismas & Lights', icon: Flame },
   { id: 'shoes_fashion', label: 'Fashion & Shoes', icon: Shirt },
   { id: 'electronics', label: 'Electronics', icon: Tv },
   { id: 'sports', label: 'Sports & Fitness', icon: Activity },

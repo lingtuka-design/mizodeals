@@ -1486,6 +1486,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             discount_percent = excluded.discount_percent,
             title = excluded.title,
             image_url = excluded.image_url,
+            created_at = excluded.created_at,
             last_checked_at = excluded.last_checked_at,
             verified_at = excluded.verified_at`
         )
