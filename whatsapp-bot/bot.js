@@ -892,6 +892,14 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (!d.imageUrl || !d.imageUrl.startsWith('http') || d.imageUrl.length < 15) return false;
       if (d.imageUrl.includes('unsplash.com') || d.imageUrl.includes('photo-1523275335684-37898b6baf30')) return false;
 
+      // Price Sweet Spot Gate: Mizoram WhatsApp shoppers convert primarily between ₹100 and ₹3,500.
+      // Strictly filter out heavy deliberate purchases (> ₹4,500 like ACs, refrigerators, large TVs)
+      // and micro items (< ₹80) unless explicitly whitelisted in PRIORITY_ASINS.
+      if (!isPriority) {
+        if (d.dealPrice > 4500) return false;
+        if (d.dealPrice < 80) return false;
+      }
+
       // Strictly exclude phone back covers, mobile cases, and tempered glass screen protectors
       // (Model-specific, low conversion, clutter/spam for customers)
       if (/(?:back\s*cover|mobile\s*cover|phone\s*cover|phone\s*case|bumper\s*case|magnetic\s*case|tempered\s*glass|screen\s*protector|camera\s*lens\s*protector|cases?\s*(?:&|and)\s*covers?|\bcase\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad)|\bcover\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad))/i.test(d.title || '')) {
@@ -966,6 +974,16 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       // 1. Gadgets sweet spot (30%-70% discount) get prioritized
       if (isGadget && d.discountPercent >= 30 && d.discountPercent <= 75) {
         score += 25;
+      }
+
+      // 1b. Price Sweet Spot Boost (Impulse Buy Optimization):
+      // 95%+ of community purchases occur between ₹100 and ₹3,000.
+      if (d.dealPrice >= 149 && d.dealPrice <= 1999) {
+        score += 30; // Golden impulse sweet spot (instant UPI/GPay purchase)
+      } else if (d.dealPrice > 1999 && d.dealPrice <= 3499) {
+        score += 15; // Mid-range sweet spot (branded shoes, winter jackets)
+      } else if (d.dealPrice > 3500) {
+        score -= 40; // High ticket penalty: slow conversion, deliberate buy
       }
 
       // 2. High customer rating: ensures quality over cheap junk
