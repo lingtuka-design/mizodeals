@@ -106,6 +106,15 @@ export const HomeView: React.FC = () => {
       /rope\s*light|curtain\s*light|fairy\s*light|star\s*light/i.test(d);
   };
 
+  const isWinterwear = (deal: Deal) => {
+    const t = deal.title.toLowerCase();
+    const d = (deal.description || '').toLowerCase();
+    const c = deal.category as string;
+    if (c === 'winterwear') return true;
+    return /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(t) ||
+      /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|muffler|beanie|gloves/i.test(d);
+  };
+
   const currentMonth = new Date().getMonth();
   const isFestiveSeason = currentMonth === 10 || currentMonth === 11;
 
@@ -121,6 +130,7 @@ export const HomeView: React.FC = () => {
     const counts: Record<DealCategory, number> = {
       all: activeDeals.length,
       festive_lights: 0,
+      winterwear: 0,
       shoes_fashion: 0,
       electronics: 0,
       sports: 0,
@@ -135,6 +145,9 @@ export const HomeView: React.FC = () => {
       }
       if (isFestiveLight(deal)) {
         counts.festive_lights++;
+      }
+      if (isWinterwear(deal)) {
+        counts.winterwear++;
       }
     });
 
@@ -184,6 +197,8 @@ export const HomeView: React.FC = () => {
       if (activeFilters.category && activeFilters.category !== 'all') {
         if (activeFilters.category === 'festive_lights') {
           if (!isFestiveLight(deal)) return false;
+        } else if (activeFilters.category === 'winterwear') {
+          if (!isWinterwear(deal)) return false;
         } else if (deal.category !== activeFilters.category) {
           return false;
         }
@@ -330,11 +345,11 @@ export const HomeView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex md:grid md:grid-cols-3 gap-3.5 sm:gap-4 overflow-x-auto md:overflow-x-visible pb-2.5 md:pb-0 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-1 px-1 sm:mx-0 sm:px-0">
+          <div className="flex md:grid md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 overflow-x-auto md:overflow-x-visible pb-2.5 md:pb-0 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-1 px-1 sm:mx-0 sm:px-0">
             {festiveLightsDeals.map((deal) => (
               <div
                 key={deal.id}
-                className="w-[82vw] sm:w-[320px] md:w-auto shrink-0 snap-start bg-white border border-[#EAE6DF] hover:border-red-300 rounded-2xl p-3.5 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
+                className="w-[46vw] sm:w-[240px] md:w-auto shrink-0 snap-start flex flex-col"
               >
                 <DealCard deal={deal} />
               </div>
@@ -375,14 +390,14 @@ export const HomeView: React.FC = () => {
             </div>
           </div>
 
-          {/* Swipeable container on mobile (horizontal swipe with snap), 3-col grid on desktop */}
-          <div className="flex md:grid md:grid-cols-3 gap-3.5 sm:gap-4 overflow-x-auto md:overflow-x-visible pb-2.5 md:pb-0 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-1 px-1 sm:mx-0 sm:px-0">
+          {/* Swipeable container on mobile (horizontal swipe with snap, 2-per-screen), 3-col grid on desktop */}
+          <div className="flex md:grid md:grid-cols-3 gap-2.5 sm:gap-4 overflow-x-auto md:overflow-x-visible pb-2.5 md:pb-0 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-1 px-1 sm:mx-0 sm:px-0">
             {topLootDeals.map((deal) => {
               const storeBadge = STORE_BADGES[deal.store] || STORE_BADGES.amazon;
               return (
                 <div
                   key={deal.id}
-                  className="w-[82vw] max-w-[290px] sm:w-[320px] md:w-auto shrink-0 snap-start bg-white border border-[#EAE6DF] hover:border-orange-300 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+                  className="w-[46vw] sm:w-[260px] md:w-auto shrink-0 snap-start bg-white border border-[#EAE6DF] hover:border-orange-300 rounded-2xl p-2.5 sm:p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
