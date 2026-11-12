@@ -22,7 +22,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       filtered = filtered.filter((d) => d.status === status);
     }
     if (category && category !== 'all') {
-      filtered = filtered.filter((d) => d.category === category);
+      if (category === 'mobiles') {
+        filtered = filtered.filter((d) => /phone|5g|galaxy|redmi|poco|oneplus|motorola|vivo|iqoo|pixel/i.test(d.title));
+      } else {
+        filtered = filtered.filter((d) => d.category === category);
+      }
     }
     return new Response(JSON.stringify({ success: true, count: filtered.length, deals: filtered, source: 'fallback' }), {
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
@@ -39,8 +43,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     if (category && category !== 'all') {
-      query += ' AND category = ?';
-      params.push(category);
+      if (category === 'mobiles') {
+        query += " AND (category = 'mobiles' OR lower(title) LIKE '%phone%' OR lower(title) LIKE '%5g%' OR lower(title) LIKE '%galaxy%' OR lower(title) LIKE '%redmi%' OR lower(title) LIKE '%poco%' OR lower(title) LIKE '%oneplus%' OR lower(title) LIKE '%motorola%' OR lower(title) LIKE '%vivo%' OR lower(title) LIKE '%iqoo%' OR lower(title) LIKE '%pixel%')";
+      } else {
+        query += ' AND category = ?';
+        params.push(category);
+      }
     }
 
     if (store && store !== 'all') {

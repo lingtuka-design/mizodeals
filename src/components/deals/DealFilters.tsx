@@ -10,7 +10,8 @@ import {
   Tv,
   Activity,
   Home,
-  Smartphone
+  Smartphone,
+  Headphones
 } from 'lucide-react';
 import type { DealCategory, DealsFilterParams, StoreType } from '../../types';
 import { StoreLogo } from '../common/StoreLogo';
@@ -24,7 +25,8 @@ interface DealFiltersProps {
 
 const CATEGORIES: { id: DealCategory; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: 'all', label: 'All Deals', icon: Sparkles },
-  { id: 'gadgets', label: '⚡ Gadgets & Tech', icon: Smartphone },
+  { id: 'mobiles', label: '📱 Mobiles', icon: Smartphone },
+  { id: 'gadgets', label: '⚡ Gadgets & Tech', icon: Headphones },
   { id: 'home_kitchen', label: '🍳 Home & Kitchen', icon: Home },
   { id: 'beauty', label: '✨ Beauty & Skincare', icon: Sparkles },
   { id: 'winterwear', label: '🧥 Thlasik Kawrlum', icon: Flame },

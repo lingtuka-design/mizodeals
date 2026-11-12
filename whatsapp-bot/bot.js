@@ -913,17 +913,18 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (!d.imageUrl || !d.imageUrl.startsWith('http') || d.imageUrl.length < 15) return false;
       if (d.imageUrl.includes('unsplash.com') || d.imageUrl.includes('photo-1523275335684-37898b6baf30')) return false;
 
+      // WhatsApp Auto-post Rule: Exclude mobile phones from automated bot posting
+      // (The admin manually shares top smartphone loot deals directly to WhatsApp).
+      if (isMobilePhone(d.title || '') && !isPriority) {
+        return false;
+      }
+
       // Price Sweet Spot Gate: Mizoram WhatsApp shoppers convert primarily between ₹100 and ₹3,500.
       // Filter out heavy deliberate purchases (> ₹4,500 like ACs, refrigerators, large TVs)
-      // EXCEPT genuine smartphones/5G mobiles (up to ₹85,000) and micro items (< ₹80) unless in PRIORITY_ASINS.
-      const isPhone = isMobilePhone(d.title || '');
+      // and micro items (< ₹80) unless explicitly whitelisted in PRIORITY_ASINS.
       if (!isPriority) {
-        if (isPhone) {
-          if (d.dealPrice > 85000 || (d.discountPercent < 8 && ((d.originalPrice || 0) - d.dealPrice < 1000))) return false;
-        } else {
-          if (d.dealPrice > 4500) return false;
-          if (d.dealPrice < 80) return false;
-        }
+        if (d.dealPrice > 4500) return false;
+        if (d.dealPrice < 80) return false;
       }
 
       // Strictly exclude phone back covers, mobile cases, and tempered glass screen protectors

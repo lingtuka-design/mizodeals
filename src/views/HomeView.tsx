@@ -27,7 +27,7 @@ function isMobilePhone(title: string): boolean {
 }
 
 const HERO_CATEGORIES = [
-  { id: 'mobiles', label: 'Mobiles', icon: '/assets/hero/cat-mobiles.webp', filter: { category: 'all' as DealCategory, search: 'phone' } },
+  { id: 'mobiles', label: 'Mobiles', icon: '/assets/hero/cat-mobiles.webp', filter: { category: 'mobiles' as DealCategory } },
   { id: 'flash_sale', label: 'Flash Sale', icon: '/assets/hero/cat-electronics.webp', filter: { tab: 'loot' as DealsTabMode, lootOnly: true } },
   { id: 'shopping', label: 'Shopping', icon: '/assets/hero/cat-fashion.webp', filter: { category: 'shoes_fashion' as DealCategory } },
   { id: 'food', label: 'Food', icon: '/assets/hero/cat-food.webp', filter: { category: 'home_kitchen' as DealCategory } },
@@ -119,7 +119,8 @@ export const HomeView: React.FC = () => {
   // Category counts calculation based on active deals
   const categoryCounts = useMemo(() => {
     const counts: Record<DealCategory, number> = {
-      all: activeDeals.length,
+      all: 0,
+      mobiles: 0,
       winterwear: 0,
       shoes_fashion: 0,
       electronics: 0,
@@ -130,7 +131,13 @@ export const HomeView: React.FC = () => {
     };
 
     activeDeals.forEach((deal) => {
-      if (counts[deal.category] !== undefined) {
+      const isPhone = isMobilePhone(deal.title);
+      if (isPhone) {
+        counts.mobiles++;
+      } else {
+        counts.all++;
+      }
+      if (counts[deal.category] !== undefined && !isPhone) {
         counts[deal.category]++;
       }
       if (isWinterwear(deal)) {
@@ -160,9 +167,19 @@ export const HomeView: React.FC = () => {
 
       // Category filter
       if (activeFilters.category && activeFilters.category !== 'all') {
-        if (activeFilters.category === 'winterwear') {
+        if (activeFilters.category === 'mobiles') {
+          if (!isMobilePhone(deal.title)) return false;
+        } else if (activeFilters.category === 'winterwear') {
           if (!isWinterwear(deal)) return false;
-        } else if (deal.category !== activeFilters.category) {
+        } else if (deal.category !== activeFilters.category || isMobilePhone(deal.title)) {
+          return false;
+        }
+      } else {
+        // When viewing default "All Deals" on the Homepage:
+        // Exclude mobile phones from the default homepage feed so they don't drown out impulse loots.
+        // Users can easily access phones via the "Mobiles" category button or direct search.
+        const isExplicitSearch = activeFilters.search && activeFilters.search.trim().length > 0;
+        if (!isExplicitSearch && isMobilePhone(deal.title)) {
           return false;
         }
       }

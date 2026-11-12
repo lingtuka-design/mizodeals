@@ -1,5 +1,6 @@
 export type DealCategory = 
   | 'all'
+  | 'mobiles'
   | 'winterwear'
   | 'shoes_fashion'
   | 'electronics'
