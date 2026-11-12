@@ -203,10 +203,10 @@ export const HomeView: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
-      {/* 1. IndiaDesire Top Announcement Bar */}
-      <div className="bg-red-50 border border-red-200/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
+      {/* 1. Top Announcement Bar */}
+      <div className="bg-blue-50 border border-blue-200/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="bg-[#C72026] text-white font-extrabold text-[10px] px-2 py-0.5 rounded shrink-0 uppercase tracking-wider">
+          <span className="bg-[#0369A1] text-white font-extrabold text-[10px] px-2 py-0.5 rounded shrink-0 uppercase tracking-wider">
             Live
           </span>
           <p className="text-stone-800 font-medium truncate">
@@ -217,37 +217,39 @@ export const HomeView: React.FC = () => {
           href={WHATSAPP_CHANNEL_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="hidden sm:inline-flex items-center gap-1 text-[#C72026] hover:text-[#96141A] font-bold shrink-0"
+          className="hidden sm:inline-flex items-center gap-1 text-[#0369A1] hover:text-[#075985] font-bold shrink-0"
         >
           <span>Get WhatsApp Alerts &rarr;</span>
         </a>
       </div>
 
-      {/* 2. IndiaDesire 3D Festive Hero Section */}
-      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#09241E] text-white min-h-[360px] grid grid-cols-1 lg:grid-cols-12 isolate shadow-md">
-        {/* Background 3D Festive Art */}
+      {/* 2. IndiaDesire 3D Festive Hero Section (Ocean / Navy Blue Theme) */}
+      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#0A192F] text-white min-h-[360px] grid grid-cols-1 lg:grid-cols-12 isolate shadow-md">
+        {/* Background 3D Festive Art with Blue Tone Color Filter */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <img
             src="/assets/hero/hero.webp"
-            alt="IndiaDesire Festive Season"
+            alt="MizoDeals Festive Season"
             className="w-full h-full object-cover object-right"
           />
-          {/* Gradient Overlay for high-contrast legible text */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#09241E] via-[#09241E]/95 lg:via-[#09241E]/80 to-transparent" />
+          {/* Blue Tone Color Shift Blend */}
+          <div className="absolute inset-0 bg-[#0B2545]/60 mix-blend-color" />
+          {/* Deep Navy/Blue Gradient Overlay for high-contrast legible text */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0A192F] via-[#0A192F]/95 lg:via-[#0A192F]/85 to-transparent" />
         </div>
 
         {/* Hero Left Content Body */}
         <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-center space-y-4">
           <div className="inline-flex items-center gap-2 bg-white/12 border border-white/20 px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold tracking-wider uppercase text-white w-fit backdrop-blur-xs">
-            <span className="w-2 h-2 rounded-full bg-[#FDBA74] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse" />
             <span>Festive sale season is live</span>
           </div>
 
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-[1.08]">
-            India&rsquo;s smartest way to <em className="not-italic bg-gradient-to-r from-[#FDBA74] to-[#FB923C] bg-clip-text text-transparent">shop for less</em>
+            Mizoram&rsquo;s smartest way to <em className="not-italic bg-gradient-to-r from-[#FDBA74] to-[#FB923C] bg-clip-text text-transparent">shop for less</em>
           </h1>
 
-          <p className="text-xs sm:text-sm md:text-base text-[#CFE5DE] max-w-xl leading-relaxed">
+          <p className="text-xs sm:text-sm md:text-base text-[#D0E2FF] max-w-xl leading-relaxed">
             Hand-picked loot deals, coupons and bank offers from Amazon, Flipkart, Myntra and 100+ stores &mdash; checked and updated every few minutes.
           </p>
 
@@ -256,7 +258,7 @@ export const HomeView: React.FC = () => {
             <button
               type="button"
               onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-[#E6F4EA] hover:bg-[#CEEAD6] text-[#0D652D] font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-3 bg-[#E0F2FE] hover:bg-[#BAE6FD] text-[#0369A1] font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-sm cursor-pointer"
             >
               <span>Browse loot deals</span>
               <ArrowRight className="w-4 h-4" />
@@ -266,21 +268,21 @@ export const HomeView: React.FC = () => {
               href={WHATSAPP_CHANNEL_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-3 bg-white hover:bg-stone-100 text-stone-900 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm"
+              className="inline-flex items-center gap-2 px-5 py-3 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm"
             >
-              <MessageCircle className="w-4 h-4 fill-stone-900" />
+              <MessageCircle className="w-4 h-4 fill-stone-950" />
               <span>Get WhatsApp alerts</span>
             </a>
           </div>
 
           {/* Stats Row */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-8 pt-3 text-xs sm:text-sm text-[#B9D6CD] border-t border-white/10">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-8 pt-3 text-xs sm:text-sm text-[#A6C8FF] border-t border-white/10">
             <div>
               <b className="block text-lg sm:text-xl font-black text-white">100+</b>
               <span>stores tracked</span>
             </div>
             <div>
-              <b className="block text-lg sm:text-xl font-black text-white">Since 2014</b>
+              <b className="block text-lg sm:text-xl font-black text-white">2026</b>
               <span>trusted deal hunters</span>
             </div>
             <div>
@@ -300,8 +302,8 @@ export const HomeView: React.FC = () => {
             }}
             className="flex items-center gap-3 bg-white/95 text-stone-900 rounded-2xl p-3.5 shadow-lg hover:scale-[1.02] transition-transform cursor-pointer"
           >
-            <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-900 flex flex-col items-center justify-center font-black leading-none shrink-0 border border-orange-200">
-              <small className="text-[10px] uppercase font-bold text-orange-600">OCT</small>
+            <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-900 flex flex-col items-center justify-center font-black leading-none shrink-0 border border-blue-200">
+              <small className="text-[10px] uppercase font-bold text-blue-600">OCT</small>
               <span className="text-base font-black">9</span>
             </div>
             <div>
