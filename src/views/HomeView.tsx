@@ -26,17 +26,6 @@ function isMobilePhone(title: string): boolean {
   return /\b(?:smartphone|mobile\s*phone|5g\s*phone|iphone(?:\s*(?:1[1-7]|se))?|galaxy\s*(?:s\d{2}[a-z]*|m\d{2}[a-z]*|a\d{2}[a-z]*|f\d{2}[a-z]*|z\s*(?:fold|flip)\d*|\w+)|redmi(?:\s*(?:note|\d{1,2}[a-z]*|c\d{1,2}|a\d{1,2}|\w+))?|realme(?:\s*(?:narzo|\d{1,2}[a-z]*|gt|p\d|c\d{1,2}|\w+))?|poco(?:\s*(?:c|m|x|f)\d{1,2}[a-z]*|\w+)?|oneplus(?:\s*(?:nord|\d{1,2}[a-z]?|\w+))?|iqoo(?:\s*(?:z|neo|\d{1,2}[a-z]*|\w+))?|motorola|moto\s*(?:edge|g\d{2})|pixel\s*(?:[6-9]|1[0-2])|vivo\s*(?:t\d|y\d|v\d|x\d|\w+)|oppo\s*(?:a\d|k\d|reno|find|\w+)|nothing\s*phone)\b/i.test(t);
 }
 
-const HERO_CATEGORIES = [
-  { id: 'mobiles', label: 'Mobiles', icon: '/assets/hero/cat-mobiles.webp', filter: { category: 'mobiles' as DealCategory } },
-  { id: 'flash_sale', label: 'Flash Sale', icon: '/assets/hero/cat-electronics.webp', filter: { tab: 'loot' as DealsTabMode, lootOnly: true } },
-  { id: 'shopping', label: 'Shopping', icon: '/assets/hero/cat-fashion.webp', filter: { category: 'shoes_fashion' as DealCategory } },
-  { id: 'food', label: 'Food', icon: '/assets/hero/cat-food.webp', filter: { category: 'home_kitchen' as DealCategory } },
-  { id: 'grocery', label: 'Grocery', icon: '/assets/hero/cat-grocery.webp', filter: { category: 'home_kitchen' as DealCategory } },
-  { id: 'recharge', label: 'Recharge', icon: '/assets/hero/cat-recharge.webp', filter: { category: 'gadgets' as DealCategory } },
-  { id: 'travel', label: 'Travel', icon: '/assets/hero/cat-travel.webp', filter: { category: 'shoes_fashion' as DealCategory } },
-  { id: 'medicines', label: 'Medicines', icon: '/assets/hero/cat-medicine.webp', filter: { category: 'beauty' as DealCategory } },
-];
-
 export const HomeView: React.FC = () => {
   const { deals } = useData();
   const searchParams = useSearch({ strict: false }) as DealsFilterParams;
@@ -359,30 +348,6 @@ export const HomeView: React.FC = () => {
               <span className="text-xs text-stone-500">SBI offers, early deals &amp; lightning deals</span>
             </div>
           </a>
-        </div>
-      </section>
-
-      {/* 3. IndiaDesire 3D Rendered Categories Row */}
-      <section aria-label="Shop by category" className="pt-1">
-        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3">
-          {HERO_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => handleFilterChange(cat.filter)}
-              className="flex flex-col items-center justify-center gap-1.5 p-2.5 sm:p-3 bg-white border border-stone-200 hover:border-red-400 hover:shadow-md hover:-translate-y-1 rounded-2xl transition-all cursor-pointer group text-center"
-            >
-              <img
-                src={cat.icon}
-                alt={cat.label}
-                className="w-12 h-12 sm:w-16 sm:h-16 object-contain group-hover:scale-105 transition-transform"
-                loading="lazy"
-              />
-              <span className="text-[11px] sm:text-xs font-bold text-stone-800 group-hover:text-[#C72026] transition-colors leading-tight">
-                {cat.label}
-              </span>
-            </button>
-          ))}
         </div>
       </section>
 
