@@ -24,13 +24,13 @@ interface DealFiltersProps {
 
 const CATEGORIES: { id: DealCategory; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: 'all', label: 'All Deals', icon: Sparkles },
+  { id: 'gadgets', label: '⚡ Gadgets & Tech', icon: Smartphone },
+  { id: 'home_kitchen', label: '🍳 Home & Kitchen', icon: Home },
+  { id: 'beauty', label: '✨ Beauty & Skincare', icon: Sparkles },
   { id: 'winterwear', label: '🧥 Thlasik Kawrlum', icon: Flame },
   { id: 'shoes_fashion', label: 'Fashion & Shoes', icon: Shirt },
   { id: 'electronics', label: 'Electronics', icon: Tv },
   { id: 'sports', label: 'Sports & Fitness', icon: Activity },
-  { id: 'home_kitchen', label: 'Home & Kitchen', icon: Home },
-  { id: 'gadgets', label: 'Gadgets & Tech', icon: Smartphone },
-  { id: 'beauty', label: 'Beauty & Skincare', icon: Sparkles },
 ];
 
 const STORES: { id: StoreType | 'all'; label: string }[] = [

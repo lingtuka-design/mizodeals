@@ -234,10 +234,15 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     ? '*MAN TLAHNIAM NASA!*\n'
     : '*MAN TLAHNIAM!*\n';
 
+  const pType = getProductType(deal);
   if (isWinter) {
     lootHeader = '*🧥 THLASIK INTHUAM LUMNA!*\n';
-  } else if (isFestive) {
-    lootHeader = '*🎄 KRISMAS & ROOM CHEINA!*\n';
+  } else if (pType === 'audio_gadgets' || pType === 'tech_accessories') {
+    lootHeader = '*🎧 WIRELESS GADGETS & TECH DEALS!*\n';
+  } else if (pType === 'kitchen_home') {
+    lootHeader = '*🍳 CHOKA & IN CHHUNG MAMAWH!*\n';
+  } else if (pType === 'beauty_grooming') {
+    lootHeader = '*✨ BEAUTY & SKINCARE DEALS!*\n';
   } else if (/shoe|sneaker|derby|loafer|boot|reebok|puma|adidas|nike/i.test(deal.title || '')) {
     lootHeader = '*👟 SNEAKER & SHOES DEALS!*\n';
   }
@@ -906,6 +911,11 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         return false;
       }
 
+      // Strictly exclude bulky furniture and heavy freight items (Low demand, expensive delivery in Mizoram)
+      if (/(?:sofa|mattress|dining\s*table|wardrobe|bed\s*frame|recliner|office\s*chair|bookshelf|dressing\s*table)/i.test(d.title || '') || d.category === 'furniture') {
+        return false;
+      }
+
       const isGadget = d.category === 'gadgets' || d.category === 'electronics';
       if (isGadget) {
         // Gadgets sweet spot: 30% to 75% discount
@@ -978,8 +988,10 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
       // 1b. Price Sweet Spot Boost (Impulse Buy Optimization):
       // 95%+ of community purchases occur between ₹100 and ₹3,000.
-      if (d.dealPrice >= 149 && d.dealPrice <= 1999) {
-        score += 30; // Golden impulse sweet spot (instant UPI/GPay purchase)
+      if (d.dealPrice >= 199 && d.dealPrice <= 1499) {
+        score += 35; // Prime impulse sweet spot (instant UPI/GPay purchase)
+      } else if (d.dealPrice >= 100 && d.dealPrice <= 1999) {
+        score += 25; // Broad impulse sweet spot
       } else if (d.dealPrice > 1999 && d.dealPrice <= 3499) {
         score += 15; // Mid-range sweet spot (branded shoes, winter jackets)
       } else if (d.dealPrice > 3500) {
@@ -990,22 +1002,21 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (d.rating >= 4.3) score += 20;
       else if (d.rating >= 4.0) score += 10;
 
-      // 3. High-demand customer categories (Kitchen, Gadgets, Winterwear, Grooming)
-      if (['home_kitchen', 'gadgets', 'beauty'].includes(d.category) || pType === 'winterwear') {
-        score += 15;
+      // 3. Top 3 Revenue Pillars (Data-backed Amazon customer velocity):
+      // Pillar 1: Wireless & Tech Accessories
+      if (pType === 'audio_gadgets' || pType === 'tech_accessories' || d.category === 'gadgets') {
+        score += 35;
       }
-
-      // 3b. Seasonal Festive Peak Boost (November & December in Mizoram: Room lighting, rope lights, fairy lights, Christmas decor)
-      const currentMonth = new Date().getMonth();
-      if (currentMonth === 10 || currentMonth === 11) {
-        const festiveRegex = /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i;
-        if (festiveRegex.test(d.title || '') || festiveRegex.test(d.description || '')) {
-          score += 25;
-        }
+      // Pillar 2: Home & Kitchen Utensils
+      if (pType === 'kitchen_home' || d.category === 'home_kitchen') {
+        score += 30;
       }
-
-      // 3c. Seasonal Winterwear & Warm Accessories Boost (November to February: Lukhum lum, mufflers, gloves, beanies, hoodies, jackets, thermal wear)
-      if ([10, 11, 0, 1].includes(currentMonth) && pType === 'winterwear') {
+      // Pillar 3: Beauty, Skincare & Grooming (Highest direct conversion)
+      if (pType === 'beauty_grooming' || d.category === 'beauty') {
+        score += 35;
+      }
+      // Seasonal Winterwear
+      if (pType === 'winterwear') {
         score += 25;
       }
 
