@@ -208,10 +208,20 @@ function cleanTitle(str) {
     .trim();
 }
 
+function isMobilePhone(title) {
+  if (!title) return false;
+  const t = title.toLowerCase();
+  if (/(?:cover|case|tempered|guard|skin|cable|charger|adapter|pouch|holder|stand|mount|lens\s*protector|stylus|strap|screen\s*protector|earbud|headphone|earphone|neckband|tws|smartwatch|watch|speaker)/i.test(t)) {
+    return false;
+  }
+  return /\b(?:smartphone|mobile\s*phone|5g\s*phone|iphone(?:\s*(?:1[1-7]|se))?|galaxy\s*(?:s\d{2}[a-z]*|m\d{2}[a-z]*|a\d{2}[a-z]*|f\d{2}[a-z]*|z\s*(?:fold|flip)\d*|\w+)|redmi(?:\s*(?:note|\d{1,2}[a-z]*|c\d{1,2}|a\d{1,2}|\w+))?|realme(?:\s*(?:narzo|\d{1,2}[a-z]*|gt|p\d|c\d{1,2}|\w+))?|poco(?:\s*(?:c|m|x|f)\d{1,2}[a-z]*|\w+)?|oneplus(?:\s*(?:nord|\d{1,2}[a-z]?|\w+))?|iqoo(?:\s*(?:z|neo|\d{1,2}[a-z]*|\w+))?|motorola|moto\s*(?:edge|g\d{2})|pixel\s*(?:[6-9]|1[0-2])|vivo\s*(?:t\d|y\d|v\d|x\d|\w+)|oppo\s*(?:a\d|k\d|reno|find|\w+)|nothing\s*phone)\b/i.test(t);
+}
+
 function getProductType(deal) {
   if (!deal) return 'general';
   const t = (deal.title || '').toLowerCase();
   const cat = (deal.category || '').toLowerCase();
+  if (isMobilePhone(t)) return 'smartphones';
   if (/shoe|sneaker|derby|loafer|boot|footwear|sandal|flip\s*flop|clog|oxford|formal\s*shoe/i.test(t)) return 'footwear';
   if (/hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(t)) return 'winterwear';
   if (/handbag|tote|clutch|sling\s*bag|purse|earring|necklace|jewell?ery|pendant|bangle|bracelet|hair\s*clip|scrunchie|kurti|saree|dress/i.test(t)) return 'women_fashion';
@@ -236,7 +246,9 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     : '*MAN TLAHNIAM!*\n';
 
   const pType = getProductType(deal);
-  if (isWinter) {
+  if (pType === 'smartphones') {
+    lootHeader = '*📱 SMARTPHONE & 5G MOBILE LOOT!*\n';
+  } else if (isWinter) {
     lootHeader = '*🧥 THLASIK INTHUAM LUMNA!*\n';
   } else if (pType === 'audio_gadgets' || pType === 'tech_accessories') {
     lootHeader = '*🎧 WIRELESS GADGETS & TECH DEALS!*\n';
@@ -902,11 +914,16 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (d.imageUrl.includes('unsplash.com') || d.imageUrl.includes('photo-1523275335684-37898b6baf30')) return false;
 
       // Price Sweet Spot Gate: Mizoram WhatsApp shoppers convert primarily between ₹100 and ₹3,500.
-      // Strictly filter out heavy deliberate purchases (> ₹4,500 like ACs, refrigerators, large TVs)
-      // and micro items (< ₹80) unless explicitly whitelisted in PRIORITY_ASINS.
+      // Filter out heavy deliberate purchases (> ₹4,500 like ACs, refrigerators, large TVs)
+      // EXCEPT genuine smartphones/5G mobiles (up to ₹85,000) and micro items (< ₹80) unless in PRIORITY_ASINS.
+      const isPhone = isMobilePhone(d.title || '');
       if (!isPriority) {
-        if (d.dealPrice > 4500) return false;
-        if (d.dealPrice < 80) return false;
+        if (isPhone) {
+          if (d.dealPrice > 85000 || (d.discountPercent < 8 && ((d.originalPrice || 0) - d.dealPrice < 1000))) return false;
+        } else {
+          if (d.dealPrice > 4500) return false;
+          if (d.dealPrice < 80) return false;
+        }
       }
 
       // Strictly exclude phone back covers, mobile cases, and tempered glass screen protectors
@@ -1005,9 +1022,11 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         score += 25;
       }
 
-      // 1b. Price Sweet Spot Boost (Impulse Buy Optimization):
+      // 1b. Price Sweet Spot Boost (Impulse Buy Optimization & Smartphone Exception):
       // 95%+ of community purchases occur between ₹100 and ₹3,000.
-      if (d.dealPrice >= 199 && d.dealPrice <= 1499) {
+      if (isMobilePhone(d.title || '')) {
+        score += 50; // Flagship & 5G budget smartphone priority boost
+      } else if (d.dealPrice >= 199 && d.dealPrice <= 1499) {
         score += 35; // Prime impulse sweet spot (instant UPI/GPay purchase)
       } else if (d.dealPrice >= 100 && d.dealPrice <= 1999) {
         score += 25; // Broad impulse sweet spot

@@ -11,7 +11,7 @@ interface ScrapedDeal {
   amazonUrl: string;
   store: 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio' | 'meesho';
   category: string;
-  source: 'Telegram Deals' | 'DealsMagnet' | 'IndiaFreeStuff' | 'IndiaDesire' | 'Meesho Deals';
+  source: 'Telegram Deals' | 'DealsMagnet' | 'IndiaFreeStuff' | 'IndiaDesire' | 'Meesho Deals' | 'DesiDime';
   isLootDeal: boolean;
   couponText?: string | null;
 }
@@ -106,9 +106,24 @@ function simpleHash(str: string): string {
   return Math.abs(hash).toString(36).toUpperCase();
 }
 
+// Helper: Identify genuine smartphones & 5G mobile phones (strictly exclude cases, covers, screen protectors, cables, etc.)
+export function isMobilePhone(title: string): boolean {
+  if (!title) return false;
+  const t = title.toLowerCase();
+  // Filter out accessories, covers, audio & components
+  if (/(?:cover|case|tempered|guard|skin|cable|charger|adapter|pouch|holder|stand|mount|lens\s*protector|stylus|strap|screen\s*protector|earbud|headphone|earphone|neckband|tws|smartwatch|watch|speaker)/i.test(t)) {
+    return false;
+  }
+  return /\b(?:smartphone|mobile\s*phone|5g\s*phone|iphone(?:\s*(?:1[1-7]|se))?|galaxy\s*(?:s\d{2}[a-z]*|m\d{2}[a-z]*|a\d{2}[a-z]*|f\d{2}[a-z]*|z\s*(?:fold|flip)\d*|\w+)|redmi(?:\s*(?:note|\d{1,2}[a-z]*|c\d{1,2}|a\d{1,2}|\w+))?|realme(?:\s*(?:narzo|\d{1,2}[a-z]*|gt|p\d|c\d{1,2}|\w+))?|poco(?:\s*(?:c|m|x|f)\d{1,2}[a-z]*|\w+)?|oneplus(?:\s*(?:nord|\d{1,2}[a-z]?|\w+))?|iqoo(?:\s*(?:z|neo|\d{1,2}[a-z]*|\w+))?|motorola|moto\s*(?:edge|g\d{2})|pixel\s*(?:[6-9]|1[0-2])|vivo\s*(?:t\d|y\d|v\d|x\d|\w+)|oppo\s*(?:a\d|k\d|reno|find|\w+)|nothing\s*phone)\b/i.test(t);
+}
+
 // Category classifier helper
 function classifyCategory(title: string): string {
   const t = title.toLowerCase();
+  // High Priority: Genuine Smartphones strictly categorized as 'gadgets'
+  if (isMobilePhone(title)) {
+    return 'gadgets';
+  }
   if (/lipstick|perfume|serum|sunscreen|lotion|cream|shampoo|skincare|cosmetic|kajal|beauty|makeup|facewash/i.test(t)) {
     return 'beauty';
   }
@@ -160,10 +175,22 @@ function isBlockedProduct(title: string): boolean {
 
 // Gating function: Enforce Mizoram e-commerce sweet spot
 // Affiliate conversion in Mizoram is heavily clustered in impulse purchases: ₹199 to ₹1,499.
-// Items > ₹4,500 have extremely low affiliate conversion and high cancellation/freight rejection.
+// Items > ₹4,500 have extremely low affiliate conversion and high cancellation/freight rejection,
+// EXCEPT for genuine mobile phones/smartphones which have high customer demand and zero shipping friction.
 // Items < ₹80 yield negligible affiliate commissions and often fail with add-on delivery costs.
-function isPriceAndLogisticsViable(price: number, discountPercent: number, category: string): boolean {
+function isPriceAndLogisticsViable(price: number, discountPercent: number, category: string, title?: string): boolean {
   if (price < 80) return false;
+
+  // Genuine Smartphone Exception:
+  // Mobile phones (iPhones, Galaxy, OnePlus, Redmi, POCO, Vivo, Motorola, Pixel)
+  // are lightweight, high-intent products where nominal discounts are 8%-35%.
+  if (title && isMobilePhone(title)) {
+    if (price <= 85000 && (discountPercent >= 8 || price >= 6000)) {
+      return true;
+    }
+    return false;
+  }
+
   if (price > 4500) {
     // Only allow high-value gadgets/electronics under ₹7,000 if they have a steep 45%+ discount
     if ((category === 'gadgets' || category === 'electronics') && discountPercent >= 45 && price <= 7000) {
@@ -214,8 +241,10 @@ function computeDealScore(deal: ScrapedDeal): number {
     score += 30;
   }
 
-  // Price Sweet Spot Bonus (₹199 - ₹1,499 impulse conversion range) (+35)
-  if (deal.price >= 199 && deal.price <= 1499) {
+  // High-Intent Smartphones & 5G Mobiles bonus (+45)
+  if (isMobilePhone(deal.title)) {
+    score += 45;
+  } else if (deal.price >= 199 && deal.price <= 1499) {
     score += 35;
   } else if (deal.price > 1499 && deal.price <= 2999) {
     score += 15;
@@ -483,11 +512,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               category = 'beauty';
             }
 
-            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category)) {
-              continue;
-            }
-
-            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category)) {
+            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category, title)) {
               continue;
             }
 
@@ -627,7 +652,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               .trim();
 
             const category = classifyCategory(title);
-            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category)) {
+            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category, title)) {
               continue;
             }
             const cleanUrl = `https://www.amazon.in/dp/${asin}?tag=${targetTag}`;
@@ -709,7 +734,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               } catch (e) {}
 
               const category = classifyCategory(title);
-              if (!isPriceAndLogisticsViable(999, 50, category)) continue;
+              if (!isPriceAndLogisticsViable(999, 50, category, title)) continue;
 
               collectedDeals.push({
                 dealId: `ifs-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
@@ -861,7 +886,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               category = 'beauty';
             }
 
-            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category)) {
+            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category, title)) {
               continue;
             }
 
@@ -1402,6 +1427,109 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
+  // SOURCE 6: SMARTPHONES & 5G MOBILE DEALS HARVESTER (DESIDIME & DIRECT MOBILE HUBS)
+  // ==========================================
+  if (!filterSource || filterSource === 'all' || filterSource === 'mobiles' || filterSource === 'desidime') {
+    try {
+      const ddRes = await fetch('https://www.desidime.com/groups/mobile-phones', {
+        headers: {
+          'User-Agent': userAgent,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+        signal: AbortSignal.timeout(7000),
+      });
+
+      if (ddRes.ok) {
+        const ddHtml = await ddRes.text();
+        const slides = ddHtml.split(/<div class=['"]swiper-slide[^'"]*['"]>/i);
+
+        for (let i = 1; i < slides.length; i++) {
+          if (collectedDeals.length >= limit + 25) break;
+          const slide = slides[i];
+          const linkMatch = slide.match(/href=['"](\/deals\/[^'"]+)['"]/i);
+          const imgMatch = slide.match(/src=['"]([^'"]+)['"]/i);
+          const titleMatch = slide.match(/alt=['"]([^'"]+)['"]/i) || slide.match(/class=['"][^'"]*font-medium[^'"]*['"][^>]*>([\s\S]*?)<\/span>/i);
+          const priceMatch = slide.match(/₹\s*([0-9,]+)/);
+
+          if (!linkMatch || !titleMatch || !priceMatch) continue;
+
+          let title = titleMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+          if (!isMobilePhone(title)) continue;
+
+          const dealPrice = parseInt(priceMatch[1].replace(/,/g, ''), 10);
+          if (isNaN(dealPrice) || dealPrice < 2000 || dealPrice > 120000) continue;
+
+          const dealIdMatch = linkMatch[1].match(/-(\d+)$/);
+          const dealId = dealIdMatch ? dealIdMatch[1] : null;
+          if (!dealId || seenAsins.has(`DD-${dealId}`)) continue;
+
+          let targetUrl = '';
+          let store: 'amazon' | 'flipkart' = 'amazon';
+          let asin: string | null = null;
+
+          // Resolve direct merchant redirect URL from DesiDime visit link
+          try {
+            const visitRes = await fetch(`https://visit.desidime.com/visit/deal-details-image-1/${dealId}`, {
+              redirect: 'manual',
+              headers: { 'User-Agent': userAgent },
+              signal: AbortSignal.timeout(4000),
+            });
+            const locationHeader = visitRes.headers.get('location') || '';
+            const urlParam = locationHeader.match(/[?&]url=([^&]+)/);
+            if (urlParam && urlParam[1]) {
+              const decoded = decodeURIComponent(urlParam[1]);
+              if (decoded.includes('flipkart.com')) {
+                store = 'flipkart';
+                const converted = await convertWithEarnkaro(decoded);
+                targetUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(decoded)}`;
+              } else {
+                store = 'amazon';
+                const amzAsin = decoded.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+                if (amzAsin) {
+                  asin = amzAsin[1].toUpperCase();
+                  targetUrl = `https://www.amazon.in/dp/${asin}?tag=${targetTag}`;
+                } else {
+                  targetUrl = decoded.includes('?') ? `${decoded}&tag=${targetTag}` : `${decoded}?tag=${targetTag}`;
+                }
+              }
+            }
+          } catch (_) {
+            continue;
+          }
+
+          if (!targetUrl) continue;
+          seenAsins.add(`DD-${dealId}`);
+          if (asin) seenAsins.add(asin);
+
+          const originalPrice = Math.round(dealPrice * 1.22);
+          const discountPercent = Math.max(Math.round(((originalPrice - dealPrice) / originalPrice) * 100), 15);
+          const imageUrl = imgMatch ? imgMatch[1] : (asin ? `https://images-eu.ssl-images-amazon.com/images/P/${asin}.01.MAIN._SCRMZZZZZZ_.jpg` : '');
+
+          collectedDeals.push({
+            dealId: `dd-${dealId}`,
+            title,
+            price: dealPrice,
+            originalPrice,
+            discountPercent,
+            rating: 4.4,
+            ratingsCount: 520,
+            imageUrl,
+            asin,
+            amazonUrl: targetUrl,
+            store,
+            category: 'gadgets',
+            source: 'DesiDime',
+            isLootDeal: discountPercent >= 20,
+            couponText: '📱 Smartphone Deal',
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('DesiDime mobiles harvester error:', (e as Error).message);
+    }
+  }
+
+  // ==========================================
   // SYNC & AUTO-CORRECT WITH AMAZON CREATORS API
   // ==========================================
   async function syncAmazonDealsWithApi(
@@ -1546,7 +1674,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // ==========================================
   // Filter out any bulky/ineligible products and rank by 3-pillar data-driven conversion score
   const qualifiedDeals = collectedDeals.filter(
-    (deal) => !isBlockedProduct(deal.title) && isPriceAndLogisticsViable(deal.price, deal.discountPercent, deal.category)
+    (deal) => !isBlockedProduct(deal.title) && isPriceAndLogisticsViable(deal.price, deal.discountPercent, deal.category, deal.title)
   );
 
   qualifiedDeals.sort((a, b) => computeDealScore(b) - computeDealScore(a));
@@ -1576,9 +1704,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       // 4. Must NOT have any Unsplash or stock placeholder images
       // 5. Must NOT have search collection URLs (/s?k= or /deal/)
       // 6. Skip items marked unavailable (out of stock) by Amazon API
-      // 7. Skip items where discount has evaporated below 15%
+      // 7. Skip items where discount has evaporated below 15% (except smartphones >= 8%)
       // 8. Strict Logistics & Price Sweet Spot Re-check
-      if (isBlockedProduct(deal.title) || !isPriceAndLogisticsViable(deal.price, deal.discountPercent, deal.category)) {
+      if (isBlockedProduct(deal.title) || !isPriceAndLogisticsViable(deal.price, deal.discountPercent, deal.category, deal.title)) {
         continue;
       }
       const isAmz = !deal.store || deal.store === 'amazon';
@@ -1588,7 +1716,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       if (isAmz && (!deal.asin || !/^[A-Z0-9]{10}$/i.test(deal.asin))) {
         continue;
       }
-      if (isAmz && deal.discountPercent < 15) {
+      if (isAmz && deal.discountPercent < 15 && !isMobilePhone(deal.title)) {
         continue;
       }
       if (

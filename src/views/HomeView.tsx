@@ -17,8 +17,17 @@ import {
 } from 'lucide-react';
 import { WHATSAPP_CHANNEL_URL, WHATSAPP_COMMUNITY_MEMBERS, STORE_BADGES } from '../config/constants';
 
+function isMobilePhone(title: string): boolean {
+  if (!title) return false;
+  const t = title.toLowerCase();
+  if (/(?:cover|case|tempered|guard|skin|cable|charger|adapter|pouch|holder|stand|mount|lens\s*protector|stylus|strap|screen\s*protector|earbud|headphone|earphone|neckband|tws|smartwatch|watch|speaker)/i.test(t)) {
+    return false;
+  }
+  return /\b(?:smartphone|mobile\s*phone|5g\s*phone|iphone(?:\s*(?:1[1-7]|se))?|galaxy\s*(?:s\d{2}[a-z]*|m\d{2}[a-z]*|a\d{2}[a-z]*|f\d{2}[a-z]*|z\s*(?:fold|flip)\d*|\w+)|redmi(?:\s*(?:note|\d{1,2}[a-z]*|c\d{1,2}|a\d{1,2}|\w+))?|realme(?:\s*(?:narzo|\d{1,2}[a-z]*|gt|p\d|c\d{1,2}|\w+))?|poco(?:\s*(?:c|m|x|f)\d{1,2}[a-z]*|\w+)?|oneplus(?:\s*(?:nord|\d{1,2}[a-z]?|\w+))?|iqoo(?:\s*(?:z|neo|\d{1,2}[a-z]*|\w+))?|motorola|moto\s*(?:edge|g\d{2})|pixel\s*(?:[6-9]|1[0-2])|vivo\s*(?:t\d|y\d|v\d|x\d|\w+)|oppo\s*(?:a\d|k\d|reno|find|\w+)|nothing\s*phone)\b/i.test(t);
+}
+
 const HERO_CATEGORIES = [
-  { id: 'mobiles', label: 'Mobiles', icon: '/assets/hero/cat-mobiles.webp', filter: { category: 'gadgets' as DealCategory } },
+  { id: 'mobiles', label: 'Mobiles', icon: '/assets/hero/cat-mobiles.webp', filter: { category: 'all' as DealCategory, search: 'phone' } },
   { id: 'flash_sale', label: 'Flash Sale', icon: '/assets/hero/cat-electronics.webp', filter: { tab: 'loot' as DealsTabMode, lootOnly: true } },
   { id: 'shopping', label: 'Shopping', icon: '/assets/hero/cat-fashion.webp', filter: { category: 'shoes_fashion' as DealCategory } },
   { id: 'food', label: 'Food', icon: '/assets/hero/cat-food.webp', filter: { category: 'home_kitchen' as DealCategory } },
@@ -174,10 +183,14 @@ export const HomeView: React.FC = () => {
       // Keyword search
       if (activeFilters.search && activeFilters.search.trim()) {
         const query = activeFilters.search.toLowerCase().trim();
-        const inTitle = deal.title.toLowerCase().includes(query);
-        const inDesc = deal.description?.toLowerCase().includes(query) ?? false;
-        const inCat = deal.category.toLowerCase().includes(query);
-        if (!inTitle && !inDesc && !inCat) return false;
+        if (query === 'phone' || query === 'phones' || query === 'mobile' || query === 'mobiles' || query === 'smartphone') {
+          if (!isMobilePhone(deal.title)) return false;
+        } else {
+          const inTitle = deal.title.toLowerCase().includes(query);
+          const inDesc = deal.description?.toLowerCase().includes(query) ?? false;
+          const inCat = deal.category.toLowerCase().includes(query);
+          if (!inTitle && !inDesc && !inCat) return false;
+        }
       }
 
       return true;
