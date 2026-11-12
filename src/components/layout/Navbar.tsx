@@ -39,15 +39,26 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
           </div>
         </Link>
 
-        {/* Desktop Navigation Links */}
+        {/* Desktop Navigation Links (IndiaDesire style) */}
         <nav className="hidden md:flex items-center gap-1 text-sm font-semibold text-stone-700">
           <Link
             to="/"
+            search={{ tab: 'all' }}
             className="px-3.5 py-2 rounded-xl hover:bg-stone-200/60 transition-colors flex items-center gap-1.5"
             activeProps={{ className: 'bg-stone-200/90 text-stone-900' }}
           >
-            <Sparkles className="w-4 h-4 text-orange-600" />
-            <span>Deals</span>
+            <span>Home</span>
+          </Link>
+
+          <Link
+            to="/"
+            search={{ tab: 'loot', lootOnly: true }}
+            className="px-3.5 py-2 rounded-xl hover:bg-red-50 text-[#C72026] transition-colors flex items-center gap-1.5 font-bold"
+            activeProps={{ className: 'bg-red-100 text-[#C72026]' }}
+          >
+            <Sparkles className="w-4 h-4 text-[#C72026]" />
+            <span>Loot Deals</span>
+            <span className="text-[9.5px] font-black uppercase px-1.5 py-0.2 bg-[#C72026] text-white rounded">Hot</span>
           </Link>
 
           <Link
@@ -56,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
             activeProps={{ className: 'bg-stone-200/90 text-stone-900' }}
           >
             <BookOpen className="w-4 h-4 text-stone-500" />
-            <span>Buying Guides</span>
+            <span>Guides</span>
           </Link>
 
           <Link
@@ -65,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount = 0 }) => {
             activeProps={{ className: 'bg-stone-200/90 text-stone-900' }}
           >
             <Heart className="w-4 h-4 text-rose-500" />
-            <span>Saved Deals</span>
+            <span>Saved</span>
             {savedCount > 0 && (
               <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-500 text-white">
                 {savedCount}

@@ -81,228 +81,187 @@ export const DealCard: React.FC<DealCardProps> = ({
 
   return (
     <div 
-      className={`group relative bg-white border rounded-2xl p-2.5 sm:p-3.5 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between ${
+      className={`group relative bg-white border rounded-xl overflow-hidden shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between ${
         isExpired 
-          ? 'border-stone-300/80 bg-stone-50/50 opacity-70 hover:opacity-100 grayscale-[25%]' 
-          : 'border-[#EAE6DF] hover:border-orange-300'
+          ? 'border-stone-200 bg-stone-50/50 opacity-70 hover:opacity-100 grayscale-[25%]' 
+          : 'border-stone-200 hover:border-[#C72026]/60'
       }`}
     >
-      {/* Top Header Row: Store Pill + Time + Bookmark */}
       <div>
-        <div className="flex items-center justify-between gap-1 mb-2">
-          <div className="flex items-center gap-1 min-w-0">
-            <span className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md border truncate ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
-              <StoreLogo store={deal.store} className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-[2px] shrink-0" />
-              <span className="truncate">{storeBadge.name}</span>
+        {/* Product Image Container with IndiaDesire Discount Tag & Store Pill */}
+        <div className="relative aspect-square w-full bg-white border-b border-stone-100 flex items-center justify-center overflow-hidden">
+          {/* IndiaDesire Top-Left Discount Badge */}
+          {!isExpired ? (
+            <span className="absolute top-2 left-2 z-10 bg-gradient-to-r from-[#C72026] to-[#E65100] text-white text-[10.5px] sm:text-xs font-black px-2 py-0.5 rounded-md shadow-xs tracking-tight">
+              {deal.discountPercent}% OFF
             </span>
-            <span className="text-[9px] sm:text-[10px] text-stone-400 font-medium shrink-0">
-              {formatDealTime(deal.createdAt)}
+          ) : (
+            <span className="absolute top-2 left-2 z-10 bg-stone-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs">
+              EXPIRED
             </span>
-          </div>
+          )}
 
+          {/* Top-Right Bookmark Heart */}
           <button
             type="button"
             onClick={handleBookmarkClick}
-            className={`p-1 rounded-full transition-colors z-10 shrink-0 ${
+            className={`absolute top-2 right-2 z-10 p-1.5 rounded-full backdrop-blur-xs transition-colors ${
               isBookmarked 
-                ? 'text-rose-500 bg-rose-50' 
-                : 'text-stone-300 hover:text-stone-600 hover:bg-stone-100'
+                ? 'text-rose-500 bg-rose-50/90' 
+                : 'text-stone-400 hover:text-stone-700 bg-white/80 hover:bg-white shadow-2xs'
             }`}
             title={isBookmarked ? 'Remove Bookmark' : 'Save Deal'}
             aria-label="Bookmark deal"
           >
             <Heart className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
           </button>
-        </div>
 
-        {/* Product Image: DIRECT STORE AFFILIATE LINK */}
-        <a
-          href={deal.affiliateUrl}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-          className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FAF9F5] border border-[#EAE6DF]/60 mb-2 group-hover:border-stone-300 block cursor-pointer"
-          title={`Open ${deal.title} on ${storeBadge.name}`}
-        >
-          {!imageError ? (
-            <img
-              src={imgSrc}
-              alt={deal.title}
-              loading="lazy"
-              onLoad={(e) => {
-                if (e.currentTarget.naturalWidth <= 2 || e.currentTarget.naturalHeight <= 2) {
+          {/* Direct Store Affiliate Image Link */}
+          <a
+            href={deal.affiliateUrl}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="w-full h-full p-3 sm:p-4 flex items-center justify-center block cursor-pointer"
+            title={`Open ${deal.title} on ${storeBadge.name}`}
+          >
+            {!imageError ? (
+              <img
+                src={imgSrc}
+                alt={deal.title}
+                loading="lazy"
+                onLoad={(e) => {
+                  if (e.currentTarget.naturalWidth <= 2 || e.currentTarget.naturalHeight <= 2) {
+                    if (deal.imageUrl && imgSrc !== deal.imageUrl) {
+                      setImgSrc(deal.imageUrl);
+                    } else {
+                      setImageError(true);
+                    }
+                  }
+                }}
+                onError={() => {
                   if (deal.imageUrl && imgSrc !== deal.imageUrl) {
                     setImgSrc(deal.imageUrl);
                   } else {
                     setImageError(true);
                   }
-                }
-              }}
-              onError={() => {
-                if (deal.imageUrl && imgSrc !== deal.imageUrl) {
-                  setImgSrc(deal.imageUrl); // Fallback to original image if HD image fails
-                } else {
-                  setImageError(true);
-                }
-              }}
-              className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 border border-dashed border-stone-200 p-2 text-center">
-              <span className="p-1.5 rounded-full bg-orange-100 text-orange-600 mb-1">
-                <Flame className="w-4 h-4 fill-current" />
-              </span>
-              <span className="text-[10px] font-bold text-stone-700">{storeBadge.name} Deal</span>
-              <span className="text-[8px] text-stone-400">Tap to view</span>
-            </div>
-          )}
+                }}
+                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 p-2 text-center">
+                <span className="p-2 rounded-full bg-red-100 text-[#C72026] mb-1">
+                  <Flame className="w-4 h-4 fill-current" />
+                </span>
+                <span className="text-[11px] font-bold text-stone-700">{storeBadge.name} Deal</span>
+                <span className="text-[9px] text-stone-400">Tap to shop</span>
+              </div>
+            )}
+          </a>
 
-          {/* Discount Banner: Top-Left bold pill */}
-          {!isExpired ? (
-            <div className="absolute top-1.5 left-1.5">
-              <span className={`text-[10px] sm:text-[11px] font-black px-1.5 py-0.5 rounded-md shadow-xs ${
-                isLoot 
-                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' 
-                  : 'bg-emerald-600 text-white'
-              }`}>
-                {deal.discountPercent}% OFF
-              </span>
-            </div>
-          ) : (
-            <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-[1px] flex items-center justify-center p-1 text-center">
-              <span className="bg-stone-900/90 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-stone-700 shadow-xs">
-                Expired
-              </span>
-            </div>
-          )}
-
-          {/* Coupon Tag */}
+          {/* Coupon pill if present */}
           {deal.couponText && !isExpired && (
-            <div className="absolute bottom-1.5 left-1.5 max-w-[85%]">
-              <span className="inline-flex items-center text-[9px] font-bold bg-amber-100/95 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded truncate shadow-2xs">
-                Coupon
+            <div className="absolute bottom-2 left-2 max-w-[85%] z-10">
+              <span className="inline-flex items-center text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded shadow-xs">
+                Coupon Applied
               </span>
             </div>
           )}
-        </a>
+        </div>
 
-        {/* Product Title */}
+        {/* Card Body (Title, Price, Meta) */}
+        <div className="p-2.5 sm:p-3 space-y-2">
+          {/* Product Title */}
+          <a
+            href={deal.affiliateUrl}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className={`block text-xs sm:text-[13.5px] font-semibold line-clamp-2 leading-snug transition-colors cursor-pointer min-h-[2rem] sm:min-h-[2.4rem] ${
+              isExpired ? 'text-stone-500 hover:text-stone-800' : 'text-stone-900 hover:text-[#C72026]'
+            }`}
+            title={`Open ${deal.title} on ${storeBadge.name}`}
+          >
+            {deal.title}
+          </a>
+
+          {/* Price Block: Big Bold Now Price + Strikethrough Was Price */}
+          <div className="flex items-baseline justify-between gap-1 flex-wrap pt-0.5">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base sm:text-xl font-black text-stone-900 tracking-tight">
+                {formatINR(deal.dealPrice)}
+              </span>
+              <span className="text-xs sm:text-sm text-stone-400 line-through font-normal">
+                {formatINR(deal.originalPrice)}
+              </span>
+            </div>
+            {savingsAmount > 0 && !isExpired && (
+              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded shrink-0">
+                Save {formatINR(savingsAmount)}
+              </span>
+            )}
+          </div>
+
+          {/* Meta Info: Store Badge & Time Posted */}
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-stone-500 pt-1 border-t border-stone-100">
+            <div className="flex items-center gap-1 font-medium truncate">
+              <Clock className="w-3 h-3 text-stone-400 shrink-0" />
+              <span className="truncate">{formatDealTime(deal.createdAt)}</span>
+            </div>
+            <span className={`inline-flex items-center gap-1 text-[9.5px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
+              <StoreLogo store={deal.store} className="w-2.5 h-2.5 rounded-[2px] shrink-0" />
+              <span>{storeBadge.name}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* IndiaDesire Signature Action Button: Shop Now + Share Row */}
+      <div className="p-2.5 sm:p-3 pt-0 space-y-1.5">
+        {/* Primary Shop Now Button */}
         <a
           href={deal.affiliateUrl}
           target="_blank"
           rel="noopener noreferrer nofollow"
-          className={`block text-xs sm:text-sm font-semibold line-clamp-2 leading-snug transition-colors cursor-pointer min-h-[2rem] sm:min-h-[2.5rem] ${
-            isExpired ? 'text-stone-500 hover:text-stone-800' : 'text-stone-900 hover:text-orange-600'
+          className={`w-full flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 font-bold text-xs sm:text-sm rounded-lg shadow-xs transition-colors cursor-pointer ${
+            isExpired
+              ? 'bg-stone-200 hover:bg-stone-300 text-stone-700'
+              : 'bg-[#C72026] hover:bg-[#B01A20] active:bg-[#96141A] text-white'
           }`}
-          title={`Open ${deal.title} on ${storeBadge.name}`}
+          title={`Shop ${deal.title} on ${storeBadge.name}`}
         >
-          {deal.title}
+          <StoreLogo store={deal.store} className="w-3.5 h-3.5 rounded-[2px] shrink-0" />
+          <span>{isExpired ? 'Check Price' : 'Shop Now'}</span>
+          <ExternalLink className="w-3.5 h-3.5 opacity-80 shrink-0" />
         </a>
 
-        {/* Rating and Reviews */}
-        <div className="flex items-center gap-1.5 mt-1 sm:mt-1.5 text-[10px] sm:text-[11px]">
-          <div className="flex items-center gap-0.5 bg-amber-50 border border-amber-200/80 px-1 py-0.2 rounded font-bold text-amber-800">
-            <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-            <span>{deal.rating}</span>
-          </div>
-          <span className="text-stone-400">
-            ({deal.ratingsCount > 999 ? (deal.ratingsCount / 1000).toFixed(1) + 'k' : deal.ratingsCount})
-          </span>
-          {!isExpired && (
-            <span className="text-emerald-700 font-medium hidden sm:inline-flex items-center gap-0.5 ml-auto">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-              Verified
-            </span>
-          )}
-        </div>
-
-        {/* Price & Savings Block */}
-        <div className="mt-2 pt-1.5 border-t border-[#EAE6DF]/70">
-          {isExpired ? (
-            <div>
-              <div className="flex items-baseline gap-1.5 flex-wrap">
-                <span className="text-xs sm:text-sm font-bold text-stone-500">
-                  {formatINR(deal.dealPrice)}
-                </span>
-                <span className="text-[10px] sm:text-xs font-medium text-stone-400 line-through">
-                  {formatINR(deal.originalPrice)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="flex items-baseline gap-1.5 flex-wrap">
-                <span className="text-sm sm:text-lg font-black text-stone-900 tracking-tight">
-                  {formatINR(deal.dealPrice)}
-                </span>
-                <span className="text-[10px] sm:text-xs font-medium text-stone-400 line-through">
-                  {formatINR(deal.originalPrice)}
-                </span>
-              </div>
-              {savingsAmount > 0 && (
-                <p className="text-[10px] sm:text-[11px] font-bold text-emerald-700 mt-0.5 truncate">
-                  Save {formatINR(savingsAmount)}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Action Buttons: Buy Now + Quick Viral Share */}
-      <div className="mt-2.5 pt-2 border-t border-[#EAE6DF] space-y-1.5">
-        {/* Primary Buy CTA */}
-        {isExpired ? (
-          <a
-            href={deal.affiliateUrl}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            className="w-full flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-2 bg-stone-200 hover:bg-stone-300 active:bg-stone-400 text-stone-800 font-bold text-[11px] sm:text-xs rounded-xl transition-all cursor-pointer border border-stone-300 shadow-2xs"
-          >
-            <span>Check Current Price</span>
-            <ExternalLink className="w-3 h-3 text-stone-600" />
-          </a>
-        ) : (
-          <a
-            href={deal.affiliateUrl}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            className="w-full flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-2 bg-stone-900 hover:bg-stone-800 active:bg-black text-white font-bold text-[11px] sm:text-xs rounded-xl shadow-2xs transition-all duration-150 cursor-pointer"
-          >
-            <StoreLogo store={deal.store} className="w-3 h-3 rounded-[2px] shrink-0" />
-            <span className="truncate">Buy on {storeBadge.name}</span>
-            <ExternalLink className="w-3 h-3 text-stone-400 shrink-0" />
-          </a>
-        )}
-
-        {/* WhatsApp Viral Share & Secondary Actions */}
+        {/* 3-Button Viral Row: WhatsApp + Copy + Details */}
         <div className="grid grid-cols-3 gap-1">
           <button
             type="button"
             onClick={handleWhatsAppShare}
-            className="flex items-center justify-center gap-1 py-1 px-1 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-[10px] sm:text-[11px] rounded-lg border border-[#25D366]/30 transition-colors cursor-pointer"
-            title="Share Deal to WhatsApp"
+            className="flex items-center justify-center gap-1 py-1 px-1 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-[10px] sm:text-[11px] rounded border border-[#25D366]/30 transition-colors cursor-pointer"
+            title="Share to WhatsApp"
           >
-            <Share2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#25D366] shrink-0" />
+            <Share2 className="w-2.5 h-2.5 text-[#25D366] shrink-0" />
             <span className="truncate">Share</span>
           </button>
 
           <button
             type="button"
             onClick={handleCopyWhatsAppCopy}
-            className="flex items-center justify-center gap-1 py-1 px-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-[10px] sm:text-[11px] rounded-lg border border-[#EAE6DF] transition-colors cursor-pointer"
-            title="Copy pre-formatted WhatsApp text"
+            className="flex items-center justify-center gap-1 py-1 px-1 bg-stone-50 hover:bg-stone-100 text-stone-700 font-semibold text-[10px] sm:text-[11px] rounded border border-stone-200 transition-colors cursor-pointer"
+            title="Copy WhatsApp text"
           >
-            <Copy className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-stone-500 shrink-0" />
+            <Copy className="w-2.5 h-2.5 text-stone-500 shrink-0" />
             <span className="truncate">Copy</span>
           </button>
 
           <button
             type="button"
             onClick={handleOpenDetails}
-            className="flex items-center justify-center gap-1 py-1 px-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-[10px] sm:text-[11px] rounded-lg border border-[#EAE6DF] transition-colors cursor-pointer"
-            title="View price history chart and full specs"
+            className="flex items-center justify-center gap-1 py-1 px-1 bg-stone-50 hover:bg-stone-100 text-stone-700 font-semibold text-[10px] sm:text-[11px] rounded border border-stone-200 transition-colors cursor-pointer"
+            title="View Price History & Specs"
           >
-            <TrendingDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-600 shrink-0" />
+            <TrendingDown className="w-2.5 h-2.5 text-[#C72026] shrink-0" />
             <span className="truncate">Details</span>
           </button>
         </div>

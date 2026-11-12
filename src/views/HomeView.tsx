@@ -4,31 +4,21 @@ import { useData } from '../context/DataContext';
 import type { Deal, DealCategory, DealsFilterParams, DealsTabMode } from '../types';
 import { DealFilters } from '../components/deals/DealFilters';
 import { DealGrid } from '../components/deals/DealGrid';
-import { DealCard } from '../components/deals/DealCard';
 import { DealDetailModal } from '../components/deals/DealDetailModal';
 import { PriceAlertModal } from '../components/common/PriceAlertModal';
 import { useBookmarks } from '../hooks/useBookmarks';
-import { isLootDeal, isNewDeal, isDealExpired, getHighResImageUrl } from '../utils/dealLogic';
-import { formatINR } from '../utils/formatters';
-import { shareDealToWhatsApp } from '../utils/affiliate';
+import { isLootDeal, isNewDeal, isDealExpired } from '../utils/dealLogic';
 import { 
   Flame, 
-  Sparkles, 
   Zap, 
   ShieldCheck, 
   ArrowRight, 
-  MessageCircle, 
-  Share2, 
-  ExternalLink,
-  Tag,
-  Info
+  MessageCircle
 } from 'lucide-react';
 import { WHATSAPP_CHANNEL_URL, WHATSAPP_COMMUNITY_MEMBERS, STORE_BADGES } from '../config/constants';
-import { StoreLogo } from '../components/common/StoreLogo';
-import { HeroBuyingGuides } from '../components/home/HeroBuyingGuides';
 
 export const HomeView: React.FC = () => {
-  const { deals, blogs } = useData();
+  const { deals } = useData();
   const searchParams = useSearch({ strict: false }) as DealsFilterParams;
   const navigate = useNavigate();
 
@@ -134,12 +124,6 @@ export const HomeView: React.FC = () => {
   // Filtered and sorted deals
   const filteredDeals = useMemo(() => {
     return activeDeals.filter((deal) => {
-      // Deduplicate: If Top Loot Deals spotlight is visible above, exclude those deals from the feed below.
-      // Once a deal drops out of topLootDeals, it will automatically appear in this feed.
-      if (isTopLootVisible && topLootDealIds.has(deal.id)) {
-        return false;
-      }
-
       // Tab filter
       if (activeTab === 'loot' && !isLootDeal(deal)) {
         return false;
@@ -152,22 +136,6 @@ export const HomeView: React.FC = () => {
       if (activeFilters.store && activeFilters.store !== 'all') {
         const store = deal.store || 'amazon';
         if (store !== activeFilters.store) return false;
-      }
-
-      // Smart Homepage Feed Filter:
-      // When viewing general all-feed on homepage (no specific category or search active),
-      // show high-impact deals: gadgets with 30%-75% discount, Nov/Dec festive lighting with 30%+ discount,
-      // and other categories with 40%+ discount (or marked loot).
-      const isGeneralFeed = (!activeFilters.category || activeFilters.category === 'all') && !activeFilters.search?.trim();
-      const isGadget = deal.category === 'gadgets' || deal.category === 'electronics';
-      const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec, 0 = Jan, 1 = Feb
-      const isFestive = (currentMonth === 10 || currentMonth === 11) && 
-        /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i.test(deal.title);
-      const isWinter = [10, 11, 0, 1].includes(currentMonth) &&
-        /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(deal.title);
-      const minDiscount = isGadget || isFestive || isWinter ? 30 : 40;
-      if (isGeneralFeed && deal.discountPercent < minDiscount && !isLootDeal(deal)) {
-        return false;
       }
 
       // Category filter
@@ -220,251 +188,163 @@ export const HomeView: React.FC = () => {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
-  }, [activeDeals, activeFilters, activeTab, isTopLootVisible, topLootDealIds]);
+  }, [activeDeals, activeFilters, activeTab]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-white border border-[#EAE6DF] rounded-3xl p-5 sm:p-8 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-900 text-xs font-bold mb-3">
-              <Flame className="w-3.5 h-3.5 text-orange-600 fill-orange-500" />
-              <span>Mizoram Online Shopping &amp; Deal Hub</span>
-            </div>
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+      {/* 1. IndiaDesire Top Announcement Bar */}
+      <div className="bg-red-50 border border-red-200/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="bg-[#C72026] text-white font-extrabold text-[10px] px-2 py-0.5 rounded shrink-0 uppercase tracking-wider">
+            Live
+          </span>
+          <p className="text-stone-800 font-medium truncate">
+            <strong>Mizoram's #1 Loot Deals Hub</strong> — Amazon, Meesho, Flipkart, Nykaa &amp; Myntra price drops verified 24x7!
+          </p>
+        </div>
+        <a
+          href={WHATSAPP_CHANNEL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden sm:inline-flex items-center gap-1 text-[#C72026] hover:text-[#96141A] font-bold shrink-0"
+        >
+          <span>Get WhatsApp Alerts &rarr;</span>
+        </a>
+      </div>
 
-            <h1 className="text-2xl sm:text-4xl font-black text-stone-900 tracking-tight leading-tight">
-              Amazon, Flipkart, Myntra &amp; Nykaa Deal Ṭha &amp; Man Tlahniam Berte Mizoram Tan.
+      {/* 2. IndiaDesire Hero Section */}
+      <section className="relative overflow-hidden bg-white border border-stone-200 rounded-2xl p-4 sm:p-6 shadow-2xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="max-w-3xl space-y-2 sm:space-y-3">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-red-100 text-[#C72026] text-[11px] font-extrabold tracking-wide">
+              <Flame className="w-3.5 h-3.5 fill-[#C72026]" />
+              FESTIVE &amp; WINTER SALE SEASON IS LIVE
+            </span>
+
+            <h1 className="text-xl sm:text-3xl font-black text-stone-900 tracking-tight leading-snug">
+              Mizoram's smartest way to <span className="text-[#C72026]">shop for less</span>
             </h1>
 
-            <p className="text-xs sm:text-base text-stone-600 mt-2 sm:mt-3 leading-relaxed">
-              Online store lian ber ber — Amazon, Flipkart, Myntra, leh Nykaa aṭangin trail shoes, thawmhnaw, mobile phone, gadgets, leh skincare man tlahniam nasa (50%+ Off) kan zawng chhuak ziah a. Aizawl, Lunglei, Champhai leh Mizoram chhung hmun hrang hranga thleng thei tura enfiah thlap an ni.
+            <p className="text-xs sm:text-sm text-stone-600 leading-relaxed max-w-2xl">
+              Hand-picked loot deals, coupons, and verified price drops from Amazon, Meesho, Flipkart, Nykaa &amp; Myntra — checked and updated every few minutes.
             </p>
 
-            <div className="flex flex-wrap items-center gap-2.5 mt-4 text-xs font-medium text-stone-600">
-              <span className="flex items-center gap-1.5 bg-[#FAF9F5] px-3 py-1.5 rounded-xl border border-[#EAE6DF]">
-                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <strong>{activeDeals.length}</strong> Deal Live Mek
+            {/* IndiaDesire Hero CTA Actions */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#C72026] hover:bg-[#B01A20] active:bg-[#96141A] text-white text-xs sm:text-sm font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+              >
+                <Flame className="w-4 h-4 fill-white" />
+                <span>Browse Loot Deals</span>
+                <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+              </button>
+
+              <a
+                href={WHATSAPP_CHANNEL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 text-xs sm:text-sm font-bold rounded-lg shadow-xs transition-colors"
+              >
+                <MessageCircle className="w-4 h-4 fill-stone-950" />
+                <span>Get WhatsApp Alerts</span>
+              </a>
+            </div>
+
+            {/* Stats Band */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6 pt-2 text-[11px] sm:text-xs text-stone-600 border-t border-stone-100">
+              <span className="flex items-center gap-1">
+                <strong className="text-stone-900 font-extrabold">{activeDeals.length}+</strong> deals active
               </span>
-              <span className="flex items-center gap-1.5 bg-[#FAF9F5] px-3 py-1.5 rounded-xl border border-[#EAE6DF]">
+              <span className="flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                100% Man Dik &amp; Fiah Sa
+                100% verified stores
               </span>
-              <span className="flex items-center gap-1.5 bg-[#FAF9F5] px-3 py-1.5 rounded-xl border border-[#EAE6DF]">
-                <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-                Loot Discount &gt;= 50%
+              <span className="flex items-center gap-1">
+                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                24x7 price-drop alerts
               </span>
             </div>
           </div>
 
-          {/* VIP WhatsApp Card (Desktop Only - mobile users have top bar and bottom nav) */}
-          <div className="hidden lg:block shrink-0 lg:max-w-xs w-full bg-[#FAF9F5] border border-[#EAE6DF] rounded-2xl p-4 shadow-2xs">
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-7 h-7 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0">
-                <MessageCircle className="w-4 h-4 fill-white" />
+          {/* Quick VIP Card on Desktop */}
+          <div className="hidden lg:block shrink-0 max-w-xs w-full bg-stone-50 border border-stone-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[#25D366] text-stone-950 flex items-center justify-center shrink-0">
+                <MessageCircle className="w-4 h-4 fill-stone-950" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-stone-900">VIP Loot WhatsApp</h3>
-                <p className="text-[10px] text-stone-500">{WHATSAPP_COMMUNITY_MEMBERS} local subscribers</p>
+                <h3 className="text-xs font-bold text-stone-900">VIP WhatsApp Group</h3>
+                <p className="text-[10px] text-stone-500">{WHATSAPP_COMMUNITY_MEMBERS} local members</p>
               </div>
             </div>
             <p className="text-[11px] text-stone-600 mb-3 leading-tight">
-              Mizoram delivery hub-a stock a zawh hmaa loot deal leh man tlahniam hriat zung zung nan.
+              Aizawl &amp; Mizoram delivery hub stock a zawh hmaa loot deal man tlawm hriat zung zung nan.
             </p>
             <a
               href={WHATSAPP_CHANNEL_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-bold text-xs rounded-xl transition-colors shadow-2xs"
+              className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-bold text-xs rounded-lg transition-colors shadow-2xs"
             >
-              <span>WhatsApp Channel Zawm Rawh</span>
+              <span>Join WhatsApp Channel</span>
               <ArrowRight className="w-3 h-3" />
             </a>
           </div>
         </div>
-
-        {/* Buying Guides News Headlines & Mobile Swipe Carousel (Temporarily hidden until articles are written) */}
-        {/* <HeroBuyingGuides blogs={blogs} /> */}
       </section>
 
-      {/* 1. HOT LOOT DEALS SPOTLIGHT (Feature 1: Top of Homepage - Swipeable on mobile) */}
-      {isTopLootVisible && (
-        <section className="bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border border-orange-200/80 rounded-3xl p-4 sm:p-6 space-y-3.5 sm:space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-orange-600 text-white rounded-xl shadow-xs">
-                <Flame className="w-4 h-4 fill-current" />
-              </span>
-              <div>
-                <h2 className="text-base sm:text-lg font-black text-stone-900">
-                  Top Loot Deals (Mipui Hip Ber &amp; 50%+ Off)
-                </h2>
-                <p className="text-xs text-stone-600">
-                  High ratings (4.0+) paired with steep promotional discounts.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-orange-600 font-bold md:hidden flex items-center gap-1 bg-orange-100/80 px-2 py-0.5 rounded-full">
-                Swipe &rarr;
-              </span>
-              <button
-                type="button"
-                onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
-                className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 shrink-0"
-              >
-                <span>View All Loots</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+      {/* 3. IndiaDesire Section Heading: "Loot Deals Of The Hour" */}
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg sm:text-2xl font-black text-[#C72026] flex items-center gap-1.5 tracking-tight">
+            <Flame className="w-5 h-5 sm:w-6 sm:h-6 fill-[#C72026]" />
+            <span>
+              {activeTab === 'loot' 
+                ? 'Loot Deals Of The Hour' 
+                : activeFilters.store && activeFilters.store !== 'all'
+                ? `${STORE_BADGES[activeFilters.store]?.name || activeFilters.store} Deals`
+                : activeFilters.category && activeFilters.category !== 'all'
+                ? `${activeFilters.category.replace('_', ' ').toUpperCase()} Deals`
+                : 'Loot Deals Of The Hour'}
+            </span>
+          </h2>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200">
+            {filteredDeals.length} deals
+          </span>
+        </div>
 
-          {/* Swipeable container on mobile (horizontal swipe with snap, 2-per-screen), 3-col grid on desktop */}
-          <div className="flex md:grid md:grid-cols-3 gap-2.5 sm:gap-4 overflow-x-auto md:overflow-x-visible pb-2.5 md:pb-0 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-1 px-1 sm:mx-0 sm:px-0">
-            {topLootDeals.map((deal) => {
-              const storeBadge = STORE_BADGES[deal.store] || STORE_BADGES.amazon;
-              return (
-                <div
-                  key={deal.id}
-                  className="w-[46vw] sm:w-[260px] md:w-auto shrink-0 snap-start bg-white border border-[#EAE6DF] hover:border-orange-300 rounded-2xl p-2.5 sm:p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-2xs">
-                        <Flame className="w-2.5 h-2.5 fill-current" />
-                        {deal.discountPercent}% OFF LOOT
-                      </span>
-                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${storeBadge.bg} ${storeBadge.text} ${storeBadge.border}`}>
-                        <StoreLogo store={deal.store} className="w-3 h-3 rounded-[3px] shrink-0" />
-                        <span>{storeBadge.name}</span>
-                      </span>
-                    </div>
-
-                    <a
-                      href={deal.affiliateUrl}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="aspect-16/10 rounded-xl overflow-hidden bg-[#FAF9F5] mb-3 block cursor-pointer border border-[#EAE6DF]/60"
-                      title={`Open ${deal.title} on ${storeBadge.name}`}
-                    >
-                      <img
-                        src={getHighResImageUrl(deal.imageUrl, deal.asin, deal.store)}
-                        alt={deal.title}
-                        onLoad={(e) => {
-                          if (e.currentTarget.naturalWidth <= 2 && deal.imageUrl) {
-                            e.currentTarget.src = deal.imageUrl;
-                          }
-                        }}
-                        onError={(e) => {
-                          if (deal.imageUrl && e.currentTarget.src !== deal.imageUrl) {
-                            e.currentTarget.src = deal.imageUrl;
-                          }
-                        }}
-                        className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </a>
-
-                    <a
-                      href={deal.affiliateUrl}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-2 leading-snug hover:text-orange-600 transition-colors block cursor-pointer"
-                      title={`Open ${deal.title} on ${storeBadge.name}`}
-                    >
-                      {deal.title}
-                    </a>
-                  </div>
-
-                  <div className="mt-3 pt-2.5 border-t border-[#EAE6DF] flex items-center justify-between gap-2">
-                    <div>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-base font-extrabold text-stone-900">{formatINR(deal.dealPrice)}</span>
-                        <span className="text-xs text-stone-400 line-through">{formatINR(deal.originalPrice)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDeal(deal)}
-                        className="p-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg transition-colors cursor-pointer"
-                        title="View details & price history"
-                      >
-                        <Info className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => shareDealToWhatsApp(deal)}
-                        className="p-1.5 bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#128C7E] rounded-lg transition-colors cursor-pointer"
-                        title="Broadcast on WhatsApp"
-                      >
-                        <Share2 className="w-3.5 h-3.5 text-[#25D366]" />
-                      </button>
-
-                      <a
-                        href={deal.affiliateUrl}
-                        target="_blank"
-                        rel="noopener noreferrer nofollow"
-                        className="flex items-center gap-1 py-1.5 px-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors cursor-pointer"
-                        title={`Buy on ${storeBadge.name}`}
-                      >
-                        <span>Buy</span>
-                        <ExternalLink className="w-3 h-3 text-stone-300" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* 2. FEED TABS (Hot Loot, New Deals, All Active) */}
-      <div className="flex items-center gap-2 border-b border-[#EAE6DF] pb-3 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => handleFilterChange({ tab: 'all', lootOnly: false })}
-          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'all'
-              ? 'bg-stone-900 text-white shadow-xs'
-              : 'bg-white text-stone-700 border border-[#EAE6DF] hover:bg-stone-50'
-          }`}
-        >
-          <Tag className="w-4 h-4" />
-          <span>All Active Deals ({activeDeals.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
-          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'loot'
-              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-xs'
-              : 'bg-white text-stone-700 border border-[#EAE6DF] hover:border-orange-300'
-          }`}
-        >
-          <Flame className={`w-4 h-4 ${activeTab === 'loot' ? 'fill-current' : 'text-orange-500'}`} />
-          <span>Hot Loot Deals (&gt;=50% Off)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleFilterChange({ tab: 'new', lootOnly: false, sort: 'newest' })}
-          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'new'
-              ? 'bg-emerald-700 text-white shadow-xs'
-              : 'bg-white text-stone-700 border border-[#EAE6DF] hover:border-emerald-300'
-          }`}
-        >
-          <Sparkles className={`w-4 h-4 ${activeTab === 'new' ? 'fill-current' : 'text-emerald-600'}`} />
-          <span>✨ New Deals (Thar Berte)</span>
-        </button>
+        {/* Quick Tabs Toggle */}
+        <div className="flex items-center gap-1 text-xs">
+          <button
+            type="button"
+            onClick={() => handleFilterChange({ tab: 'all', lootOnly: false })}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+              activeTab === 'all'
+                ? 'bg-stone-900 text-white'
+                : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1 ${
+              activeTab === 'loot'
+                ? 'bg-[#C72026] text-white shadow-xs'
+                : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+            }`}
+          >
+            <Flame className={`w-3 h-3 ${activeTab === 'loot' ? 'fill-white' : 'text-[#C72026]'}`} />
+            <span>50%+ Off</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <section className="bg-[#FAF9F5] rounded-2xl">
+      {/* 4. IndiaDesire Deal Filters (Search, Stores, Categories, Sort) */}
+      <section className="bg-white border border-stone-200 rounded-xl p-3 sm:p-4 shadow-2xs">
         <DealFilters
           filters={activeFilters}
           onFilterChange={handleFilterChange}
@@ -473,40 +353,14 @@ export const HomeView: React.FC = () => {
         />
       </section>
 
-      {/* Deals Grid Header */}
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base sm:text-lg font-bold text-stone-900">
-            {activeTab === 'loot' 
-              ? '🔥 Hot Loot Deals Catalog' 
-              : activeTab === 'new'
-              ? '✨ New Deals (Darkar Tlemte Chhunga Lo Lut)'
-              : activeFilters.store && activeFilters.store !== 'all'
-              ? `${STORE_BADGES[activeFilters.store]?.name || activeFilters.store} Deals`
-              : !activeFilters.category || activeFilters.category === 'all'
-              ? 'Live Deals Feed' 
-              : `${activeFilters.category.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())} Deals`}
-          </h2>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700">
-            {filteredDeals.length} results
-          </span>
-        </div>
-
-        {activeTab === 'new' && (
-          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-            Darkar 6 chhunga lo lut thar chauh
-          </span>
-        )}
-      </div>
-
-      {/* Deals Grid */}
+      {/* 5. Main Deals Grid (.dgrid in IndiaDesire: 2-col on mobile, 4-col on desktop) */}
       <DealGrid
         deals={filteredDeals}
         isBookmarked={isBookmarked}
         onToggleBookmark={toggleBookmark}
         onOpenDetails={(deal) => setSelectedDeal(deal)}
         onOpenAlert={(deal) => setAlertDeal(deal)}
-        onResetFilters={() => handleFilterChange({ category: 'all', search: '', lootOnly: false, priceRange: 'all', tab: 'all' })}
+        onResetFilters={() => handleFilterChange({ category: 'all', search: '', lootOnly: false, priceRange: 'all', tab: 'all', store: 'all' })}
       />
 
       {/* Deal Detail Modal */}

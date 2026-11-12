@@ -154,8 +154,33 @@ export const DealFilters: React.FC<DealFiltersProps> = ({
         </div>
       </div>
 
+      {/* Store Filter Tabs (IndiaDesire style store selection) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 text-xs">
+        <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1 shrink-0 mr-1">
+          Store:
+        </span>
+        {STORES.map((s) => {
+          const isSelected = (filters.store || 'all') === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onFilterChange({ store: s.id })}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border shrink-0 ${
+                isSelected
+                  ? 'bg-[#C72026] text-white border-[#C72026] shadow-xs'
+                  : 'bg-white text-stone-700 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+              }`}
+            >
+              <StoreLogo store={s.id} className="w-3.5 h-3.5 shrink-0 rounded-xs" />
+              <span>{s.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Category Pills (Horizontal Scroll on Mobile) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
         {CATEGORIES.map((cat) => {
           const Icon = cat.icon;
           const isSelected = activeCategory === cat.id;
@@ -166,46 +191,21 @@ export const DealFilters: React.FC<DealFiltersProps> = ({
               key={cat.id}
               type="button"
               onClick={() => onFilterChange({ category: cat.id })}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border shrink-0 ${
                 isSelected
                   ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
-                  : 'bg-white text-stone-700 border-[#EAE6DF] hover:border-stone-300 hover:bg-stone-50/60'
+                  : 'bg-white text-stone-700 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
               }`}
             >
               <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-amber-400' : 'text-stone-500'}`} />
               <span>{cat.label}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold ${
+                className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
                   isSelected ? 'bg-stone-800 text-stone-200' : 'bg-stone-100 text-stone-500'
                 }`}
               >
                 {count}
               </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Store Filter Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 text-xs">
-        <span className="text-[11px] font-semibold text-stone-500 flex items-center gap-1 shrink-0 mr-1">
-          Store:
-        </span>
-        {STORES.map((s) => {
-          const isSelected = (filters.store || 'all') === s.id;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => onFilterChange({ store: s.id })}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
-                isSelected
-                  ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
-                  : 'bg-white text-stone-700 border-[#EAE6DF] hover:border-stone-300 hover:bg-stone-50'
-              }`}
-            >
-              <StoreLogo store={s.id} className="w-4 h-4 shrink-0 rounded-sm" />
-              <span>{s.label}</span>
             </button>
           );
         })}
