@@ -97,15 +97,6 @@ export const HomeView: React.FC = () => {
     return new Set(topLootDeals.map((d) => d.id));
   }, [topLootDeals]);
 
-  const isFestiveLight = (deal: Deal) => {
-    const t = deal.title.toLowerCase();
-    const d = (deal.description || '').toLowerCase();
-    const c = deal.category as string;
-    if (c === 'festive_lights') return true;
-    return /rope\s*light|curtain\s*(?:string)?\s*light|fairy\s*light|milky\s*ball|star\s*curtain|rice\s*(?:string)?\s*light|net\s*mesh\s*string|cove\s*light|desidiya.*light|halonix.*twinkle/i.test(t) ||
-      /rope\s*light|curtain\s*light|fairy\s*light|star\s*light/i.test(d);
-  };
-
   const isWinterwear = (deal: Deal) => {
     const t = deal.title.toLowerCase();
     const d = (deal.description || '').toLowerCase();
@@ -115,21 +106,10 @@ export const HomeView: React.FC = () => {
       /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|muffler|beanie|gloves/i.test(d);
   };
 
-  const currentMonth = new Date().getMonth();
-  const isFestiveSeason = currentMonth === 10 || currentMonth === 11;
-
-  const festiveLightsDeals = useMemo(() => {
-    return activeDeals
-      .filter((d) => isFestiveLight(d))
-      .sort((a, b) => b.discountPercent - a.discountPercent)
-      .slice(0, 6);
-  }, [activeDeals]);
-
   // Category counts calculation based on active deals
   const categoryCounts = useMemo(() => {
     const counts: Record<DealCategory, number> = {
       all: activeDeals.length,
-      festive_lights: 0,
       winterwear: 0,
       shoes_fashion: 0,
       electronics: 0,
@@ -142,9 +122,6 @@ export const HomeView: React.FC = () => {
     activeDeals.forEach((deal) => {
       if (counts[deal.category] !== undefined) {
         counts[deal.category]++;
-      }
-      if (isFestiveLight(deal)) {
-        counts.festive_lights++;
       }
       if (isWinterwear(deal)) {
         counts.winterwear++;
@@ -195,9 +172,7 @@ export const HomeView: React.FC = () => {
 
       // Category filter
       if (activeFilters.category && activeFilters.category !== 'all') {
-        if (activeFilters.category === 'festive_lights') {
-          if (!isFestiveLight(deal)) return false;
-        } else if (activeFilters.category === 'winterwear') {
+        if (activeFilters.category === 'winterwear') {
           if (!isWinterwear(deal)) return false;
         } else if (deal.category !== activeFilters.category) {
           return false;
@@ -311,52 +286,6 @@ export const HomeView: React.FC = () => {
         {/* Buying Guides News Headlines & Mobile Swipe Carousel (Temporarily hidden until articles are written) */}
         {/* <HeroBuyingGuides blogs={blogs} /> */}
       </section>
-
-      {/* FESTIVE LIGHTS & CHRISTMAS DECOR SPOTLIGHT (November & December Season) */}
-      {isFestiveSeason && festiveLightsDeals.length > 0 && (
-        <section className="bg-gradient-to-r from-red-500/10 via-amber-500/5 to-emerald-500/10 border border-red-200/80 rounded-3xl p-4 sm:p-6 space-y-3.5 sm:space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-red-600 text-white rounded-xl shadow-xs text-base">
-                🎄
-              </span>
-              <div>
-                <h2 className="text-base sm:text-lg font-black text-stone-900 flex items-center gap-2">
-                  <span>Krismas &amp; Room Cheina (Festive Lighting)</span>
-                  <span className="text-[11px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">November Peak</span>
-                </h2>
-                <p className="text-xs text-stone-600">
-                  Rope lights, curtain star lights, milky ball fairy lights — in, balcony leh room cheina man tlawm ber ber.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-red-600 font-bold md:hidden flex items-center gap-1 bg-red-100/80 px-2 py-0.5 rounded-full">
-                Swipe &rarr;
-              </span>
-              <button
-                type="button"
-                onClick={() => handleFilterChange({ category: 'festive_lights' })}
-                className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 shrink-0"
-              >
-                <span>View All Lights ({categoryCounts.festive_lights})</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex md:grid md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 overflow-x-auto md:overflow-x-visible pb-2.5 md:pb-0 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-1 px-1 sm:mx-0 sm:px-0">
-            {festiveLightsDeals.map((deal) => (
-              <div
-                key={deal.id}
-                className="w-[46vw] sm:w-[240px] md:w-auto shrink-0 snap-start flex flex-col"
-              >
-                <DealCard deal={deal} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* 1. HOT LOOT DEALS SPOTLIGHT (Feature 1: Top of Homepage - Swipeable on mobile) */}
       {isTopLootVisible && (

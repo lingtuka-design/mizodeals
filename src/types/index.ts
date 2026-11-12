@@ -1,6 +1,5 @@
 export type DealCategory = 
   | 'all'
-  | 'festive_lights'
   | 'winterwear'
   | 'shoes_fashion'
   | 'electronics'
