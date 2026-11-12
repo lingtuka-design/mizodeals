@@ -17,6 +17,17 @@ import {
 } from 'lucide-react';
 import { WHATSAPP_CHANNEL_URL, WHATSAPP_COMMUNITY_MEMBERS, STORE_BADGES } from '../config/constants';
 
+const HERO_CATEGORIES = [
+  { id: 'mobiles', label: 'Mobiles', icon: '/assets/hero/cat-mobiles.webp', filter: { category: 'gadgets' as DealCategory } },
+  { id: 'flash_sale', label: 'Flash Sale', icon: '/assets/hero/cat-electronics.webp', filter: { tab: 'loot' as DealsTabMode, lootOnly: true } },
+  { id: 'shopping', label: 'Shopping', icon: '/assets/hero/cat-fashion.webp', filter: { category: 'shoes_fashion' as DealCategory } },
+  { id: 'food', label: 'Food', icon: '/assets/hero/cat-food.webp', filter: { category: 'home_kitchen' as DealCategory } },
+  { id: 'grocery', label: 'Grocery', icon: '/assets/hero/cat-grocery.webp', filter: { category: 'home_kitchen' as DealCategory } },
+  { id: 'recharge', label: 'Recharge', icon: '/assets/hero/cat-recharge.webp', filter: { category: 'gadgets' as DealCategory } },
+  { id: 'travel', label: 'Travel', icon: '/assets/hero/cat-travel.webp', filter: { category: 'shoes_fashion' as DealCategory } },
+  { id: 'medicines', label: 'Medicines', icon: '/assets/hero/cat-medicine.webp', filter: { category: 'beauty' as DealCategory } },
+];
+
 export const HomeView: React.FC = () => {
   const { deals } = useData();
   const searchParams = useSearch({ strict: false }) as DealsFilterParams;
@@ -212,86 +223,134 @@ export const HomeView: React.FC = () => {
         </a>
       </div>
 
-      {/* 2. IndiaDesire Hero Section */}
-      <section className="relative overflow-hidden bg-white border border-stone-200 rounded-2xl p-4 sm:p-6 shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="max-w-3xl space-y-2 sm:space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-red-100 text-[#C72026] text-[11px] font-extrabold tracking-wide">
-              <Flame className="w-3.5 h-3.5 fill-[#C72026]" />
-              FESTIVE &amp; WINTER SALE SEASON IS LIVE
-            </span>
+      {/* 2. IndiaDesire 3D Festive Hero Section */}
+      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#09241E] text-white min-h-[360px] grid grid-cols-1 lg:grid-cols-12 isolate shadow-md">
+        {/* Background 3D Festive Art */}
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <img
+            src="/assets/hero/hero.webp"
+            alt="IndiaDesire Festive Season"
+            className="w-full h-full object-cover object-right"
+          />
+          {/* Gradient Overlay for high-contrast legible text */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#09241E] via-[#09241E]/95 lg:via-[#09241E]/80 to-transparent" />
+        </div>
 
-            <h1 className="text-xl sm:text-3xl font-black text-stone-900 tracking-tight leading-snug">
-              Mizoram's smartest way to <span className="text-[#C72026]">shop for less</span>
-            </h1>
-
-            <p className="text-xs sm:text-sm text-stone-600 leading-relaxed max-w-2xl">
-              Hand-picked loot deals, coupons, and verified price drops from Amazon, Meesho, Flipkart, Nykaa &amp; Myntra — checked and updated every few minutes.
-            </p>
-
-            {/* IndiaDesire Hero CTA Actions */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-1">
-              <button
-                type="button"
-                onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#C72026] hover:bg-[#B01A20] active:bg-[#96141A] text-white text-xs sm:text-sm font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
-              >
-                <Flame className="w-4 h-4 fill-white" />
-                <span>Browse Loot Deals</span>
-                <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
-              </button>
-
-              <a
-                href={WHATSAPP_CHANNEL_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 text-xs sm:text-sm font-bold rounded-lg shadow-xs transition-colors"
-              >
-                <MessageCircle className="w-4 h-4 fill-stone-950" />
-                <span>Get WhatsApp Alerts</span>
-              </a>
-            </div>
-
-            {/* Stats Band */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-6 pt-2 text-[11px] sm:text-xs text-stone-600 border-t border-stone-100">
-              <span className="flex items-center gap-1">
-                <strong className="text-stone-900 font-extrabold">{activeDeals.length}+</strong> deals active
-              </span>
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                100% verified stores
-              </span>
-              <span className="flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                24x7 price-drop alerts
-              </span>
-            </div>
+        {/* Hero Left Content Body */}
+        <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-center space-y-4">
+          <div className="inline-flex items-center gap-2 bg-white/12 border border-white/20 px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold tracking-wider uppercase text-white w-fit backdrop-blur-xs">
+            <span className="w-2 h-2 rounded-full bg-[#FDBA74] animate-pulse" />
+            <span>Festive sale season is live</span>
           </div>
 
-          {/* Quick VIP Card on Desktop */}
-          <div className="hidden lg:block shrink-0 max-w-xs w-full bg-stone-50 border border-stone-200 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-[#25D366] text-stone-950 flex items-center justify-center shrink-0">
-                <MessageCircle className="w-4 h-4 fill-stone-950" />
-              </div>
-              <div>
-                <h3 className="text-xs font-bold text-stone-900">VIP WhatsApp Group</h3>
-                <p className="text-[10px] text-stone-500">{WHATSAPP_COMMUNITY_MEMBERS} local members</p>
-              </div>
-            </div>
-            <p className="text-[11px] text-stone-600 mb-3 leading-tight">
-              Aizawl &amp; Mizoram delivery hub stock a zawh hmaa loot deal man tlawm hriat zung zung nan.
-            </p>
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-[1.08]">
+            India&rsquo;s smartest way to <em className="not-italic bg-gradient-to-r from-[#FDBA74] to-[#FB923C] bg-clip-text text-transparent">shop for less</em>
+          </h1>
+
+          <p className="text-xs sm:text-sm md:text-base text-[#CFE5DE] max-w-xl leading-relaxed">
+            Hand-picked loot deals, coupons and bank offers from Amazon, Flipkart, Myntra and 100+ stores &mdash; checked and updated every few minutes.
+          </p>
+
+          {/* CTA Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-[#E6F4EA] hover:bg-[#CEEAD6] text-[#0D652D] font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-sm cursor-pointer"
+            >
+              <span>Browse loot deals</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
             <a
               href={WHATSAPP_CHANNEL_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 font-bold text-xs rounded-lg transition-colors shadow-2xs"
+              className="inline-flex items-center gap-2 px-5 py-3 bg-white hover:bg-stone-100 text-stone-900 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm"
             >
-              <span>Join WhatsApp Channel</span>
-              <ArrowRight className="w-3 h-3" />
+              <MessageCircle className="w-4 h-4 fill-stone-900" />
+              <span>Get WhatsApp alerts</span>
             </a>
           </div>
+
+          {/* Stats Row */}
+          <div className="flex flex-wrap items-center gap-4 sm:gap-8 pt-3 text-xs sm:text-sm text-[#B9D6CD] border-t border-white/10">
+            <div>
+              <b className="block text-lg sm:text-xl font-black text-white">100+</b>
+              <span>stores tracked</span>
+            </div>
+            <div>
+              <b className="block text-lg sm:text-xl font-black text-white">Since 2014</b>
+              <span>trusted deal hunters</span>
+            </div>
+            <div>
+              <b className="block text-lg sm:text-xl font-black text-white">24&times;7</b>
+              <span>price-drop alerts</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Hero Right Floating Event Cards (Flipkart & Amazon Sales) */}
+        <div className="hidden lg:flex lg:col-span-5 flex-col justify-center gap-3 p-8">
+          <a
+            href="#deals"
+            onClick={(e) => {
+              e.preventDefault();
+              handleFilterChange({ store: 'flipkart' });
+            }}
+            className="flex items-center gap-3 bg-white/95 text-stone-900 rounded-2xl p-3.5 shadow-lg hover:scale-[1.02] transition-transform cursor-pointer"
+          >
+            <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-900 flex flex-col items-center justify-center font-black leading-none shrink-0 border border-orange-200">
+              <small className="text-[10px] uppercase font-bold text-orange-600">OCT</small>
+              <span className="text-base font-black">9</span>
+            </div>
+            <div>
+              <strong className="block text-sm font-bold text-stone-900">Flipkart Big Billion Days</strong>
+              <span className="text-xs text-stone-500">Dates, bank offers &amp; best deals list</span>
+            </div>
+          </a>
+
+          <a
+            href="#deals"
+            onClick={(e) => {
+              e.preventDefault();
+              handleFilterChange({ store: 'amazon' });
+            }}
+            className="flex items-center gap-3 bg-white/95 text-stone-900 rounded-2xl p-3.5 shadow-lg hover:scale-[1.02] transition-transform cursor-pointer"
+          >
+            <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex flex-col items-center justify-center font-black leading-none shrink-0 border border-amber-200">
+              <small className="text-[10px] uppercase font-bold text-amber-600">OCT</small>
+              <span className="text-base font-black">8</span>
+            </div>
+            <div>
+              <strong className="block text-sm font-bold text-stone-900">Amazon Great Indian Festival</strong>
+              <span className="text-xs text-stone-500">SBI offers, early deals &amp; lightning deals</span>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      {/* 3. IndiaDesire 3D Rendered Categories Row */}
+      <section aria-label="Shop by category" className="pt-1">
+        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3">
+          {HERO_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => handleFilterChange(cat.filter)}
+              className="flex flex-col items-center justify-center gap-1.5 p-2.5 sm:p-3 bg-white border border-stone-200 hover:border-red-400 hover:shadow-md hover:-translate-y-1 rounded-2xl transition-all cursor-pointer group text-center"
+            >
+              <img
+                src={cat.icon}
+                alt={cat.label}
+                className="w-12 h-12 sm:w-16 sm:h-16 object-contain group-hover:scale-105 transition-transform"
+                loading="lazy"
+              />
+              <span className="text-[11px] sm:text-xs font-bold text-stone-800 group-hover:text-[#C72026] transition-colors leading-tight">
+                {cat.label}
+              </span>
+            </button>
+          ))}
         </div>
       </section>
 
