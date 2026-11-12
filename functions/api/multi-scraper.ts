@@ -293,7 +293,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'dealsprime',
       'loot_offers_india',
       'meesho_deal',
-      'meeshodealsloot'
+      'meeshodealsloot',
+      'nykaabeautydeals',
+      'fashion_loot_deals'
     ];
     for (const ch of telegramChannels) {
       if (collectedDeals.length >= limit) break;

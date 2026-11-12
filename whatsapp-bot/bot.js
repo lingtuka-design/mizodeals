@@ -214,13 +214,14 @@ function getProductType(deal) {
   const cat = (deal.category || '').toLowerCase();
   if (/shoe|sneaker|derby|loafer|boot|footwear|sandal|flip\s*flop|clog|oxford|formal\s*shoe/i.test(t)) return 'footwear';
   if (/hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(t)) return 'winterwear';
-  if (/shirt|t-shirt|pant|jeans|dress|kurta|saree|trouser|boxer|legging|trackpant/i.test(t)) return 'apparel';
+  if (/handbag|tote|clutch|sling\s*bag|purse|earring|necklace|jewell?ery|pendant|bangle|bracelet|hair\s*clip|scrunchie|kurti|saree|dress/i.test(t)) return 'women_fashion';
+  if (/shirt|t-shirt|pant|jeans|trouser|boxer|legging|trackpant/i.test(t)) return 'apparel';
   if (/light|led|rope|strip|decor|fairy|curtain|lamp|cove|christmas/i.test(t)) return 'festive_lights';
   if (/kettle|cooker|pan|knife|bottle|chopper|fryer|blender|toaster|mixer|heater|geyser|iron|vacuum/i.test(t)) return 'kitchen_home';
   if (/earbud|earphone|headphone|airdope|basspod|neckband|tws|headset/i.test(t)) return 'audio_gadgets';
   if (/smart\s*watch|smartwatch|watch|fitness\s*band/i.test(t)) return 'smartwatches';
   if (/power\s*bank|charger|cable|adapter|keyboard|mouse|ssd|hard\s*drive/i.test(t)) return 'tech_accessories';
-  if (/shampoo|serum|facewash|cream|perfume|deodorant|lotion|sunscreen|loofah|soap|grooming/i.test(t)) return 'beauty_grooming';
+  if (/shampoo|serum|facewash|cream|perfume|deodorant|lotion|sunscreen|loofah|soap|grooming|lipstick|kajal|mascara|makeup/i.test(t)) return 'beauty_grooming';
   return cat || 'general';
 }
 
@@ -242,7 +243,10 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
   } else if (pType === 'kitchen_home') {
     lootHeader = '*🍳 CHOKA & IN CHHUNG MAMAWH!*\n';
   } else if (pType === 'beauty_grooming') {
-    lootHeader = '*✨ BEAUTY & SKINCARE DEALS!*\n';
+    const isWomenSpecific = /women|woman|ladies|girl|lipstick|kajal|serum|sunscreen|lip\s*balm|skincare|handbag|tote|clutch|earring|necklace|dress|mascara|makeup|facial|lotion/i.test(deal.title || '') || deal.store === 'nykaa';
+    lootHeader = isWomenSpecific ? '*✨ HMEICHHETÊ TAN BIK (BEAUTY & SKINCARE)!*\n' : '*✨ BEAUTY & GROOMING DEALS!*\n';
+  } else if (pType === 'women_fashion') {
+    lootHeader = '*✨ HMEICHHE DUHZAWNG / FASHION PICK!*\n';
   } else if (/shoe|sneaker|derby|loafer|boot|reebok|puma|adidas|nike/i.test(deal.title || '')) {
     lootHeader = '*👟 SNEAKER & SHOES DEALS!*\n';
   }
@@ -1066,6 +1070,43 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       // d. Freshness bonus for product types not seen in recent history
       if (!recentTypes.includes(pType)) {
         score += 20; // Reward unrepresented categories/types
+      }
+
+      // e. Gender Audience Balancing (Optimized: ~65% Male/Tech/Unisex, ~35% Female/Beauty/Home):
+      const isFemaleOriented =
+        d.category === 'beauty' ||
+        d.category === 'home_kitchen' ||
+        d.store === 'nykaa' ||
+        pType === 'women_fashion' ||
+        /women|woman|ladies|girl|female|lipstick|kajal|serum|sunscreen|lip\s*balm|skincare|handbag|tote|clutch|earring|necklace|dress|mascara|makeup|facial/i.test(
+          d.title || ''
+        );
+
+      const recentFemaleCount = validRecent.slice(0, 4).filter((r) => {
+        const title = (r.title || '').toLowerCase();
+        return (
+          r.category === 'beauty' ||
+          r.category === 'home_kitchen' ||
+          r.store === 'nykaa' ||
+          /women|woman|ladies|girl|female|lipstick|kajal|serum|sunscreen|lip\s*balm|skincare|handbag|tote|clutch|earring|necklace|dress|mascara|makeup|facial/i.test(
+            title
+          )
+        );
+      }).length;
+
+      if (isFemaleOriented) {
+        if (recentFemaleCount === 0) {
+          // If no female-targeted deals were posted in the last 4 runs, strongly boost (+45) to ensure women are never neglected
+          score += 45;
+        } else if (recentFemaleCount >= 2) {
+          // If already 2+ of the last 4 deals were female-oriented, cool down to maintain the majority male preference
+          score -= 20;
+        }
+      } else {
+        // Male tech, gadgets & sneakers get boosted if female deals already had their turn
+        if (recentFemaleCount >= 2) {
+          score += 25;
+        }
       }
 
       return score;
