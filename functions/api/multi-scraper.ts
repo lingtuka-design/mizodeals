@@ -131,11 +131,104 @@ function classifyCategory(title: string): string {
   return 'electronics';
 }
 
-// Block products that do not sell well on affiliate channels, clutter the feed, or cause customer fatigue
-// Strictly filters out phone back covers, mobile cases, and tempered glass screen protectors
+// Block products that do not sell well on affiliate channels, clutter the feed, cause customer fatigue,
+// or have high return rates / impossible delivery logistics in Mizoram
 function isBlockedProduct(title: string): boolean {
   if (!title) return false;
-  return /(?:back\s*cover|mobile\s*cover|phone\s*cover|phone\s*case|bumper\s*case|magnetic\s*case|tempered\s*glass|screen\s*protector|camera\s*lens\s*protector|cases?\s*(?:&|and)\s*covers?|\bcase\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad)|\bcover\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad))/i.test(title);
+  // 1. Phone back covers & tempered glass protectors (generic spam, low conversion)
+  if (/(?:back\s*cover|mobile\s*cover|phone\s*cover|phone\s*case|bumper\s*case|magnetic\s*case|tempered\s*glass|screen\s*protector|camera\s*lens\s*protector|cases?\s*(?:&|and)\s*covers?|\bcase\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad)|\bcover\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad))/i.test(title)) {
+    return true;
+  }
+  // 2. Bulky furniture / heavy freight (undeliverable or exorbitant shipping fees to Mizoram)
+  if (/\b(?:sofa|couch|mattress|wardrobe|almirah|recliner|dining\s*table|office\s*chair|gaming\s*chair|bookshelf|bookcase|dressing\s*table|tv\s*unit|tv\s*cabinet|bed\s*(?:king|queen|single|double)|heavy\s*cabinet)\b/i.test(title)) {
+    return true;
+  }
+  // 3. Heavy home appliances (huge delivery friction, high freight damage)
+  if (/\b(?:washing\s*machine|refrigerator|fridge|split\s*ac|air\s*conditioner|window\s*ac|dishwasher|storage\s*water\s*heater|kitchen\s*chimney)\b/i.test(title)) {
+    return true;
+  }
+  // 4. Oversized or high-breakage items / vehicle tyres
+  if (/\b(?:full\s*length\s*mirror|oversized\s*mirror|car\s*tyre|car\s*tire|bike\s*tyre|alloy\s*wheel)\b/i.test(title)) {
+    return true;
+  }
+  // 5. Digital spam, mock tests, courses
+  if (/\b(?:kindle\s*edition|test\s*series|mock\s*test|online\s*course|e-?book)\b/i.test(title)) {
+    return true;
+  }
+  return false;
+}
+
+// Gating function: Enforce Mizoram e-commerce sweet spot
+// Affiliate conversion in Mizoram is heavily clustered in impulse purchases: ₹199 to ₹1,499.
+// Items > ₹4,500 have extremely low affiliate conversion and high cancellation/freight rejection.
+// Items < ₹80 yield negligible affiliate commissions and often fail with add-on delivery costs.
+function isPriceAndLogisticsViable(price: number, discountPercent: number, category: string): boolean {
+  if (price < 80) return false;
+  if (price > 4500) {
+    // Only allow high-value gadgets/electronics under ₹7,000 if they have a steep 45%+ discount
+    if ((category === 'gadgets' || category === 'electronics') && discountPercent >= 45 && price <= 7000) {
+      return true;
+    }
+    return false;
+  }
+  return true;
+}
+
+// Calculate priority score for harvested deals based on the 3-Pillar Revenue Strategy
+// 1. Tech & Wireless Gadgets (40% target)
+// 2. Kitchen Utilities & Home Essentials (35% target)
+// 3. Personal Care, Grooming & Winterwear (25% target)
+function computeDealScore(deal: ScrapedDeal): number {
+  let score = deal.discountPercent || 0;
+  const cat = deal.category;
+  const title = deal.title.toLowerCase();
+
+  // Pillar 1: Tech Accessories & Mobile Gadgets (+35)
+  if (
+    cat === 'gadgets' ||
+    /earbud|airpod|headphone|earphone|neckband|tws|smartwatch|watch|charger|cable|power\s*bank|powerbank|mouse|keyboard|pendrive|flash\s*drive|speaker|soundbar|bluetooth|tripod|otg/i.test(title)
+  ) {
+    score += 35;
+  }
+
+  // Pillar 2: Kitchen Utilities & Daily Home Essentials (+30)
+  if (
+    cat === 'home_kitchen' ||
+    /kettle|bottle|flask|knife|cooker|pan|chopper|grinder|organizer|rack|dispenser|blender|towel|mop/i.test(title)
+  ) {
+    score += 30;
+  }
+
+  // Pillar 3: Personal Grooming & Beauty (+35)
+  if (
+    cat === 'beauty' ||
+    /perfume|serum|sunscreen|facewash|cream|lotion|shampoo|trimmer|shaver|hair\s*dryer|skincare|cosmetic|lipstick/i.test(title)
+  ) {
+    score += 35;
+  }
+
+  // Winter Wear & Warm Accessories (+30)
+  if (
+    /hoodie|jacket|sweater|beanie|muffler|scarf|gloves|thermal|fleece|woolen|cardigan|lukhum/i.test(title)
+  ) {
+    score += 30;
+  }
+
+  // Price Sweet Spot Bonus (₹199 - ₹1,499 impulse conversion range) (+35)
+  if (deal.price >= 199 && deal.price <= 1499) {
+    score += 35;
+  } else if (deal.price > 1499 && deal.price <= 2999) {
+    score += 15;
+  } else if (deal.price > 3500) {
+    score -= 25;
+  }
+
+  // Store boost for trusted impulse platforms
+  if (deal.store === 'amazon') score += 15;
+  if (deal.store === 'meesho') score += 20; // high impulse conversion in Mizoram
+  if (deal.store === 'nykaa') score += 15;
+
+  return score;
 }
 
 // Resolve Amazon shortlink or URL to get clean ASIN & affiliate link
@@ -388,6 +481,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               category = 'beauty';
             }
 
+            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category)) {
+              continue;
+            }
+
+            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category)) {
+              continue;
+            }
+
             collectedDeals.push({
               dealId: `tg-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
               title,
@@ -524,6 +625,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               .trim();
 
             const category = classifyCategory(title);
+            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category)) {
+              continue;
+            }
             const cleanUrl = `https://www.amazon.in/dp/${asin}?tag=${targetTag}`;
 
             collectedDeals.push({
@@ -602,6 +706,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                 }
               } catch (e) {}
 
+              const category = classifyCategory(title);
+              if (!isPriceAndLogisticsViable(999, 50, category)) continue;
+
               collectedDeals.push({
                 dealId: `ifs-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
                 title,
@@ -614,7 +721,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                 asin,
                 amazonUrl: cleanUrl,
                 store: 'amazon',
-                category: classifyCategory(title),
+                category,
                 source: 'IndiaFreeStuff',
                 isLootDeal: true,
                 couponText: '⚡ Curated Loot',
@@ -750,6 +857,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             }
             if (store === 'nykaa') {
               category = 'beauty';
+            }
+
+            if (!isPriceAndLogisticsViable(dealPrice, discountPercent, category)) {
+              continue;
             }
 
             // 8. Build target link & convert with EarnKaro
@@ -1429,22 +1540,33 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
+  // 3-PILLAR RANKING & LOGISTICS OPTIMIZATION
+  // ==========================================
+  // Filter out any bulky/ineligible products and rank by 3-pillar data-driven conversion score
+  const qualifiedDeals = collectedDeals.filter(
+    (deal) => !isBlockedProduct(deal.title) && isPriceAndLogisticsViable(deal.price, deal.discountPercent, deal.category)
+  );
+
+  qualifiedDeals.sort((a, b) => computeDealScore(b) - computeDealScore(a));
+  const topDeals = qualifiedDeals.slice(0, limit);
+
+  // ==========================================
   // AUTO-PUBLISH TO CLOUDFLARE D1 DATABASE
   // ==========================================
   let insertedCount = 0;
   let amazonSyncStats = { verified: 0, updated: 0, discarded: 0 };
 
-  if (collectedDeals.length > 0) {
+  if (topDeals.length > 0) {
     try {
-      amazonSyncStats = await syncAmazonDealsWithApi(collectedDeals, env);
+      amazonSyncStats = await syncAmazonDealsWithApi(topDeals, env);
     } catch (e) {
       console.warn('Amazon API sync failed, continuing with scraped deals:', e);
     }
   }
 
-  if (shouldAutoPublish && env.DB && collectedDeals.length > 0) {
+  if (shouldAutoPublish && env.DB && topDeals.length > 0) {
     const nowIso = new Date().toISOString();
-    for (const deal of collectedDeals) {
+    for (const deal of topDeals) {
       // STRICT VERIFICATION GATE:
       // 1. Amazon deals must have authentic 10-character Amazon ASIN
       // 2. Non-Amazon deals (Flipkart/Myntra/Nykaa/Ajio) must have valid product ID
@@ -1453,6 +1575,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       // 5. Must NOT have search collection URLs (/s?k= or /deal/)
       // 6. Skip items marked unavailable (out of stock) by Amazon API
       // 7. Skip items where discount has evaporated below 15%
+      // 8. Strict Logistics & Price Sweet Spot Re-check
+      if (isBlockedProduct(deal.title) || !isPriceAndLogisticsViable(deal.price, deal.discountPercent, deal.category)) {
+        continue;
+      }
       const isAmz = !deal.store || deal.store === 'amazon';
       if ((deal as any)._isUnavailable) {
         continue;
@@ -1535,11 +1661,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   return new Response(
     JSON.stringify({
       success: true,
-      count: collectedDeals.length,
+      count: topDeals.length,
       insertedCount: shouldAutoPublish ? insertedCount : undefined,
       autoPublished: shouldAutoPublish,
       amazonLiveSync: amazonSyncStats,
-      deals: collectedDeals,
+      deals: topDeals,
       timestamp: new Date().toISOString(),
     }),
     {

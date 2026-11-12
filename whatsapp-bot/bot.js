@@ -911,8 +911,18 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         return false;
       }
 
-      // Strictly exclude bulky furniture and heavy freight items (Low demand, expensive delivery in Mizoram)
-      if (/(?:sofa|mattress|dining\s*table|wardrobe|bed\s*frame|recliner|office\s*chair|bookshelf|dressing\s*table)/i.test(d.title || '') || d.category === 'furniture') {
+      // Strictly exclude bulky furniture and heavy freight items (Low demand, exorbitant delivery fee in Mizoram)
+      if (/\b(?:sofa|couch|mattress|wardrobe|almirah|recliner|dining\s*table|office\s*chair|gaming\s*chair|bookshelf|bookcase|dressing\s*table|tv\s*unit|tv\s*cabinet|bed\s*(?:king|queen|single|double)|heavy\s*cabinet)\b/i.test(d.title || '') || d.category === 'furniture') {
+        return false;
+      }
+
+      // Strictly exclude heavy home appliances (massive delivery friction, high freight damage)
+      if (/\b(?:washing\s*machine|refrigerator|fridge|split\s*ac|air\s*conditioner|window\s*ac|dishwasher|storage\s*water\s*heater|kitchen\s*chimney)\b/i.test(d.title || '')) {
+        return false;
+      }
+
+      // Strictly exclude oversized or high-breakage items / vehicle tyres
+      if (/\b(?:full\s*length\s*mirror|oversized\s*mirror|car\s*tyre|car\s*tire|bike\s*tyre|alloy\s*wheel)\b/i.test(d.title || '')) {
         return false;
       }
 
@@ -922,13 +932,18 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         return (d.discountPercent >= 30 && d.discountPercent <= 75) || d.isLootDeal;
       }
 
-      // Seasonal festive / Christmas decor (Nov & Dec): room lights, LED rope, fairy lights at 30%+ discount
-      const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec
-      if ((currentMonth === 10 || currentMonth === 11) && /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i.test(d.title || '')) {
+      // Pillar 2: Kitchen Utilities & Daily Home Essentials
+      if (d.category === 'home_kitchen' || /kettle|bottle|flask|knife|cooker|pan|chopper|grinder|organizer|rack|dispenser/i.test(d.title || '')) {
         return d.discountPercent >= 30 || d.isLootDeal;
       }
 
+      // Pillar 3: Personal Grooming & Beauty
+      if (d.category === 'beauty' || /perfume|serum|sunscreen|facewash|cream|lotion|shampoo|trimmer|shaver|hair\s*dryer/i.test(d.title || '')) {
+        return d.discountPercent >= 20 || d.isLootDeal;
+      }
+
       // Seasonal winterwear & warm accessories (Nov to Feb in Mizoram): Lukhum lum, mufflers, hoodies, jackets, gloves at 30%+ discount
+      const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec, 0 = Jan, 1 = Feb
       if ([10, 11, 0, 1].includes(currentMonth) && /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(d.title || '')) {
         return d.discountPercent >= 30 || d.isLootDeal;
       }
