@@ -1787,9 +1787,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // Automated Maintenance: Auto-prune stale deals older than 21 days (3 weeks)
+    // Automated Maintenance: Auto-prune stale deals older than 21 days (3 weeks) or marked expired
     try {
-      await env.DB.prepare("DELETE FROM deals WHERE created_at < datetime('now', '-21 days')").run();
+      await env.DB.prepare("DELETE FROM deals WHERE created_at < datetime('now', '-21 days') OR status = 'expired'").run();
     } catch (pruneErr) {
       // Non-blocking cleanup
     }
