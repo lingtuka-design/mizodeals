@@ -211,7 +211,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     href={deal.affiliateUrl}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
-                    className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
+                    className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
                   >
                     <StoreLogo store={deal.store} className="w-4 h-4 rounded-[3px] shrink-0" />
                     <span>Grab Deal on {storeBadge.name}</span>

@@ -84,7 +84,7 @@ export const DealCard: React.FC<DealCardProps> = ({
       className={`group relative bg-white border rounded-xl overflow-hidden shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between ${
         isExpired 
           ? 'border-stone-200 bg-stone-50/50 opacity-70 hover:opacity-100 grayscale-[25%]' 
-          : 'border-stone-200 hover:border-[#C72026]/60'
+          : 'border-stone-200 hover:border-blue-500/60'
       }`}
     >
       <div>
@@ -176,7 +176,7 @@ export const DealCard: React.FC<DealCardProps> = ({
             target="_blank"
             rel="noopener noreferrer nofollow"
             className={`block text-xs sm:text-[13.5px] font-semibold line-clamp-2 leading-snug transition-colors cursor-pointer min-h-[2rem] sm:min-h-[2.4rem] ${
-              isExpired ? 'text-stone-500 hover:text-stone-800' : 'text-stone-900 hover:text-[#C72026]'
+              isExpired ? 'text-stone-500 hover:text-stone-800' : 'text-stone-900 hover:text-blue-600'
             }`}
             title={`Open ${deal.title} on ${storeBadge.name}`}
           >
@@ -224,7 +224,7 @@ export const DealCard: React.FC<DealCardProps> = ({
           className={`w-full flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 font-bold text-xs sm:text-sm rounded-lg shadow-xs transition-colors cursor-pointer ${
             isExpired
               ? 'bg-stone-200 hover:bg-stone-300 text-stone-700'
-              : 'bg-[#C72026] hover:bg-[#B01A20] active:bg-[#96141A] text-white'
+              : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
           }`}
           title={`Shop ${deal.title} on ${storeBadge.name}`}
         >
