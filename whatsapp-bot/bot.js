@@ -1058,6 +1058,20 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         score += 500;
       }
 
+      // 0b. SCRAPED FRESHNESS PRIORITY (Newest deals jump directly to top of WhatsApp queue):
+      if (d.createdAt) {
+        const ageHours = (Date.now() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60);
+        if (ageHours <= 6) {
+          score += 90; // Fresh loot deal (< 6 hours old)
+        } else if (ageHours <= 18) {
+          score += 60; // Scraped today (< 18 hours old)
+        } else if (ageHours <= 36) {
+          score += 25; // Scraped yesterday (< 36 hours old)
+        } else if (ageHours > 72) {
+          score -= 35; // Stale catalog (> 3 days old): deprioritize in favor of fresh deals
+        }
+      }
+
       // 1. Gadgets sweet spot (30%-70% discount) get prioritized
       if (isGadget && d.discountPercent >= 30 && d.discountPercent <= 75) {
         score += 25;
@@ -1518,7 +1532,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     try {
       const harvestLimit = currentSource === 'indiadesire' ? 70 : 35;
       const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=${harvestLimit}`;
-      fetch(harvestUrl, { signal: AbortSignal.timeout(20000) })
+      fetch(harvestUrl, { signal: AbortSignal.timeout(60000) })
         .then((r) => r.json())
         .then((d) => console.log(`🌾 Background harvest synced: ${d.count || 0} deals (${d.insertedCount || 0} new)`))
         .catch((e) => console.log('🌾 Background sync notice:', e.message));
