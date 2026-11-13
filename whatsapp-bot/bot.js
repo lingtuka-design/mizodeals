@@ -35,7 +35,7 @@ console.warn = (...args) => {
 };
 
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
-const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=200';
+const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=500';
 const PRIORITY_ASINS = ['B0DJ1KBQ52', 'B084HG5XPP', 'B0FZKZ9RY5'];
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
@@ -43,8 +43,8 @@ const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'mee
 let currentSourceIndex = 0;
 let hasSyncedAllAuth = false;
 
-// Anti-Duplicate System: 14-day memory, multi-factor deduplication (ASIN, Deal ID, Title, Image), & Cloudflare D1 persistence
-const POSTED_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // Keep in memory for 14 days
+// Anti-Duplicate System: 48-hour rolling memory, multi-factor deduplication (ASIN, Deal ID, Title, Image), & Cloudflare D1 persistence
+const POSTED_RETENTION_MS = 48 * 60 * 60 * 1000; // Keep in memory for 48 hours (prevents catalog exhaustion)
 const MAX_POSTED_RECORDS = 2000;
 
 function getTitleKey(title) {
@@ -78,9 +78,9 @@ function getPostedRecords() {
         const now = Date.now();
         const valid = data.filter((item) => {
           if (!item) return false;
-          if (typeof item === 'string') return true;
+          if (typeof item === 'string') return false; // discard untimed legacy string IDs
           if (typeof item === 'object') {
-            if (!item.postedAt) return true;
+            if (!item.postedAt) return false;
             return now - item.postedAt < POSTED_RETENTION_MS;
           }
           return false;
@@ -886,10 +886,10 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
   try {
     let res;
     try {
-      res = await fetch('https://mizodeals.com/api/deals?status=all&limit=300', { signal: AbortSignal.timeout(8000) });
+      res = await fetch('https://mizodeals.com/api/deals?status=all&limit=500', { signal: AbortSignal.timeout(10000) });
     } catch (e) {
       console.warn('mizodeals.com API slow, falling back to pages.dev...');
-      res = await fetch('https://mizodeals.pages.dev/api/deals?status=all&limit=300', { signal: AbortSignal.timeout(8000) });
+      res = await fetch('https://mizodeals.pages.dev/api/deals?status=all&limit=500', { signal: AbortSignal.timeout(10000) });
     }
 
     if (!res.ok) {
@@ -981,16 +981,56 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       console.log(`🌾 Catalog dry (0 unposted candidates). Triggering instant harvest from ${currentSource}...`);
       try {
         const harvestLimit = currentSource === 'indiadesire' ? 60 : 35;
-        const hRes = await fetch(`https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=${harvestLimit}`, { signal: AbortSignal.timeout(20000) });
+        const hRes = await fetch(`https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=${harvestLimit}`, { signal: AbortSignal.timeout(45000) });
         const hData = await hRes.json();
         console.log(`🌾 Harvested ${hData.count || 0} deals (${hData.insertedCount || 0} new). Re-fetching catalog...`);
-        const refetchRes = await fetch('https://mizodeals.com/api/deals?status=active&limit=300', { signal: AbortSignal.timeout(8000) });
+        const refetchRes = await fetch('https://mizodeals.com/api/deals?status=active&limit=500', { signal: AbortSignal.timeout(10000) });
         const refetchData = await refetchRes.json();
         if (refetchData.success && Array.isArray(refetchData.deals)) {
           candidates.push(...refetchData.deals.filter(isEligibleDeal));
         }
       } catch (hErr) {
         console.warn('🌾 Instant harvest notice:', hErr.message);
+      }
+    }
+
+    // Fallback recycling: If candidates is still 0 after instant harvest,
+    // recycle valid high-value deals posted > 24 hours ago so the bot never halts
+    if (candidates.length === 0 && Array.isArray(data.deals) && data.deals.length > 0) {
+      console.log('🔄 Candidates still 0. Recycling valid deals posted > 24 hours ago...');
+      const cutoff24h = Date.now() - 24 * 60 * 60 * 1000;
+      const recentLookupRecords = getPostedRecords();
+      const recent24hSet = new Set();
+      for (const r of recentLookupRecords) {
+        if (typeof r === 'object' && r.postedAt && r.postedAt > cutoff24h) {
+          if (r.id) recent24hSet.add(r.id);
+          if (r.asin) recent24hSet.add(r.asin.toUpperCase());
+          if (r.titleKey) recent24hSet.add(r.titleKey);
+        }
+      }
+
+      const recycledCandidates = data.deals.filter((d) => {
+        if (d.status && d.status !== 'active') return false;
+        if (d.isExpired) return false;
+        if (!d.asin || d.asin.startsWith('DM')) return false;
+        if ((!d.store || d.store === 'amazon') && !/^[A-Z0-9]{10}$/i.test(d.asin)) return false;
+        if (d.affiliateUrl && (d.affiliateUrl.includes('/s?k=') || d.affiliateUrl.includes('/deal/'))) return false;
+        if (!d.imageUrl || !d.imageUrl.startsWith('http') || d.imageUrl.length < 15) return false;
+        if (isMobilePhone(d.title || '')) return false;
+        if (d.dealPrice > 4500 || d.dealPrice < 80) return false;
+
+        // Ensure not posted in the last 24 hours
+        if (d.id && recent24hSet.has(d.id)) return false;
+        if (d.asin && recent24hSet.has(d.asin.toUpperCase())) return false;
+        const tKey = getTitleKey(d.title);
+        if (tKey && recent24hSet.has(tKey)) return false;
+
+        return d.isLootDeal || d.discountPercent >= 30;
+      });
+
+      if (recycledCandidates.length > 0) {
+        console.log(`♻️ Found ${recycledCandidates.length} recyclable deals posted > 24h ago.`);
+        candidates.push(...recycledCandidates);
       }
     }
 
