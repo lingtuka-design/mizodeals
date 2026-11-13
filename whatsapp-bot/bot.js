@@ -1072,6 +1072,11 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         }
       }
 
+      // 0c. Amazon 50%+ Dominance Boost (Admin rule: Amazon must account for >= 50% of shared deals):
+      if (!d.store || d.store === 'amazon') {
+        score += 30; // Strong bonus to prioritize Amazon deals
+      }
+
       // 1. Gadgets sweet spot (30%-70% discount) get prioritized
       if (isGadget && d.discountPercent >= 30 && d.discountPercent <= 75) {
         score += 25;
@@ -1211,41 +1216,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       index++;
     }
 
-    // Interleave stores so Flipkart, Myntra, Nykaa, and Ajio are regularly featured alongside Amazon without static bias
-    const byStore = {};
-    for (const d of orderedCandidates) {
-      const s = d.store || 'amazon';
-      if (!byStore[s]) byStore[s] = [];
-      byStore[s].push(d);
-    }
-
-    const diverseStoreCandidates = [];
-    const storeKeys = Object.keys(byStore);
-    // Rotate store keys dynamically based on hour to avoid single-store domination
-    const rotOffset = storeKeys.length > 0 ? new Date().getHours() % storeKeys.length : 0;
-    const rotatedStoreKeys = [...storeKeys.slice(rotOffset), ...storeKeys.slice(0, rotOffset)];
-
-    let sIdx = 0;
-    let sAdded = true;
-    while (sAdded) {
-      sAdded = false;
-      for (const s of rotatedStoreKeys) {
-        if (byStore[s][sIdx]) {
-          diverseStoreCandidates.push(byStore[s][sIdx]);
-          sAdded = true;
-        }
-      }
-      sIdx++;
-    }
-
-    // Ensure priority ASINs are placed at the absolute front of diverseStoreCandidates
-    diverseStoreCandidates.sort((a, b) => {
-      const aPrio = a.asin && PRIORITY_ASINS.includes(a.asin.toUpperCase()) ? 1 : 0;
-      const bPrio = b.asin && PRIORITY_ASINS.includes(b.asin.toUpperCase()) ? 1 : 0;
-      return bPrio - aPrio;
-    });
-
-    // Select top 2 deals per run, ensuring strict variety: no duplicate title, image, ASIN, category, or product type!
+    // Select top 2 deals per run with guaranteed 50%+ Amazon allocation:
+    // Slot 1: ALWAYS top fresh Amazon deal (guarantees Amazon >= 50%)
+    // Slot 2: Top fresh loot deal across all stores (Amazon, Flipkart, Ajio, Meesho, Nykaa)
     const toPost = [];
     const seenTitlesInBatch = new Set();
     const seenImagesInBatch = new Set();
@@ -1253,33 +1226,85 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     const seenCategoriesInBatch = new Set();
     const seenProductTypesInBatch = new Set();
 
-    for (const d of diverseStoreCandidates) {
-      const tKey = getTitleKey(d.title);
-      const imgKey = getImageKey(d.imageUrl);
-      const asinKey = d.asin ? d.asin.toUpperCase() : null;
-      const pType = getProductType(d);
-      const cat = d.category || 'general';
-      const isPriority = d.asin && PRIORITY_ASINS.includes(d.asin.toUpperCase());
-
-      if (tKey && seenTitlesInBatch.has(tKey)) continue;
-      if (imgKey && seenImagesInBatch.has(imgKey)) continue;
-      if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
-
-      // STRICT BATCH DIVERSITY: Never post 2 items of the same product type in one run (unless explicitly priority)!
-      if (!isPriority) {
-        if (seenProductTypesInBatch.has(pType)) continue;
-        if (seenCategoriesInBatch.has(cat) && toPost.length < 1) continue;
-        if (pType === 'footwear' && lastPostedType === 'footwear') continue;
+    // Check Priority ASINs first (Manual Admin override)
+    for (const d of candidates) {
+      if (d.asin && PRIORITY_ASINS.includes(d.asin.toUpperCase())) {
+        toPost.push(d);
+        if (d.title) seenTitlesInBatch.add(getTitleKey(d.title));
+        if (d.imageUrl) seenImagesInBatch.add(getImageKey(d.imageUrl));
+        seenAsinsInBatch.add(d.asin.toUpperCase());
+        seenProductTypesInBatch.add(getProductType(d));
+        seenCategoriesInBatch.add(d.category || 'general');
+        if (toPost.length >= 2) break;
       }
+    }
 
-      if (tKey) seenTitlesInBatch.add(tKey);
-      if (imgKey) seenImagesInBatch.add(imgKey);
-      if (asinKey) seenAsinsInBatch.add(asinKey);
-      seenProductTypesInBatch.add(pType);
-      seenCategoriesInBatch.add(cat);
+    // Step 1: Ensure Slot 1 is an Amazon deal (Guarantees Amazon >= 50% across every run)
+    if (toPost.length < 1) {
+      const topAmazon = candidates.find((d) => {
+        const isAmz = !d.store || d.store === 'amazon';
+        if (!isAmz) return false;
+        const tKey = getTitleKey(d.title);
+        const imgKey = getImageKey(d.imageUrl);
+        const asinKey = d.asin ? d.asin.toUpperCase() : null;
+        if (tKey && seenTitlesInBatch.has(tKey)) return false;
+        if (imgKey && seenImagesInBatch.has(imgKey)) return false;
+        if (asinKey && seenAsinsInBatch.has(asinKey)) return false;
+        return true;
+      });
 
-      toPost.push(d);
-      if (toPost.length >= 2) break;
+      if (topAmazon) {
+        toPost.push(topAmazon);
+        const tKey = getTitleKey(topAmazon.title);
+        const imgKey = getImageKey(topAmazon.imageUrl);
+        const asinKey = topAmazon.asin ? topAmazon.asin.toUpperCase() : null;
+        if (tKey) seenTitlesInBatch.add(tKey);
+        if (imgKey) seenImagesInBatch.add(imgKey);
+        if (asinKey) seenAsinsInBatch.add(asinKey);
+        seenProductTypesInBatch.add(getProductType(topAmazon));
+        seenCategoriesInBatch.add(topAmazon.category || 'general');
+      }
+    }
+
+    // Step 2: Select Slot 2 from top candidates (can be Amazon or other stores, prioritizing fresh deals)
+    if (toPost.length < 2) {
+      for (const d of candidates) {
+        if (toPost.includes(d)) continue;
+        const tKey = getTitleKey(d.title);
+        const imgKey = getImageKey(d.imageUrl);
+        const asinKey = d.asin ? d.asin.toUpperCase() : null;
+        const pType = getProductType(d);
+        const cat = d.category || 'general';
+
+        if (tKey && seenTitlesInBatch.has(tKey)) continue;
+        if (imgKey && seenImagesInBatch.has(imgKey)) continue;
+        if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
+
+        // Batch diversity
+        if (seenProductTypesInBatch.has(pType)) continue;
+        if (seenCategoriesInBatch.has(cat)) continue;
+        if (pType === 'footwear' && lastPostedType === 'footwear') continue;
+
+        toPost.push(d);
+        const atKey = getTitleKey(d.title);
+        const aimgKey = getImageKey(d.imageUrl);
+        const aasinKey = d.asin ? d.asin.toUpperCase() : null;
+        if (atKey) seenTitlesInBatch.add(atKey);
+        if (aimgKey) seenImagesInBatch.add(aimgKey);
+        if (aasinKey) seenAsinsInBatch.add(aasinKey);
+        break;
+      }
+    }
+
+    // Step 3: Fallback if strict diversity didn't find 2nd deal
+    if (toPost.length < 2) {
+      for (const d of candidates) {
+        if (toPost.includes(d)) continue;
+        const asinKey = d.asin ? d.asin.toUpperCase() : null;
+        if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
+        toPost.push(d);
+        if (toPost.length >= 2) break;
+      }
     }
     let postedCount = 0;
     let postedToFbThisCycle = false;
