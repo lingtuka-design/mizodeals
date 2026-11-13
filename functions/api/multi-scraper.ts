@@ -312,20 +312,22 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // ==========================================
   // SOURCE 1: TELEGRAM PUBLIC DEALS HUBS (7 ACTIVE VERIFIED CHANNELS)
   // ==========================================
-  if (!filterSource || filterSource === 'all' || filterSource === 'telegram' || filterSource === 'meesho') {
-    const telegramChannels = [
-      'dealbee',
-      'deals_loot',
-      'amazon_flipkart_loots',
-      'looter_deals',
-      'online_loot_deals',
-      'dealsprime',
-      'loot_offers_india',
-      'meesho_deal',
-      'meeshodealsloot',
-      'nykaabeautydeals',
-      'fashion_loot_deals'
-    ];
+  if (!filterSource || filterSource === 'all' || filterSource === 'telegram' || filterSource === 'amazon' || filterSource === 'meesho') {
+    const telegramChannels = filterSource === 'amazon'
+      ? ['dealbee', 'looter_deals', 'online_loot_deals', 'dealsprime', 'amazon_flipkart_loots']
+      : [
+          'dealbee',
+          'looter_deals',
+          'online_loot_deals',
+          'dealsprime',
+          'amazon_flipkart_loots',
+          'deals_loot',
+          'loot_offers_india',
+          'meesho_deal',
+          'meeshodealsloot',
+          'nykaabeautydeals',
+          'fashion_loot_deals'
+        ];
     for (const ch of telegramChannels) {
       if (collectedDeals.length >= limit) break;
       try {
@@ -336,7 +338,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         if (tgRes.ok) {
           const html = await tgRes.text();
           const messageBlocks = html.split('<div class="tgme_widget_message_wrap');
-          const startIndex = Math.max(1, messageBlocks.length - 8);
+          const startIndex = Math.max(1, messageBlocks.length - 18);
 
           for (let i = messageBlocks.length - 1; i >= startIndex; i--) {
             if (collectedDeals.length >= limit) break;
@@ -797,9 +799,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             }
             const store = rawStore as 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio';
 
-            // Ensure store diversity: give plenty of room to Flipkart, Myntra, Nykaa, Ajio
+            // Amazon priority: allow up to 70 Amazon deals
             const storeCount = collectedDeals.filter((d) => d.store === store).length;
-            const maxPerStore = store === 'amazon' ? Math.min(Math.floor(limit * 0.35), 20) : 40;
+            const maxPerStore = store === 'amazon' ? 70 : 25;
             if (storeCount >= maxPerStore) continue;
 
             const asinMatch = box.match(/pid=['"]([A-Z0-9]{10})['"]/i) || box.match(/redirectpid1=([A-Z0-9]{10})/i);

@@ -39,7 +39,7 @@ const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=500';
 const PRIORITY_ASINS = ['B0DJ1KBQ52', 'B084HG5XPP', 'B0FZKZ9RY5'];
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
-const SCRAPER_SOURCES = ['telegram', 'dealsmagnet', 'indiadesire', 'nykaa', 'meesho', 'all'];
+const SCRAPER_SOURCES = ['amazon', 'telegram', 'amazon', 'indiadesire', 'dealsmagnet', 'all'];
 let currentSourceIndex = 0;
 let hasSyncedAllAuth = false;
 
