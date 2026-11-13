@@ -1786,6 +1786,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         // Continue loop on duplicates
       }
     }
+
+    // Automated Maintenance: Auto-prune stale deals older than 21 days (3 weeks)
+    try {
+      await env.DB.prepare("DELETE FROM deals WHERE created_at < datetime('now', '-21 days')").run();
+    } catch (pruneErr) {
+      // Non-blocking cleanup
+    }
   }
 
   return new Response(
