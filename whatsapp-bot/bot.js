@@ -36,7 +36,7 @@ console.warn = (...args) => {
 
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
 const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=500';
-const PRIORITY_ASINS = ['B0DJ1KBQ52', 'B084HG5XPP', 'B0FZKZ9RY5'];
+const PRIORITY_ASINS = ['B07M8S2BQX', 'B0DJ1KBQ52', 'B084HG5XPP', 'B0FZKZ9RY5'];
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['amazon', 'telegram', 'amazon', 'indiadesire', 'dealsmagnet', 'all'];
@@ -550,6 +550,26 @@ http
         return res.end(JSON.stringify({ success: true, target, msgRes }, null, 2));
       } catch (err) {
         return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    }
+
+    const requestUrl = new URL(req.url || '/', 'http://localhost');
+
+    if (requestUrl.pathname === '/post-asin') {
+      const asinToPost = requestUrl.searchParams.get('asin');
+      if (!asinToPost) {
+        return res.end(JSON.stringify({ error: 'Missing asin query parameter' }));
+      }
+      const cleanAsin = asinToPost.trim().toUpperCase();
+      if (!PRIORITY_ASINS.includes(cleanAsin)) {
+        PRIORITY_ASINS.unshift(cleanAsin);
+      }
+      console.log(`🎯 Immediate manual broadcast requested for ASIN: ${cleanAsin}`);
+      if (isConnected && activeSock) {
+        checkAndPostDeals(activeSock, CHANNEL_JID, true).catch((e) => console.error('Immediate post error:', e.message));
+        return res.end(JSON.stringify({ success: true, asin: cleanAsin, message: `Broadcasting ${cleanAsin} immediately to WhatsApp Channel and Group...` }, null, 2));
+      } else {
+        return res.end(JSON.stringify({ success: false, message: 'Bot not connected to WhatsApp yet' }));
       }
     }
 
