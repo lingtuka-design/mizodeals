@@ -36,7 +36,7 @@ console.warn = (...args) => {
 
 const CHANNEL_INVITE_CODE = '0029VbE4k2N8fewji3I3Wa0t';
 const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=500';
-const PRIORITY_ASINS = ['B07M8S2BQX', 'B0DJ1KBQ52', 'B084HG5XPP', 'B0FZKZ9RY5'];
+const PRIORITY_ASINS = [];
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
 const SCRAPER_SOURCES = ['amazon', 'telegram', 'amazon', 'indiadesire', 'dealsmagnet', 'all'];
@@ -152,6 +152,15 @@ function recordPostedDeal(deal) {
 
     if (!alreadyExists) {
       records.push(entry);
+    }
+
+    // Auto-remove fulfilled priority ASINs so they never repeat
+    if (deal.asin) {
+      const pIdx = PRIORITY_ASINS.indexOf(deal.asin.toUpperCase());
+      if (pIdx !== -1) {
+        PRIORITY_ASINS.splice(pIdx, 1);
+        console.log(`🎯 Fulfilled and cleared ${deal.asin} from PRIORITY_ASINS queue`);
+      }
     }
 
     if (records.length > MAX_POSTED_RECORDS) {
@@ -948,8 +957,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     const lookup = getPostedLookup();
 
     const isEligibleDeal = (d) => {
+      // Strictly prevent double-posting any deal already recorded in history
+      if (isDealAlreadyPosted(d, lookup)) return false;
       const isPriority = d.asin && PRIORITY_ASINS.includes(d.asin.toUpperCase());
-      if (!isPriority && isDealAlreadyPosted(d, lookup)) return false;
       // Strictly reject any expired or inactive deals
       if (d.status && d.status !== 'active') return false;
       if (d.isExpired) return false;
