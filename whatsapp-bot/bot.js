@@ -345,6 +345,7 @@ async function postToFacebookPage(deal, caption, imageBuffer = null) {
 
 const CHANNEL_JID = '120363414138647022@newsletter';
 const OFFICIAL_GROUP_JID = '120363430926865877@g.us';
+const YOUTH_ICON_GROUP_JID = '120363431041179198@g.us';
 const GROUP_INVITE_CODE = 'KCBEUuKs3Dk4TsowNE34dj';
 const FB_PAGE_ID = process.env.FB_PAGE_ID || '';
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || '';
@@ -379,7 +380,7 @@ function canPostToFacebook(deal) {
 
   return { allowed: true };
 }
-let targetGroupJids = [OFFICIAL_GROUP_JID];
+let targetGroupJids = [OFFICIAL_GROUP_JID, YOUTH_ICON_GROUP_JID];
 let activeGroupJid = OFFICIAL_GROUP_JID;
 let latestQrDataUrl = null;
 let isConnected = false;
@@ -578,9 +579,10 @@ http
         const participatingGroups = await activeSock.groupFetchAllParticipating();
         const list = Object.entries(participatingGroups).map(([jid, g]) => {
           const cleanJid = jid.includes('@') ? jid : `${jid}@g.us`;
-          const isOfficial = cleanJid === OFFICIAL_GROUP_JID;
+          const isOfficial = cleanJid === OFFICIAL_GROUP_JID || cleanJid === YOUTH_ICON_GROUP_JID;
           const isMizodeals = /mizodeal|mizo\s*deal/i.test(g.subject || '');
-          const isAuthorized = isOfficial || isMizodeals;
+          const isYouthIcon = /youth\s*icon|otb\s*group/i.test(g.subject || '');
+          const isAuthorized = isOfficial || isMizodeals || isYouthIcon;
           return {
             subject: g.subject,
             id: cleanJid,
@@ -719,7 +721,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.6-high-discount-gadget-focus</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.8-multi-group-broadcast-active</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -935,10 +937,11 @@ async function startBot() {
           for (const [jid, group] of Object.entries(participatingGroups)) {
             const cleanJid = jid.includes('@') ? jid : `${jid}@g.us`;
             const subject = group.subject || '';
-            const isOfficial = cleanJid === OFFICIAL_GROUP_JID;
+            const isOfficial = cleanJid === OFFICIAL_GROUP_JID || cleanJid === YOUTH_ICON_GROUP_JID;
             const isMizodeals = /mizodeal|mizo\s*deal/i.test(subject);
+            const isYouthIcon = /youth\s*icon|otb\s*group/i.test(subject);
 
-            if (isOfficial || isMizodeals) {
+            if (isOfficial || isMizodeals || isYouthIcon) {
               console.log(`🎯 [Authorized Group] Enrolled "${subject}" (${cleanJid}) for automated deal broadcasts`);
               authorized.push(cleanJid);
             } else {
