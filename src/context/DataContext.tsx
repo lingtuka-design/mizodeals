@@ -3,6 +3,7 @@ import type { Deal, BlogPost } from '../types';
 import { INITIAL_DEALS } from '../data/deals';
 import { BLOG_POSTS } from '../data/blogs';
 import { buildAffiliateUrl, ensureAffiliateTag } from '../utils/affiliate';
+import { RENDER_BOT_URL } from '../config/constants';
 
 const STORAGE_DEALS_KEY = 'mizodeals_all_deals_v9';
 const STORAGE_BLOGS_KEY = 'mizodeals_all_blogs_v1';
@@ -108,7 +109,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
     // Silent keep-alive ping to Render WhatsApp bot to prevent free instance sleep
-    fetch('https://mizodeals-whatsapp-bot.onrender.com/', { mode: 'no-cors' }).catch(() => {});
+    if (RENDER_BOT_URL) {
+      fetch(RENDER_BOT_URL, { mode: 'no-cors' }).catch(() => {});
+    }
 
     return () => {
       isMounted = false;

@@ -8,7 +8,8 @@ export const WHATSAPP_CHANNEL_NAME = 'Mizodeals VIP Loot Channel';
 export const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/KCBEUuKs3Dk4TsowNE34dj';
 export const FACEBOOK_PAGE_URL = 'https://www.facebook.com/mizodealsofficial';
 export const WHATSAPP_COMMUNITY_MEMBERS = '2,850+';
-export const RENDER_BOT_URL = 'https://mizodeals-whatsapp-bot.onrender.com/';
+export const RENDER_BOT_URL =
+  (import.meta as any).env?.VITE_RENDER_BOT_URL || 'https://mizodeals.com/api/bot';
 
 export const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = {
   all: { label: 'All Deals', icon: 'Sparkles' },

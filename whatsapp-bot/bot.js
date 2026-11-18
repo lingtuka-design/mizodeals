@@ -426,6 +426,31 @@ setInterval(() => {
   fetch(SELF_URL).catch(() => {});
 }, 8 * 60 * 1000);
 
+// Automatically register current live server URL to Cloudflare D1 so frontend and API always know where the bot is
+async function registerLiveUrlWithCloud() {
+  try {
+    if (SELF_URL) {
+      await fetch('https://mizodeals.com/api/bot-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: {
+            'bot_url.json': JSON.stringify({
+              url: SELF_URL,
+              updatedAt: Date.now(),
+              updatedAtIso: new Date().toISOString(),
+            }),
+          },
+        }),
+      });
+      console.log(`🌐 Live bot URL registered with Cloudflare D1: ${SELF_URL}`);
+    }
+  } catch (e) {
+    console.warn('⚠️ Could not register live bot URL with Cloudflare D1:', e.message);
+  }
+}
+setInterval(registerLiveUrlWithCloud, 60 * 60 * 1000); // Re-sync URL every hour
+
 // Cloud Web Server for Render/Railway with live status, manual trigger, & Web QR Code
 const PORT = process.env.PORT || 3000;
 http
@@ -682,6 +707,7 @@ ${recentLogs.length > 0 ? recentLogs.join('\n') : 'Initializing bot...'}
   })
   .listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Web status server listening on port ${PORT}`);
+    registerLiveUrlWithCloud().catch(() => {});
   });
 
 async function startBot() {
