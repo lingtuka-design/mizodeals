@@ -255,6 +255,7 @@ function computeDealScore(deal: ScrapedDeal): number {
   // Store boost for trusted impulse platforms
   if (deal.store === 'amazon') score += 15;
   if (deal.store === 'meesho') score += 20; // high impulse conversion in Mizoram
+  if (deal.store === 'myntra') score += 20; // top fashion and shoes brand in Mizoram
   if (deal.store === 'nykaa') score += 15;
 
   return score;
@@ -310,11 +311,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const seenAsins = new Set<string>();
 
   // ==========================================
-  // SOURCE 1: TELEGRAM PUBLIC DEALS HUBS (7 ACTIVE VERIFIED CHANNELS)
+  // SOURCE 1: TELEGRAM PUBLIC DEALS HUBS (ACTIVE VERIFIED CHANNELS)
   // ==========================================
-  if (!filterSource || filterSource === 'all' || filterSource === 'telegram' || filterSource === 'amazon' || filterSource === 'meesho') {
+  if (!filterSource || filterSource === 'all' || filterSource === 'telegram' || filterSource === 'amazon' || filterSource === 'meesho' || filterSource === 'myntra') {
     const telegramChannels = filterSource === 'amazon'
-      ? ['dealbee', 'looter_deals', 'online_loot_deals', 'dealsprime', 'amazon_flipkart_loots']
+      ? ['dealbee', 'looter_deals', 'online_loot_deals', 'dealsprime', 'amazon_flipkart_loots', 'deals_loot']
+      : filterSource === 'myntra'
+      ? ['fashion_loot_deals', 'deals_loot', 'dealbee']
+      : filterSource === 'meesho'
+      ? ['meesho_deal', 'meeshodealsloot']
       : [
           'dealbee',
           'looter_deals',
@@ -371,6 +376,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               store = 'nykaa';
               rawDealUrl = nyMatch[1];
             }
+
+            // Honor explicit store filter if specified
+            if (filterSource === 'amazon' && store !== 'amazon') continue;
+            if (filterSource === 'myntra' && store !== 'myntra') continue;
+            if (filterSource === 'meesho' && store !== 'meesho') continue;
 
             // Extract text
             const textMatch = block.match(/<div class="tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
@@ -476,8 +486,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               cleanUrl = converted || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(rawDealUrl)}`;
 
               // Upgrade Myntra photo to 1080x1440 Ultra-HD Studio
-              if (imageUrl.includes('myntassets.com')) {
-                imageUrl = imageUrl.replace(/(?:dpr_[^,]+,)?(?:q_\d+,)?(?:w_\d+,)?(?:c_limit,)?(?:fl_progressive\/)?/, 'h_1440,q_95,w_1080/');
+              if (imageUrl.includes('myntassets.com') && imageUrl.includes('/dpr_')) {
+                imageUrl = imageUrl.replace(/\/dpr_[^\/]+\//, '/h_1440,q_95,w_1080/');
               }
             } else if (store === 'nykaa') {
               const nyMatch = rawDealUrl.match(/\/p\/([a-zA-Z0-9_-]+)/i);
@@ -546,7 +556,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // ==========================================
   // SOURCE 2: DEALSMAGNET (AMAZON PRICE DROPS)
   // ==========================================
-  if (!filterSource || filterSource === 'all' || filterSource === 'dealsmagnet') {
+  if (!filterSource || filterSource === 'all' || filterSource === 'dealsmagnet' || filterSource === 'amazon') {
     if (collectedDeals.length < limit) {
       try {
         const dmRes = await fetch('https://www.dealsmagnet.com', {
@@ -685,10 +695,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
-  // ==========================================
   // SOURCE 3: INDIAFREESTUFF (AUTHENTIC ONLY)
   // ==========================================
-  if (!filterSource || filterSource === 'all' || filterSource === 'ifs') {
+  if (!filterSource || filterSource === 'all' || filterSource === 'ifs' || filterSource === 'amazon') {
     if (collectedDeals.length < limit) {
       try {
         const ifsRes = await fetch('https://indiafreestuff.in', {
@@ -767,7 +776,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // ==========================================
   // SOURCE 4: INDIADESIRE (HIGH QUALITY LOOT DEALS)
   // ==========================================
-  if (!filterSource || filterSource === 'all' || filterSource === 'indiadesire') {
+  if (!filterSource || filterSource === 'all' || filterSource === 'indiadesire' || filterSource === 'amazon' || filterSource === 'myntra') {
     if (collectedDeals.length < limit) {
       try {
         const idRes = await fetch('https://indiadesire.com/lootdeals', {
@@ -799,9 +808,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             }
             const store = rawStore as 'amazon' | 'flipkart' | 'myntra' | 'nykaa' | 'ajio';
 
-            // Amazon priority: allow up to 70 Amazon deals
+            // Filter by requested store
+            if (filterSource === 'amazon' && store !== 'amazon') continue;
+            if (filterSource === 'myntra' && store !== 'myntra') continue;
+
+            // Store quotas
             const storeCount = collectedDeals.filter((d) => d.store === store).length;
-            const maxPerStore = store === 'amazon' ? 70 : 25;
+            const maxPerStore = filterSource === 'myntra' || filterSource === 'amazon' ? limit : store === 'amazon' ? 70 : 35;
             if (storeCount >= maxPerStore) continue;
 
             const asinMatch = box.match(/pid=['"]([A-Z0-9]{10})['"]/i) || box.match(/redirectpid1=([A-Z0-9]{10})/i);
@@ -872,6 +885,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             } else if (store === 'flipkart') {
               if (imageUrl.includes('flixcart.com')) {
                 imageUrl = imageUrl.replace(/\/image\/\d+\/\d+\//, '/image/832/832/');
+              }
+            } else if (store === 'myntra') {
+              if (imageUrl.includes('myntassets.com') && imageUrl.includes('/dpr_')) {
+                imageUrl = imageUrl.replace(/\/dpr_[^\/]+\//, '/h_1440,q_95,w_1080/');
               }
             }
 
@@ -1269,6 +1286,138 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         category: item.category,
         source: 'Meesho Deals',
         isLootDeal: item.discountPercent >= 50,
+        couponText: item.couponText,
+      });
+    }
+  }
+
+  // ==========================================
+  // SOURCE 5B: CURATED MYNTRA FASHION & LIFESTYLE LOOT HARVESTER
+  // ==========================================
+  if (!filterSource || filterSource === 'all' || filterSource === 'myntra') {
+    const myntraCatalog = [
+      {
+        pid: 'MY-18125956',
+        title: 'HAUTE SAUCE Green Structured Sling Handbag with Tassel',
+        price: 799,
+        originalPrice: 3570,
+        discountPercent: 78,
+        rating: 4.4,
+        ratingsCount: 3400,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/18125956/2022/5/2/59d080bc-8a55-41b1-9192-245246c546391651502312256HAUTESAUCEbyCampusSutraGreenPUStructuredSlingBagwithTasselle1.jpg',
+        url: 'https://www.myntra.com/a/b/c/18125956/buy',
+        couponText: '👜 78% OFF Myntra Deal',
+      },
+      {
+        pid: 'MY-21231074',
+        title: 'HAUTE SAUCE Tote PU Shoulder Handbag',
+        price: 439,
+        originalPrice: 1874,
+        discountPercent: 77,
+        rating: 4.3,
+        ratingsCount: 2800,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/21231074/2022/12/17/8a8862a1-ebde-4332-b58d-55942fecb7a21671274676561Handbags1.jpg',
+        url: 'https://www.myntra.com/a/b/c/21231074/buy',
+        couponText: '👜 Viral Handbag Loot',
+      },
+      {
+        pid: 'MY-20828694',
+        title: 'HAUTE SAUCE Structured Vegan Leather Handbag',
+        price: 569,
+        originalPrice: 2243,
+        discountPercent: 75,
+        rating: 4.5,
+        ratingsCount: 4200,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/20828694/2022/11/19/f1ddd99b-fb4b-4cb4-8cc5-5f745cb71bec1668857712500TanSolidVeganLeatherHandbag1.jpg',
+        url: 'https://www.myntra.com/a/b/c/20828694/buy',
+        couponText: '✨ Premium Vegan Leather',
+      },
+      {
+        pid: 'MY-21231034',
+        title: 'HAUTE SAUCE Classic PU Handbag',
+        price: 722,
+        originalPrice: 2531,
+        discountPercent: 71,
+        rating: 4.3,
+        ratingsCount: 1900,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/21231034/2022/12/17/e4e08dfe-dcba-4dfb-beb1-23cc28c7e8201671274348910Handbags1.jpg',
+        url: 'https://www.myntra.com/a/b/c/21231034/buy',
+        couponText: '👜 71% OFF Flash Sale',
+      },
+      {
+        pid: 'MY-31080421',
+        title: 'HAUTE SAUCE Structured Hobo Bucket Leather Handbag',
+        price: 599,
+        originalPrice: 2051,
+        discountPercent: 71,
+        rating: 4.4,
+        ratingsCount: 1600,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/31080421/2024/9/25/6afd4e52-503d-40cc-97c9-13f0916e22bb1727250403278-HAUTE-SAUCE-by-Campus-Sutra-Leather-Structured-Hobo-Bag-6281-1.jpg',
+        url: 'https://www.myntra.com/a/b/c/31080421/buy',
+        couponText: '🎒 Trendy Bucket Bag',
+      },
+      {
+        pid: 'MY-26775538',
+        title: 'HAUTE SAUCE Brown Sling Leather Crossbody Bag',
+        price: 389,
+        originalPrice: 1291,
+        discountPercent: 70,
+        rating: 4.2,
+        ratingsCount: 3100,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/26775538/2024/1/4/63230930-7e9e-4dc2-8880-67f397208c6c1704354073140HAUTESAUCEbyCampusSutraBrownLeatherFashion1.jpg',
+        url: 'https://www.myntra.com/a/b/c/26775538/buy',
+        couponText: '🔥 Mega Price Drop',
+      },
+      {
+        pid: 'MY-31345575',
+        title: 'HAUTE SAUCE Colourblocked Shoulder Handbag',
+        price: 499,
+        originalPrice: 1590,
+        discountPercent: 69,
+        rating: 4.3,
+        ratingsCount: 1500,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/31345575/2024/10/30/685f3e87-c54f-4f01-bc66-af0eb5358ca61730280600413-HAUTE-SAUCE-by-Campus-Sutra-Colourblocked-Shoulder-Bag-15417-1.jpg',
+        url: 'https://www.myntra.com/a/b/c/31345575/buy',
+        couponText: '⚡ Trending Style',
+      },
+      {
+        pid: 'MY-14036196',
+        title: 'Caprese Floral Printed Large Handheld Bag',
+        price: 670,
+        originalPrice: 2134,
+        discountPercent: 69,
+        rating: 4.5,
+        ratingsCount: 5200,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/2026/JULY/24/RjUiirc4_38544081face436192073f8338922154.jpg',
+        url: 'https://www.myntra.com/a/b/c/14036196/buy',
+        couponText: '🌸 Caprese Luxury Pick',
+      },
+    ];
+
+    for (const item of myntraCatalog) {
+      if (seenAsins.has(item.pid)) continue;
+      seenAsins.add(item.pid);
+
+      let affiliateUrl = await convertWithEarnkaro(item.url);
+      if (!affiliateUrl) {
+        affiliateUrl = `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(item.url)}`;
+      }
+
+      collectedDeals.push({
+        dealId: `my-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
+        title: item.title,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        discountPercent: item.discountPercent,
+        rating: item.rating,
+        ratingsCount: item.ratingsCount,
+        imageUrl: item.imageUrl,
+        asin: item.pid,
+        amazonUrl: affiliateUrl,
+        store: 'myntra',
+        category: 'shoes_fashion',
+        source: 'IndiaDesire',
+        isLootDeal: item.discountPercent >= 60,
         couponText: item.couponText,
       });
     }

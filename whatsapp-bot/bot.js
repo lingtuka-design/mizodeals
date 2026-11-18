@@ -39,7 +39,7 @@ const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=500';
 const PRIORITY_ASINS = [];
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
-const SCRAPER_SOURCES = ['amazon', 'telegram', 'amazon', 'indiadesire', 'dealsmagnet', 'all'];
+const SCRAPER_SOURCES = ['amazon', 'myntra', 'telegram', 'amazon', 'indiadesire', 'meesho', 'dealsmagnet', 'all'];
 let currentSourceIndex = 0;
 let hasSyncedAllAuth = false;
 
@@ -427,6 +427,31 @@ function ensureAutoPostScheduler() {
       isChecking = false;
     }
   }, 2 * 60 * 1000);
+}
+
+// Background Auto-Scraper Scheduler: ensures Amazon, Myntra, and Meesho catalogs stay freshly updated 24/7
+let autoScraperInterval = null;
+let autoScraperSourceIndex = 0;
+const AUTO_SCRAPE_CYCLE_SOURCES = ['amazon', 'myntra', 'amazon', 'meesho', 'indiadesire', 'all'];
+
+function ensureAutoScraperScheduler() {
+  if (autoScraperInterval) return;
+  console.log('⏰ Auto-scraper background timer scheduled: Harvests fresh daily deals every 45 minutes');
+  autoScraperInterval = setInterval(async () => {
+    try {
+      const src = AUTO_SCRAPE_CYCLE_SOURCES[autoScraperSourceIndex % AUTO_SCRAPE_CYCLE_SOURCES.length];
+      autoScraperSourceIndex++;
+      const limit = src === 'indiadesire' ? 60 : src === 'amazon' ? 50 : 35;
+      console.log(`🌾 [Auto-Scraper Daily Harvest] Running background sync for [${src.toUpperCase()}]...`);
+      const hRes = await fetch(`https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${src}&limit=${limit}`, {
+        signal: AbortSignal.timeout(60000),
+      });
+      const hData = await hRes.json();
+      console.log(`🌾 [Auto-Scraper Daily Harvest] Finished: harvested ${hData.count || 0} deals (${hData.insertedCount || 0} new/updated in Cloud D1)`);
+    } catch (e) {
+      console.warn('🌾 [Auto-Scraper Daily Harvest] Notice:', e.message);
+    }
+  }, 45 * 60 * 1000);
 }
 
 // Keep Render Free Tier awake
@@ -890,6 +915,7 @@ async function startBot() {
           syncAllAuthToCloud().catch(() => {});
         }
         ensureAutoPostScheduler();
+        ensureAutoScraperScheduler();
 
         setTimeout(async () => {
           if (!isChecking && activeSock) {
@@ -1036,7 +1062,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     if (candidates.length === 0) {
       console.log(`🌾 Catalog dry (0 unposted candidates). Triggering instant harvest from ${currentSource}...`);
       try {
-        const harvestLimit = currentSource === 'indiadesire' ? 60 : 35;
+        const harvestLimit = currentSource === 'indiadesire' ? 60 : currentSource === 'amazon' ? 50 : currentSource === 'myntra' ? 40 : 35;
         const hRes = await fetch(`https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=${harvestLimit}`, { signal: AbortSignal.timeout(45000) });
         const hData = await hRes.json();
         console.log(`🌾 Harvested ${hData.count || 0} deals (${hData.insertedCount || 0} new). Re-fetching catalog...`);
@@ -1611,7 +1637,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
     // Trigger background harvest for next cycle after deals are already posted
     try {
-      const harvestLimit = currentSource === 'indiadesire' ? 70 : 35;
+      const harvestLimit = currentSource === 'indiadesire' ? 70 : currentSource === 'amazon' ? 50 : currentSource === 'myntra' ? 40 : 35;
       const harvestUrl = `https://mizodeals.com/api/multi-scraper?autoPublish=true&source=${currentSource}&limit=${harvestLimit}`;
       fetch(harvestUrl, { signal: AbortSignal.timeout(60000) })
         .then((r) => r.json())

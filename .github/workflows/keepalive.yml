@@ -1,4 +1,4 @@
-name: 24/7 Render Bot Keep-Alive
+name: 24/7 Render Bot Keep-Alive & Deal Harvester
 
 on:
   schedule:
@@ -13,5 +13,12 @@ jobs:
       - name: Ping Mizodeals WhatsApp Bot
         run: |
           echo "Pinging Mizodeals WhatsApp Bot on Render..."
-          curl -sS -m 20 https://mizodeals-whatsapp-bot.onrender.com/ > /dev/null || true
-          echo "Ping successful!"
+          curl -sS -m 25 https://mizodeals.com/api/bot > /dev/null || true
+          echo "Bot keep-alive ping complete."
+
+      - name: Harvest Fresh Daily Deals (Amazon & Myntra)
+        run: |
+          echo "Harvesting fresh daily loot deals..."
+          curl -sS -m 35 "https://mizodeals.com/api/multi-scraper?autoPublish=true&source=amazon&limit=50" > /dev/null || true
+          curl -sS -m 35 "https://mizodeals.com/api/multi-scraper?autoPublish=true&source=myntra&limit=40" > /dev/null || true
+          echo "Daily deal scraping sync complete!"
