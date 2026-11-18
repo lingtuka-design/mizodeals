@@ -134,10 +134,10 @@ function classifyCategory(title: string): string {
   if (/laptop|macbook|monitor|keyboard|mouse|ssd|hard\s*drive|hdd|ram|cpu|gpu|motherboard|router|wifi|printer|scanner|pc|computer|tablet|ipad|camera|lens|projector|television|tv|ups/i.test(t)) {
     return 'electronics';
   }
-  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|jacket|hoodie|sweatshirt|sweater|beanie|muffler|scarf|gloves|thermal|cardigan|fleece|coat|woolen|sock|sandal|wallet|bag|backpack|fashion|cloth|wear/i.test(t)) {
+  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|jacket|hoodie|sweatshirt|sweater|beanie|muffler|scarf|gloves|thermal|cardigan|fleece|woolen|sock|sandal|wallet|bag|backpack|fashion|cloth|wear/i.test(t) || /\b(?:overcoat|winter\s*coat|coats?)\b(?!ing|ed)/i.test(t)) {
     return 'shoes_fashion';
   }
-  if (/cooker|bottle|pan|bedsheet|pillow|light|lamp|curtain|mop|cleaner|purifier|kettle|knife|kitchen|home|room|towel/i.test(t)) {
+  if (/cooker|bottle|pan|bedsheet|pillow|light|lamp|curtain|mop|cleaner|purifier|kettle|knife|kitchen|home|room|towel|iron|steam\s*iron|dry\s*iron|blender|toaster|mixer|heater|geyser/i.test(t)) {
     return 'home_kitchen';
   }
   if (/gym|fitness|dumbbell|badminton|football|cricket|yoga|sport|cycle|exercise/i.test(t)) {

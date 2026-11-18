@@ -232,11 +232,11 @@ function getProductType(deal) {
   const cat = (deal.category || '').toLowerCase();
   if (isMobilePhone(t)) return 'smartphones';
   if (/shoe|sneaker|derby|loafer|boot|footwear|sandal|flip\s*flop|clog|oxford|formal\s*shoe/i.test(t)) return 'footwear';
-  if (/hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(t)) return 'winterwear';
+  if (/\b(?:hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|muffler|beanie|lukhum|gloves|scarf|woolen|overcoat|coats?)\b(?!ing|ed)/i.test(t)) return 'winterwear';
   if (/handbag|tote|clutch|sling\s*bag|purse|earring|necklace|jewell?ery|pendant|bangle|bracelet|hair\s*clip|scrunchie|kurti|saree|dress/i.test(t)) return 'women_fashion';
   if (/shirt|t-shirt|pant|jeans|trouser|boxer|legging|trackpant/i.test(t)) return 'apparel';
-  if (/light|led|rope|strip|decor|fairy|curtain|lamp|cove|christmas/i.test(t)) return 'festive_lights';
-  if (/kettle|cooker|pan|knife|bottle|chopper|fryer|blender|toaster|mixer|heater|geyser|iron|vacuum/i.test(t)) return 'kitchen_home';
+  if (/\b(?:light|lights|led|strip|fairy|curtain\s*light|lamp|cove|christmas)\b/i.test(t)) return 'festive_lights';
+  if (/\b(?:kettle|cooker|pan|knife|bottle|chopper|fryer|blender|toaster|mixer|heater|geyser|iron|vacuum)\b/i.test(t) || /dry\s*iron|steam\s*iron/i.test(t)) return 'kitchen_home';
   if (/earbud|earphone|headphone|airdope|basspod|neckband|tws|headset/i.test(t)) return 'audio_gadgets';
   if (/smart\s*watch|smartwatch|watch|fitness\s*band/i.test(t)) return 'smartwatches';
   if (/power\s*bank|charger|cable|adapter|keyboard|mouse|ssd|hard\s*drive/i.test(t)) return 'tech_accessories';
@@ -247,8 +247,8 @@ function getProductType(deal) {
 function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`) {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
-  const isWinter = /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(deal.title || '');
-  const isFestive = /light|led|rope|strip|decor|fairy|curtain|lamp|bulb|christmas|cove/i.test(deal.title || '');
+  const isWinter = /\b(?:hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|muffler|beanie|lukhum|gloves|scarf|woolen|overcoat|coats?)\b(?!ing|ed)/i.test(deal.title || '');
+  const isFestive = /\b(?:light|lights|led|strip|fairy|curtain\s*light|lamp|bulb|christmas|cove)\b/i.test(deal.title || '');
 
   let lootHeader = deal.isLootDeal || deal.discountPercent >= 50
     ? '*MAN TLAHNIAM NASA!*\n'
@@ -257,7 +257,9 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
   const pType = getProductType(deal);
   if (pType === 'smartphones') {
     lootHeader = '*📱 SMARTPHONE & 5G MOBILE LOOT!*\n';
-  } else if (isWinter) {
+  } else if (pType === 'kitchen_home') {
+    lootHeader = '*🍳 CHOKA & IN CHHUNG MAMAWH!*\n';
+  } else if (pType === 'winterwear' || isWinter) {
     lootHeader = '*🧥 THLASIK INTHUAM LUMNA!*\n';
   } else if (pType === 'audio_gadgets' || pType === 'tech_accessories') {
     lootHeader = '*🎧 WIRELESS GADGETS & TECH DEALS!*\n';
@@ -1048,7 +1050,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
       // Seasonal winterwear & warm accessories (Nov to Feb in Mizoram): Lukhum lum, mufflers, hoodies, jackets, gloves at 30%+ discount
       const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec, 0 = Jan, 1 = Feb
-      if ([10, 11, 0, 1].includes(currentMonth) && /hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|coat|muffler|beanie|lukhum|gloves|scarf|woolen/i.test(d.title || '')) {
+      if ([10, 11, 0, 1].includes(currentMonth) && /\b(?:hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|muffler|beanie|lukhum|gloves|scarf|woolen|overcoat|coats?)\b(?!ing|ed)/i.test(d.title || '')) {
         return d.discountPercent >= 30 || d.isLootDeal;
       }
 
