@@ -379,6 +379,7 @@ function canPostToFacebook(deal) {
 
   return { allowed: true };
 }
+let targetGroupJids = [OFFICIAL_GROUP_JID];
 let activeGroupJid = OFFICIAL_GROUP_JID;
 let latestQrDataUrl = null;
 let isConnected = false;
@@ -571,18 +572,41 @@ http
       </body></html>`);
     }
 
+    if (req.url === '/groups') {
+      if (!activeSock) return res.end(JSON.stringify({ error: 'No active socket' }));
+      try {
+        const participatingGroups = await activeSock.groupFetchAllParticipating();
+        const list = Object.entries(participatingGroups).map(([jid, g]) => {
+          const cleanJid = jid.includes('@') ? jid : `${jid}@g.us`;
+          const isOfficial = cleanJid === OFFICIAL_GROUP_JID;
+          const isMizodeals = /mizodeal|mizo\s*deal/i.test(g.subject || '');
+          const isAuthorized = isOfficial || isMizodeals;
+          return {
+            subject: g.subject,
+            id: cleanJid,
+            isAuthorized,
+            status: isAuthorized ? '✅ AUTHORIZED (Mizodeals Target)' : '🛡️ BLOCKED (Safety Shield Active - Unrelated Group)',
+            participants: g.participants?.length || 0,
+          };
+        });
+        return res.end(JSON.stringify({ total: list.length, targetGroupJids, groups: list }, null, 2));
+      } catch (err) {
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+
     if (req.url === '/group-status') {
       if (!activeSock) return res.end(JSON.stringify({ error: 'No active socket' }));
       try {
-        const target = activeGroupJid || OFFICIAL_GROUP_JID;
-        const metadata = await activeSock.groupMetadata(target);
-        const botUser = activeSock.user;
-        const botParticipant = metadata.participants.find(
-          (p) => p.id.split(':')[0] === botUser?.id?.split(':')[0]
-        );
-        return res.end(
-          JSON.stringify(
-            {
+        const results = [];
+        for (const target of targetGroupJids) {
+          try {
+            const metadata = await activeSock.groupMetadata(target);
+            const botUser = activeSock.user;
+            const botParticipant = metadata.participants.find(
+              (p) => p.id.split(':')[0] === botUser?.id?.split(':')[0]
+            );
+            results.push({
               groupSubject: metadata.subject,
               groupId: metadata.id,
               announce: metadata.announce,
@@ -591,6 +615,17 @@ http
               botIsAdmin: !!botParticipant?.admin,
               botRole: botParticipant?.admin || 'regular member',
               participantsCount: metadata.participants.length,
+            });
+          } catch (mErr) {
+            results.push({ groupId: target, error: mErr.message });
+          }
+        }
+        return res.end(
+          JSON.stringify(
+            {
+              authorizedTargetsCount: targetGroupJids.length,
+              targetGroupJids,
+              groups: results,
             },
             null,
             2
@@ -604,11 +639,15 @@ http
     if (req.url === '/send-test-group') {
       if (!activeSock) return res.end(JSON.stringify({ error: 'No active socket' }));
       try {
-        const target = activeGroupJid || OFFICIAL_GROUP_JID;
-        const msgRes = await activeSock.sendMessage(target, {
-          text: `🤖 Mizodeals Bot Diagnostic Test (${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })})`,
-        });
-        return res.end(JSON.stringify({ success: true, target, msgRes }, null, 2));
+        const sent = [];
+        for (const target of targetGroupJids) {
+          const msgRes = await activeSock.sendMessage(target, {
+            text: `🤖 Mizodeals Bot Diagnostic Test (${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })})`,
+          });
+          sent.push({ target, id: msgRes?.key?.id });
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        return res.end(JSON.stringify({ success: true, targets: targetGroupJids, sent }, null, 2));
       } catch (err) {
         return res.end(JSON.stringify({ success: false, error: err.message }));
       }
@@ -685,6 +724,7 @@ ${recentLogs.slice(-15).join('\n')}
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
         <div>🔄 <b>Auto Frequency:</b> Strictly every 30 minutes (Anti-Spam)</div>
+        <div>👥 <b>Mizodeals Groups:</b> <span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:6px;font-weight:600;">${targetGroupJids.length} Authorized Target(s)</span> <a href="/groups" style="font-size:11px;color:#2563eb;margin-left:6px;text-decoration:underline;" target="_blank">View Groups List</a></div>
         <div>📘 <b>Facebook Page:</b> ${FB_PAGE_ID && FB_PAGE_ACCESS_TOKEN ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:600;">Active (Smart Anti-Spam: 60%+ Loot Only, 2.5h Cooldown)</span>' : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:6px;">Waiting for credentials</span>'}</div>
       </div>
 
@@ -888,24 +928,33 @@ async function startBot() {
         console.log('✅ WHATSAPP BOT CONNECTED HLAWHTLING TAKIN!');
         console.log(`📢 Official Channel Connected: ${CHANNEL_JID}`);
 
-        // Automatically resolve Target Group JID (with guaranteed fallback)
+        // Automatically resolve Target Group JID(s) with STRICT Whitelist Shield
         try {
           const participatingGroups = await sock.groupFetchAllParticipating();
+          const authorized = [];
           for (const [jid, group] of Object.entries(participatingGroups)) {
-            console.log(`👥 Found WhatsApp Group: "${group.subject}" (${jid})`);
-            activeGroupJid = jid.includes('@') ? jid : `${jid}@g.us`;
-          }
-          if (!activeGroupJid && GROUP_INVITE_CODE) {
-            const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
-            if (inviteInfo && inviteInfo.id) {
-              activeGroupJid = inviteInfo.id.includes('@') ? inviteInfo.id : `${inviteInfo.id}@g.us`;
+            const cleanJid = jid.includes('@') ? jid : `${jid}@g.us`;
+            const subject = group.subject || '';
+            const isOfficial = cleanJid === OFFICIAL_GROUP_JID;
+            const isMizodeals = /mizodeal|mizo\s*deal/i.test(subject);
+
+            if (isOfficial || isMizodeals) {
+              console.log(`🎯 [Authorized Group] Enrolled "${subject}" (${cleanJid}) for automated deal broadcasts`);
+              authorized.push(cleanJid);
+            } else {
+              console.log(`🛡️ [Safety Shield] Blocked non-Mizodeals group: "${subject}" (${cleanJid}) - Deals will NEVER be posted here!`);
             }
           }
-          if (!activeGroupJid) {
-            activeGroupJid = OFFICIAL_GROUP_JID;
+
+          if (authorized.length > 0) {
+            targetGroupJids = [...new Set(authorized)];
+          } else {
+            targetGroupJids = [OFFICIAL_GROUP_JID];
           }
-          console.log(`🎯 Target WhatsApp Group: ${activeGroupJid}`);
+          activeGroupJid = targetGroupJids[0];
+          console.log(`🎯 Active Mizodeals Deal Broadcast Groups (${targetGroupJids.length}): ${targetGroupJids.join(', ')}`);
         } catch (gErr) {
+          targetGroupJids = [OFFICIAL_GROUP_JID];
           activeGroupJid = OFFICIAL_GROUP_JID;
           console.warn('⚠️ Group resolution note, using default group:', activeGroupJid);
         }
@@ -951,10 +1000,11 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     return;
   }
 
-  // Ensure target group is resolved with guaranteed fallback
-  if (!activeGroupJid) {
-    activeGroupJid = OFFICIAL_GROUP_JID;
+  // Ensure target groups are resolved with guaranteed fallback
+  if (!targetGroupJids || targetGroupJids.length === 0) {
+    targetGroupJids = [OFFICIAL_GROUP_JID];
   }
+  activeGroupJid = targetGroupJids[0];
 
   const currentSource = SCRAPER_SOURCES[currentSourceIndex % SCRAPER_SOURCES.length];
   currentSourceIndex++;
@@ -1541,27 +1591,29 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         let postedToChannel = false;
         let postedToGroup = false;
 
-        // 1. Post to Group as Full-Width HD Photo Message (with native card fallback)
-        const targetGroup = activeGroupJid || OFFICIAL_GROUP_JID;
-        try {
-          const groupPayload = fullImageBuffer
-            ? { image: fullImageBuffer, caption }
-            : (rawImg && rawImg.startsWith('http')
-                ? { image: { url: rawImg }, caption }
-                : msgPayload);
-
-          await sock.sendMessage(targetGroup, groupPayload);
-          postedToGroup = true;
-          console.log(`👥 [Group Full Photo] Posted deal: ${deal.title.slice(0, 30)}`);
-        } catch (grpErr) {
-          console.error(`Failed to post photo to Group (${targetGroup}), fallback to card:`, grpErr.message);
+        // 1. Post to Authorized Mizodeals Group(s) as Full-Width HD Photo Message (with native card fallback)
+        for (const targetGroup of targetGroupJids) {
           try {
-            await sock.sendMessage(targetGroup, msgPayload);
+            const groupPayload = fullImageBuffer
+              ? { image: fullImageBuffer, caption }
+              : (rawImg && rawImg.startsWith('http')
+                  ? { image: { url: rawImg }, caption }
+                  : msgPayload);
+
+            await sock.sendMessage(targetGroup, groupPayload);
             postedToGroup = true;
-            console.log(`👥 [Group Card Fallback] Posted deal: ${deal.title.slice(0, 30)}`);
-          } catch (fallbackErr) {
-            console.error(`Group fallback failed:`, fallbackErr.message);
+            console.log(`👥 [Group Full Photo] Posted deal to "${targetGroup}": ${deal.title.slice(0, 30)}`);
+          } catch (grpErr) {
+            console.error(`Failed to post photo to Group (${targetGroup}), fallback to card:`, grpErr.message);
+            try {
+              await sock.sendMessage(targetGroup, msgPayload);
+              postedToGroup = true;
+              console.log(`👥 [Group Card Fallback] Posted deal to "${targetGroup}": ${deal.title.slice(0, 30)}`);
+            } catch (fallbackErr) {
+              console.error(`Group fallback failed for ${targetGroup}:`, fallbackErr.message);
+            }
           }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
 
         // Wait 1.5 seconds to let the WebSocket pipeline settle cleanly
