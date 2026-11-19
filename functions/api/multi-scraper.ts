@@ -170,6 +170,14 @@ function isBlockedProduct(title: string): boolean {
   if (/\b(?:kindle\s*edition|test\s*series|mock\s*test|online\s*course|e-?book)\b/i.test(title)) {
     return true;
   }
+  // 6. Strictly block religious idols, murtis, statues, puja/pooja items, and deity figurines (Christian audience in Mizoram)
+  if (
+    /\b(?:idol|idols|murti|murtis|puja|pooja|mandir|temple\s*idol|havan|aarti|diya|diyas|shankh|rudraksha|yantra|dhoop|agarbatti|incense\s*stick|pooja\s*thali|puja\s*thali|shivling|lingam)\b/i.test(title) ||
+    /\b(?:ganesh|ganesha|ganpati|shiva|shiv|shivaay|adiyogi|mahadev|krishna|radha|hanuman|saraswati|lakshmi|laxmi|durga|kali|vishnu|balaji|tirupati|sai\s*baba|ram\s*lalla|shree\s*ram\s*idol|buddha)\b/i.test(title) ||
+    /\b(?:god\s*idol|goddess\s*idol|religious\s*statue|spiritual\s*statue|brass\s*idol|polyresin\s*idol|deity\s*statue)\b/i.test(title)
+  ) {
+    return true;
+  }
   return false;
 }
 

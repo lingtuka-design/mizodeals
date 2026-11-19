@@ -1085,6 +1085,15 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         return false;
       }
 
+      // Strictly exclude religious idols, murtis, statues, puja/pooja items, and deity figurines (Christian audience in Mizoram)
+      if (
+        /\b(?:idol|idols|murti|murtis|puja|pooja|mandir|temple\s*idol|havan|aarti|diya|diyas|shankh|rudraksha|yantra|dhoop|agarbatti|incense\s*stick|pooja\s*thali|puja\s*thali|shivling|lingam)\b/i.test(d.title || '') ||
+        /\b(?:ganesh|ganesha|ganpati|shiva|shiv|shivaay|adiyogi|mahadev|krishna|radha|hanuman|saraswati|lakshmi|laxmi|durga|kali|vishnu|balaji|tirupati|sai\s*baba|ram\s*lalla|shree\s*ram\s*idol|buddha)\b/i.test(d.title || '') ||
+        /\b(?:god\s*idol|goddess\s*idol|religious\s*statue|spiritual\s*statue|brass\s*idol|polyresin\s*idol|deity\s*statue)\b/i.test(d.title || '')
+      ) {
+        return false;
+      }
+
       const isGadget = d.category === 'gadgets' || d.category === 'electronics';
       if (isGadget) {
         // Gadgets sweet spot: 30% to 75% discount
