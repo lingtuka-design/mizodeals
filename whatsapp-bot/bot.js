@@ -1398,25 +1398,6 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
 
       return score;
     };
-      }).length;
-
-      if (isFemaleOriented) {
-        if (recentFemaleCount === 0) {
-          // If no female-targeted deals were posted in the last 4 runs, strongly boost (+45) to ensure women are never neglected
-          score += 45;
-        } else if (recentFemaleCount >= 2) {
-          // If already 2+ of the last 4 deals were female-oriented, cool down to maintain the majority male preference
-          score -= 20;
-        }
-      } else {
-        // Male tech, gadgets & sneakers get boosted if female deals already had their turn
-        if (recentFemaleCount >= 2) {
-          score += 25;
-        }
-      }
-
-      return score;
-    };
 
     candidates.sort((a, b) => computeDealScore(b) - computeDealScore(a));
 

@@ -72,7 +72,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       const isAmz = !row.store || row.store === 'amazon';
       if (isAmz && !/^[A-Z0-9]{10}$/i.test(row.asin)) return false;
       if (row.affiliate_url && (row.affiliate_url.includes('/s?k=') || row.affiliate_url.includes('/deal/'))) return false;
-      if (row.image_url && (row.image_url.includes('.svg') || row.image_url.includes('gears') || row.image_url.includes('placeholder'))) return false;
+      
+      // Strict image check: exclude empty, short, or placeholder/broken images
+      if (!row.image_url || typeof row.image_url !== 'string' || row.image_url.length < 15) return false;
+      if (
+        row.image_url.includes('.svg') ||
+        row.image_url.includes('gears') ||
+        row.image_url.includes('placeholder') ||
+        row.image_url.includes('imagenotavailable') ||
+        row.image_url.includes('promos/') ||
+        row.image_url.includes('white-star-display')
+      ) return false;
       
       // Strictly exclude religious idols, murtis, puja/pooja items, and deity statues
       const title = row.title || '';
