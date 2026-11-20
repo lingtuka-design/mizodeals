@@ -39,7 +39,7 @@ const API_URL = 'https://mizodeals.com/api/deals?status=active&limit=500';
 const PRIORITY_ASINS = [];
 const POSTED_FILE = path.join(process.cwd(), 'posted_deals.json');
 const AUTH_DIR = path.join(process.cwd(), 'auth_info');
-const SCRAPER_SOURCES = ['amazon', 'myntra', 'telegram', 'amazon', 'indiadesire', 'meesho', 'dealsmagnet', 'all'];
+const SCRAPER_SOURCES = ['winterwear', 'amazon', 'myntra', 'winterwear', 'telegram', 'amazon', 'indiadesire', 'meesho', 'dealsmagnet', 'all'];
 let currentSourceIndex = 0;
 let hasSyncedAllAuth = false;
 
@@ -135,6 +135,7 @@ function recordPostedDeal(deal) {
       titleKey: getTitleKey(deal.title),
       imageKey: getImageKey(deal.imageUrl),
       productType: getProductType(deal),
+      macroCategory: getMacroCategory(deal),
       category: deal.category || 'general',
       store: deal.store || 'amazon',
       postedAt: Date.now(),
@@ -242,6 +243,56 @@ function getProductType(deal) {
   if (/power\s*bank|charger|cable|adapter|keyboard|mouse|ssd|hard\s*drive/i.test(t)) return 'tech_accessories';
   if (/shampoo|serum|facewash|cream|perfume|deodorant|lotion|sunscreen|loofah|soap|grooming|lipstick|kajal|mascara|makeup/i.test(t)) return 'beauty_grooming';
   return cat || 'general';
+}
+
+function getMacroCategory(deal) {
+  if (!deal) return 'general';
+  const pType = getProductType(deal);
+  const cat = (deal.category || '').toLowerCase();
+  const t = (deal.title || '').toLowerCase();
+  if (
+    pType === 'winterwear' ||
+    cat === 'winterwear' ||
+    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|winter|thermal|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|gloves|scarf|scarves|woolen|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(t) ||
+    /\b(?:winter\s*coat|coats?)\b(?!ing|ed)/i.test(t)
+  ) {
+    return 'winterwear';
+  }
+  if (
+    pType === 'kitchen_home' ||
+    cat === 'home_kitchen' ||
+    /\b(?:kettle|cooker|pan|knife|bottle|flask|thermos|chopper|fryer|blender|toaster|mixer|heater|geyser|iron|vacuum|blanket|hot\s*water\s*bag|immersion\s*rod|lunch\s*box)\b/i.test(t)
+  ) {
+    return 'home_kitchen';
+  }
+  if (
+    pType === 'beauty_grooming' ||
+    cat === 'beauty' ||
+    /lipstick|perfume|serum|sunscreen|lotion|cream|shampoo|skincare|facewash/i.test(t)
+  ) {
+    return 'beauty';
+  }
+  if (
+    pType === 'footwear' ||
+    pType === 'women_fashion' ||
+    pType === 'apparel' ||
+    cat === 'shoes_fashion' ||
+    /shoe|sneaker|sandal|shirt|pant|jeans|dress|handbag|clutch|tote|purse/i.test(t)
+  ) {
+    return 'fashion_lifestyle';
+  }
+  if (
+    pType === 'smartphones' ||
+    pType === 'audio_gadgets' ||
+    pType === 'smartwatches' ||
+    pType === 'tech_accessories' ||
+    cat === 'gadgets' ||
+    cat === 'electronics' ||
+    /phone|earbud|headphone|charger|cable|power\s*bank|gadget|smartwatch|mouse|keyboard|ssd/i.test(t)
+  ) {
+    return 'tech_gadgets';
+  }
+  return 'general';
 }
 
 function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`) {
@@ -436,7 +487,7 @@ function ensureAutoPostScheduler() {
 // Background Auto-Scraper Scheduler: ensures Amazon, Myntra, and Meesho catalogs stay freshly updated 24/7
 let autoScraperInterval = null;
 let autoScraperSourceIndex = 0;
-const AUTO_SCRAPE_CYCLE_SOURCES = ['amazon', 'myntra', 'amazon', 'meesho', 'indiadesire', 'all'];
+const AUTO_SCRAPE_CYCLE_SOURCES = ['winterwear', 'amazon', 'myntra', 'winterwear', 'meesho', 'indiadesire', 'amazon', 'all'];
 
 function ensureAutoScraperScheduler() {
   if (autoScraperInterval) return;
@@ -1189,15 +1240,18 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       .sort((a, b) => b.postedAt - a.postedAt);
 
     const recentTypes = validRecent.slice(0, 6).map((r) => r.productType || (r.title ? getProductType(r) : ''));
+    const recentMacros = validRecent.slice(0, 6).map((r) => r.macroCategory || (r.title ? getMacroCategory(r) : ''));
     const lastPostedType = recentTypes[0] || '';
+    const lastPostedMacro = recentMacros[0] || '';
     const lastPostedCategory = (validRecent[0] && validRecent[0].category) || '';
     const footwearCountRecent = recentTypes.filter((t) => t === 'footwear').length;
+    const techCountRecent = recentMacros.slice(0, 3).filter((m) => m === 'tech_gadgets').length;
 
-    // Quality-weighted scoring: Prioritize genuine high discounts, 30%-70% gadgets, high ratings, and customer favorites
+    // Quality-weighted scoring: Prioritize genuine high discounts, seasonal winterwear, 30%-70% gadgets, high ratings, and customer favorites
     const computeDealScore = (d) => {
       let score = d.discountPercent || 0;
-      const isGadget = d.category === 'gadgets' || d.category === 'electronics';
       const pType = getProductType(d);
+      const dMacro = getMacroCategory(d);
 
       // 0. Manual Priority ASIN Boost (Top-of-Queue immediate post requested by admin)
       if (d.asin && PRIORITY_ASINS.includes(d.asin.toUpperCase())) {
@@ -1223,9 +1277,26 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         score += 30; // Strong bonus to prioritize Amazon deals
       }
 
-      // 1. Gadgets sweet spot (30%-70% discount) get prioritized
-      if (isGadget && d.discountPercent >= 30 && d.discountPercent <= 75) {
-        score += 25;
+      // 1. SEASONAL WINTERWEAR PRIORITY BOOST (November to February in Mizoram):
+      const currentMonth = new Date().getMonth(); // 10 = Nov, 11 = Dec, 0 = Jan, 1 = Feb
+      const isWinterSeason = [10, 11, 0, 1].includes(currentMonth);
+      if (dMacro === 'winterwear') {
+        score += isWinterSeason ? 65 : 25; // Top priority during cold season!
+      }
+
+      // 2. High Value Lifestyle & Home Essentials:
+      if (dMacro === 'home_kitchen') {
+        score += 35;
+      }
+      if (dMacro === 'beauty') {
+        score += 35;
+      }
+      if (dMacro === 'fashion_lifestyle') {
+        score += 30;
+      }
+      // Tech Gadgets: Controlled modest boost (+15) instead of dominating the whole feed
+      if (dMacro === 'tech_gadgets') {
+        score += 15;
       }
 
       // 1b. Price Sweet Spot Boost (Impulse Buy Optimization & Smartphone Exception):
@@ -1246,24 +1317,6 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (d.rating >= 4.3) score += 20;
       else if (d.rating >= 4.0) score += 10;
 
-      // 3. Top 3 Revenue Pillars (Data-backed Amazon customer velocity):
-      // Pillar 1: Wireless & Tech Accessories
-      if (pType === 'audio_gadgets' || pType === 'tech_accessories' || d.category === 'gadgets') {
-        score += 35;
-      }
-      // Pillar 2: Home & Kitchen Utensils
-      if (pType === 'kitchen_home' || d.category === 'home_kitchen') {
-        score += 30;
-      }
-      // Pillar 3: Beauty, Skincare & Grooming (Highest direct conversion)
-      if (pType === 'beauty_grooming' || d.category === 'beauty') {
-        score += 35;
-      }
-      // Seasonal Winterwear
-      if (pType === 'winterwear') {
-        score += 25;
-      }
-
       // 4. Significant rupee savings (value-for-money brand deals)
       const savings = (d.originalPrice || 0) - (d.dealPrice || 0);
       if (savings >= 1000) score += 15;
@@ -1272,13 +1325,22 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       // 5. High review volume (trusted products)
       if ((d.ratingsCount || 0) >= 1000) score += 10;
 
-      // 6. DYNAMIC ANTI-CLUSTERING & CATEGORY VARIETY BALANCING:
-      // a. Immediate back-to-back duplicate product type penalty
+      // 6. DYNAMIC ANTI-CLUSTERING & MACRO-CATEGORY VARIETY BALANCING:
+      // a. Immediate back-to-back TECH suppression: Never post tech gadgets two runs in a row!
+      if (lastPostedMacro === 'tech_gadgets' && dMacro === 'tech_gadgets') {
+        score -= 60; // Strong penalty so feed stays naturally diversified
+      }
+      // b. Heavy tech cooling: If 2 of last 3 posts were tech, cool down tech:
+      if (techCountRecent >= 2 && dMacro === 'tech_gadgets') {
+        score -= 45;
+      }
+
+      // c. Immediate back-to-back duplicate product type penalty
       if (lastPostedType && pType === lastPostedType) {
         score -= 50; // Hard suppression so we never post the same product type twice in a row
       }
 
-      // b. Strict Shoe / Footwear Throttling (Keep shoes as occasional highlights, never spamming)
+      // d. Strict Shoe / Footwear Throttling (Keep shoes as occasional highlights, never spamming)
       if (pType === 'footwear') {
         if (recentTypes.slice(0, 2).includes('footwear')) {
           score -= 60; // Absolute block if shoes were posted in any of the last 2 runs
@@ -1287,17 +1349,17 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         }
       }
 
-      // c. Category alternation penalty
+      // e. Category alternation penalty
       if (lastPostedCategory && d.category === lastPostedCategory) {
         score -= 15;
       }
 
-      // d. Freshness bonus for product types not seen in recent history
-      if (!recentTypes.includes(pType)) {
-        score += 20; // Reward unrepresented categories/types
+      // f. Freshness bonus for macro-categories unrepresented in recent history
+      if (!recentMacros.slice(0, 3).includes(dMacro)) {
+        score += 25; // Reward unrepresented categories/types
       }
 
-      // e. Gender Audience Balancing (Optimized: ~65% Male/Tech/Unisex, ~35% Female/Beauty/Home):
+      // g. Gender Audience Balancing (Optimized: ~65% Male/Tech/Unisex, ~35% Female/Beauty/Home):
       const isFemaleOriented =
         d.category === 'beauty' ||
         d.category === 'home_kitchen' ||
@@ -1317,6 +1379,25 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
             title
           )
         );
+      }).length;
+
+      if (isFemaleOriented) {
+        if (recentFemaleCount === 0) {
+          // If no female-targeted deals were posted in the last 4 runs, strongly boost (+45) to ensure women are never neglected
+          score += 45;
+        } else if (recentFemaleCount >= 2) {
+          // If already 2+ of the last 4 deals were female-oriented, cool down to maintain the majority male preference
+          score -= 20;
+        }
+      } else {
+        // Male tech, gadgets & sneakers get boosted if female deals already had their turn
+        if (recentFemaleCount >= 2) {
+          score += 25;
+        }
+      }
+
+      return score;
+    };
       }).length;
 
       if (isFemaleOriented) {
@@ -1371,6 +1452,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     const seenAsinsInBatch = new Set();
     const seenCategoriesInBatch = new Set();
     const seenProductTypesInBatch = new Set();
+    const seenMacroInBatch = new Set();
 
     // Check Priority ASINs first (Manual Admin override)
     for (const d of candidates) {
@@ -1381,6 +1463,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         seenAsinsInBatch.add(d.asin.toUpperCase());
         seenProductTypesInBatch.add(getProductType(d));
         seenCategoriesInBatch.add(d.category || 'general');
+        seenMacroInBatch.add(getMacroCategory(d));
         if (toPost.length >= 2) break;
       }
     }
@@ -1409,10 +1492,12 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         if (asinKey) seenAsinsInBatch.add(asinKey);
         seenProductTypesInBatch.add(getProductType(topAmazon));
         seenCategoriesInBatch.add(topAmazon.category || 'general');
+        seenMacroInBatch.add(getMacroCategory(topAmazon));
       }
     }
 
-    // Step 2: Select Slot 2 from top candidates (can be Amazon or other stores, prioritizing fresh deals)
+    // Step 2: Select Slot 2 with STRICT Anti-Clustering & Macro Variety Balancing
+    // (Ensure we NEVER post 2 tech deals in one run; diversify with Winterwear, Home/Kitchen, Fashion, Beauty)
     if (toPost.length < 2) {
       for (const d of candidates) {
         if (toPost.includes(d)) continue;
@@ -1421,14 +1506,19 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         const asinKey = d.asin ? d.asin.toUpperCase() : null;
         const pType = getProductType(d);
         const cat = d.category || 'general';
+        const dMacro = getMacroCategory(d);
 
         if (tKey && seenTitlesInBatch.has(tKey)) continue;
         if (imgKey && seenImagesInBatch.has(imgKey)) continue;
         if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
 
-        // Batch diversity
+        // STRICT RULE: Never post 2 tech/gadget deals in the same 2-deal run!
+        if (dMacro === 'tech_gadgets' && seenMacroInBatch.has('tech_gadgets')) continue;
+
+        // Strict batch diversity: distinct product type, category & macro category
         if (seenProductTypesInBatch.has(pType)) continue;
         if (seenCategoriesInBatch.has(cat)) continue;
+        if (seenMacroInBatch.has(dMacro)) continue;
         if (pType === 'footwear' && lastPostedType === 'footwear') continue;
 
         toPost.push(d);
@@ -1438,6 +1528,7 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         if (atKey) seenTitlesInBatch.add(atKey);
         if (aimgKey) seenImagesInBatch.add(aimgKey);
         if (aasinKey) seenAsinsInBatch.add(aasinKey);
+        seenMacroInBatch.add(dMacro);
         break;
       }
     }
@@ -1448,6 +1539,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         if (toPost.includes(d)) continue;
         const asinKey = d.asin ? d.asin.toUpperCase() : null;
         if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
+        const dMacro = getMacroCategory(d);
+        // Even in fallback: STRICTLY reject a 2nd tech deal if Slot 1 was tech
+        if (dMacro === 'tech_gadgets' && seenMacroInBatch.has('tech_gadgets')) continue;
         toPost.push(d);
         if (toPost.length >= 2) break;
       }

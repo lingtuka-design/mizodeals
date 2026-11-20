@@ -120,7 +120,14 @@ export function isMobilePhone(title: string): boolean {
 // Category classifier helper
 function classifyCategory(title: string): string {
   const t = title.toLowerCase();
-  // High Priority: Genuine Smartphones strictly categorized as 'gadgets'
+  // High Priority 1: Winterwear & Warm Clothing (Nov-Feb seasonal surge in Mizoram)
+  if (
+    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|winter|thermal|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|gloves|scarf|scarves|woolen|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(t) ||
+    /\b(?:winter\s*coat|coats?)\b(?!ing|ed)/i.test(t)
+  ) {
+    return 'winterwear';
+  }
+  // High Priority 2: Genuine Smartphones strictly categorized as 'gadgets'
   if (isMobilePhone(title)) {
     return 'gadgets';
   }
@@ -134,16 +141,19 @@ function classifyCategory(title: string): string {
   if (/laptop|macbook|monitor|keyboard|mouse|ssd|hard\s*drive|hdd|ram|cpu|gpu|motherboard|router|wifi|printer|scanner|pc|computer|tablet|ipad|camera|lens|projector|television|tv|ups/i.test(t)) {
     return 'electronics';
   }
-  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|jacket|hoodie|sweatshirt|sweater|beanie|muffler|scarf|gloves|thermal|cardigan|fleece|woolen|sock|sandal|wallet|bag|backpack|fashion|cloth|wear/i.test(t) || /\b(?:overcoat|winter\s*coat|coats?)\b(?!ing|ed)/i.test(t)) {
+  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|sock|sandal|wallet|bag|backpack|fashion|cloth|wear/i.test(t)) {
     return 'shoes_fashion';
   }
-  if (/cooker|bottle|pan|bedsheet|pillow|light|lamp|curtain|mop|cleaner|purifier|kettle|knife|kitchen|home|room|towel|iron|steam\s*iron|dry\s*iron|blender|toaster|mixer|heater|geyser/i.test(t)) {
+  if (/cooker|bottle|flask|thermos|pan|bedsheet|blanket|quilt|comforter|pillow|light|lamp|curtain|mop|cleaner|purifier|kettle|knife|kitchen|home|room|towel|iron|steam\s*iron|dry\s*iron|blender|toaster|mixer|heater|geyser|immersion\s*rod|hot\s*water\s*bag|lunch\s*box|container|storage|rack|hanger/i.test(t)) {
     return 'home_kitchen';
   }
   if (/gym|fitness|dumbbell|badminton|football|cricket|yoga|sport|cycle|exercise/i.test(t)) {
     return 'sports';
   }
-  return 'electronics';
+  if (/gadget|device|electronic|cable|charger|battery|led|display|sensor|circuit/i.test(t)) {
+    return 'electronics';
+  }
+  return 'shoes_fashion';
 }
 
 // Block products that do not sell well on affiliate channels, clutter the feed, cause customer fatigue,
@@ -321,11 +331,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // ==========================================
   // SOURCE 1: TELEGRAM PUBLIC DEALS HUBS (ACTIVE VERIFIED CHANNELS)
   // ==========================================
-  if (!filterSource || filterSource === 'all' || filterSource === 'telegram' || filterSource === 'amazon' || filterSource === 'meesho' || filterSource === 'myntra') {
+  if (!filterSource || filterSource === 'all' || filterSource === 'telegram' || filterSource === 'amazon' || filterSource === 'meesho' || filterSource === 'myntra' || filterSource === 'winterwear') {
     const telegramChannels = filterSource === 'amazon'
       ? ['dealbee', 'looter_deals', 'online_loot_deals', 'dealsprime', 'amazon_flipkart_loots', 'deals_loot']
       : filterSource === 'myntra'
       ? ['fashion_loot_deals', 'deals_loot', 'dealbee']
+      : filterSource === 'winterwear'
+      ? ['fashion_loot_deals', 'amazon_flipkart_loots', 'deals_loot', 'dealsprime']
       : filterSource === 'meesho'
       ? ['meesho_deal', 'meeshodealsloot']
       : [
@@ -1689,6 +1701,302 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
+  // SOURCE 7: DEDICATED WINTERWEAR & COLD SEASON HARVESTER (AMAZON, MYNTRA, MEESHO)
+  // Essential seasonal clothing & warming utilities (Nov-Feb in Mizoram)
+  // ==========================================
+  if (!filterSource || filterSource === 'all' || filterSource === 'winterwear' || filterSource === 'amazon' || filterSource === 'myntra' || filterSource === 'meesho') {
+    const winterwearCatalog: Array<{
+      asin: string;
+      title: string;
+      price: number;
+      originalPrice: number;
+      discountPercent: number;
+      rating: number;
+      ratingsCount: number;
+      imageUrl: string;
+      store: 'amazon' | 'myntra' | 'meesho';
+      category: string;
+      couponText: string;
+      url?: string;
+      extId?: string;
+    }> = [
+      // Amazon Winter Best-Sellers
+      {
+        asin: 'B08HCP5W8M',
+        title: "Alan Jones Clothing Men's Fleece Hooded Sweatshirt (Warm Winter Hoodie)",
+        price: 599,
+        originalPrice: 1299,
+        discountPercent: 54,
+        rating: 4.3,
+        ratingsCount: 18400,
+        imageUrl: 'https://m.media-amazon.com/images/I/71oX6Z0H1YL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '🧥 Warm Fleece Hoodie',
+      },
+      {
+        asin: 'B09MDB68D1',
+        title: "Qube By Fort Collins Men's Winter Bomber Jacket",
+        price: 999,
+        originalPrice: 2499,
+        discountPercent: 60,
+        rating: 4.2,
+        ratingsCount: 12200,
+        imageUrl: 'https://m.media-amazon.com/images/I/71+h9WqO5VL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '❄️ Winter Bomber Jacket',
+      },
+      {
+        asin: 'B07J5M15W1',
+        title: "Fort Collins Women's Quilted Winter Hooded Puffer Jacket",
+        price: 1199,
+        originalPrice: 2999,
+        discountPercent: 60,
+        rating: 4.3,
+        ratingsCount: 8500,
+        imageUrl: 'https://m.media-amazon.com/images/I/71Zp+B0bBHL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '🧥 Puffer Winter Jacket',
+      },
+      {
+        asin: 'B07KW2V2L3',
+        title: "Lux Inferno Men's Thermal Top and Pyjama Set (Warm Winter Inners)",
+        price: 649,
+        originalPrice: 999,
+        discountPercent: 35,
+        rating: 4.4,
+        ratingsCount: 24000,
+        imageUrl: 'https://m.media-amazon.com/images/I/71V2pI-O7bL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '🔥 Lux Inferno Thermal',
+      },
+      {
+        asin: 'B085V86Q17',
+        title: "Bodycare Women's Quilted Thermal Set (Warm Top & Lower)",
+        price: 599,
+        originalPrice: 999,
+        discountPercent: 40,
+        rating: 4.3,
+        ratingsCount: 9200,
+        imageUrl: 'https://m.media-amazon.com/images/I/71Xm+nU5JYL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '🔥 Women Thermal Set',
+      },
+      {
+        asin: 'B09L5D6WMC',
+        title: 'RC. ROYAL CLASS Warm Fleece Lined Woolen Beanie Cap & Neck Warmer Muffler Set (Lukhum Lum)',
+        price: 299,
+        originalPrice: 999,
+        discountPercent: 70,
+        rating: 4.4,
+        ratingsCount: 15000,
+        imageUrl: 'https://m.media-amazon.com/images/I/71iV+5bQ2ZL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '🧣 Lukhum Lum & Muffler',
+      },
+      {
+        asin: 'B07KKM8N1T',
+        title: 'Havells Immersion Rod 1500W Waterproof Electric Water Heater with Thermal Cutoff',
+        price: 549,
+        originalPrice: 999,
+        discountPercent: 45,
+        rating: 4.3,
+        ratingsCount: 38000,
+        imageUrl: 'https://m.media-amazon.com/images/I/51wV3l8yJRL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'home_kitchen',
+        couponText: '⚡ Winter Water Heater',
+      },
+      {
+        asin: 'B08139J5W4',
+        title: 'Boldfit Winter Woolen Thermal Gloves for Touchscreen Men & Women',
+        price: 299,
+        originalPrice: 799,
+        discountPercent: 63,
+        rating: 4.4,
+        ratingsCount: 7800,
+        imageUrl: 'https://m.media-amazon.com/images/I/61N+9u0mHVL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '🧤 Warm Touchscreen Gloves',
+      },
+      {
+        asin: 'B09NPTG6N3',
+        title: "Supersox Men & Women Warm Woolen Winter Thermal Terry Cushion Socks (Pack of 4)",
+        price: 349,
+        originalPrice: 799,
+        discountPercent: 56,
+        rating: 4.4,
+        ratingsCount: 6200,
+        imageUrl: 'https://m.media-amazon.com/images/I/81xP3m4s4VL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '🧦 Warm Woolen Socks',
+      },
+      {
+        asin: 'B0BN7QWMRY',
+        title: "Campus Sutra Men's Winter Casual Zipper Jacket",
+        price: 899,
+        originalPrice: 2299,
+        discountPercent: 61,
+        rating: 4.2,
+        ratingsCount: 5400,
+        imageUrl: 'https://m.media-amazon.com/images/I/61w+B2J1hKL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '🧥 Casual Winter Jacket',
+      },
+      {
+        asin: 'B093L3XF4Z',
+        title: 'Cello Flip Style Stainless Steel Insulated Thermos Flask (1 Litre, 24h Hot Water)',
+        price: 699,
+        originalPrice: 1099,
+        discountPercent: 36,
+        rating: 4.4,
+        ratingsCount: 22000,
+        imageUrl: 'https://m.media-amazon.com/images/I/61vYfVjFmNL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'home_kitchen',
+        couponText: '☕ 24h Hot Water Flask',
+      },
+      {
+        asin: 'B09KMYP73Q',
+        title: "Scott International Men's Fleece Zip-Up Hooded Jacket",
+        price: 699,
+        originalPrice: 1999,
+        discountPercent: 65,
+        rating: 4.3,
+        ratingsCount: 8100,
+        imageUrl: 'https://m.media-amazon.com/images/I/61m+c1V2gIL._SL1500_.jpg',
+        store: 'amazon',
+        category: 'winterwear',
+        couponText: '❄️ Warm Fleece Zip Jacket',
+      },
+      // Myntra Winter Fashion
+      {
+        asin: 'MY-19340922',
+        title: 'Roadster Men Solid Hooded Fleece Sweatshirt',
+        price: 649,
+        originalPrice: 2199,
+        discountPercent: 70,
+        rating: 4.3,
+        ratingsCount: 14200,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/19340922/2022/8/2/54a1f6a1-a745-4df0-9b4b-3ea2fb0b25e21659424754593-Roadster-Men-Sweatshirts-591659424754124-1.jpg',
+        store: 'myntra',
+        category: 'winterwear',
+        couponText: '🧥 70% OFF Roadster Hoodie',
+        url: 'https://www.myntra.com/sweatshirts/roadster/roadster-men-solid-hooded-sweatshirt/19340922/buy',
+      },
+      {
+        asin: 'MY-23849102',
+        title: 'Mast & Harbour Women Oversized Warm Fleece Hoodie',
+        price: 799,
+        originalPrice: 2299,
+        discountPercent: 65,
+        rating: 4.4,
+        ratingsCount: 8900,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/23849102/2023/7/3/3ea99d52-ff1d-4813-8869-7c8ad823a31c1688373305943-Mast--Harbour-Women-Sweatshirts-1801688373305537-1.jpg',
+        store: 'myntra',
+        category: 'winterwear',
+        couponText: '❄️ Cozy Women Hoodie',
+        url: 'https://www.myntra.com/sweatshirts/mast--harbour/mast--harbour-women-sweatshirt/23849102/buy',
+      },
+      {
+        asin: 'MY-17849201',
+        title: 'Roadster Men Solid Padded Winter Jacket',
+        price: 1199,
+        originalPrice: 2999,
+        discountPercent: 60,
+        rating: 4.3,
+        ratingsCount: 11500,
+        imageUrl: 'https://assets.myntassets.com/h_1440,q_95,w_1080/assets/images/17849201/2022/4/11/49b65743-1bc1-447a-85b5-27f912e524961649673966587-Roadster-Men-Jackets-2681649673966085-1.jpg',
+        store: 'myntra',
+        category: 'winterwear',
+        couponText: '🧥 Padded Winter Jacket',
+        url: 'https://www.myntra.com/jackets/roadster/roadster-men-padded-jacket/17849201/buy',
+      },
+      // Meesho Winter Picks
+      {
+        asin: 'MSH-628491021',
+        title: 'Trendy Korean Style Oversized Fleece Unisex Winter Hoodie',
+        price: 399,
+        originalPrice: 1149,
+        discountPercent: 65,
+        rating: 4.5,
+        ratingsCount: 14200,
+        imageUrl: 'https://images.meesho.com/images/products/475709371/fxckd_512.jpg',
+        store: 'meesho',
+        extId: '9ytwq1',
+        category: 'winterwear',
+        couponText: '🧥 Korean Fleece Hoodie',
+      },
+      {
+        asin: 'MSH-581920391',
+        title: 'Men & Women Warm Knit Woolen Beanie Cap with Neck Scarf (Lukhum Lum Set)',
+        price: 199,
+        originalPrice: 699,
+        discountPercent: 72,
+        rating: 4.4,
+        ratingsCount: 9800,
+        imageUrl: 'https://images.meesho.com/images/products/945642903/qlbmw_512.jpg',
+        store: 'meesho',
+        extId: '8kmpo4',
+        category: 'winterwear',
+        couponText: '🧣 Lukhum Lum Under ₹200',
+      },
+      {
+        asin: 'MSH-492019482',
+        title: 'Rechargeable Electric Hot Water Bag for Winter Warmth & Pain Relief',
+        price: 179,
+        originalPrice: 599,
+        discountPercent: 70,
+        rating: 4.6,
+        ratingsCount: 21000,
+        imageUrl: 'https://images.meesho.com/images/products/681394114/v8cw1_512.jpg',
+        store: 'meesho',
+        extId: '7ghjk8',
+        category: 'home_kitchen',
+        couponText: '🔥 Electric Hot Water Bag',
+      },
+    ];
+
+    for (const item of winterwearCatalog) {
+      if (seenAsins.has(item.asin)) continue;
+      seenAsins.add(item.asin);
+
+      let affiliateUrl = `https://www.amazon.in/dp/${item.asin}?tag=${targetTag}`;
+      if (item.store === 'meesho') {
+        affiliateUrl = buildMeeshoAffiliateUrl(item.asin, item.extId);
+      } else if (item.store === 'myntra' && item.url) {
+        affiliateUrl = (await convertWithEarnkaro(item.url)) || `https://earnkaro.com?r=5730392&fname=lingtuka&url=${encodeURIComponent(item.url)}`;
+      }
+
+      collectedDeals.push({
+        dealId: `win-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
+        title: item.title,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        discountPercent: item.discountPercent,
+        rating: item.rating,
+        ratingsCount: item.ratingsCount,
+        imageUrl: item.imageUrl,
+        asin: item.asin,
+        amazonUrl: affiliateUrl,
+        store: item.store,
+        category: item.category,
+        source: 'Winterwear Hub',
+        isLootDeal: item.discountPercent >= 50,
+        couponText: item.couponText,
+      });
+    }
+  }
+
+  // ==========================================
   // SYNC & AUTO-CORRECT WITH AMAZON CREATORS API
   // ==========================================
   async function syncAmazonDealsWithApi(
@@ -1911,9 +2219,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             current_price = excluded.deal_price,
             original_price = excluded.original_price,
             discount_percent = excluded.discount_percent,
+            category = excluded.category,
             title = excluded.title,
             image_url = excluded.image_url,
-            created_at = excluded.created_at,
             last_checked_at = excluded.last_checked_at,
             verified_at = excluded.verified_at`
         )
