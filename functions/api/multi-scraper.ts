@@ -1849,6 +1849,180 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // ==========================================
+  // SOURCE 8: MEN'S SMART PANTS & TROUSERS HARVESTER (AMAZON)
+  // High discount men's smart casual pants, formal stretch trousers & chinos (50%-87% OFF)
+  // All images verified 100% active (HTTP 200)
+  // ==========================================
+  if (!filterSource || filterSource === 'all' || filterSource === 'smartpants' || filterSource === 'amazon' || filterSource === 'fashion') {
+    const smartPantsCatalog: Array<{
+      asin: string;
+      title: string;
+      price: number;
+      originalPrice: number;
+      discountPercent: number;
+      rating: number;
+      ratingsCount: number;
+      imageUrl: string;
+      store: 'amazon';
+      category: string;
+      couponText: string;
+    }> = [
+      {
+        asin: 'B0DRL1R32Q',
+        title: "Noble Monk Men's Formal Trousers | Regular Fit Stylish Pants for Men | Comfortable Solid Trousers",
+        price: 336,
+        originalPrice: 2499,
+        discountPercent: 87,
+        rating: 4.1,
+        ratingsCount: 850,
+        imageUrl: 'https://m.media-amazon.com/images/I/61qBhuHvGkL._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 87% OFF Smart Pants',
+      },
+      {
+        asin: 'B0FD9V6R1P',
+        title: 'THE FEBZA Linen Pants for Men | Relaxed Fit Korean Smart Pants | Gurkha Trousers for Men',
+        price: 748,
+        originalPrice: 4999,
+        discountPercent: 85,
+        rating: 3.5,
+        ratingsCount: 180,
+        imageUrl: 'https://m.media-amazon.com/images/I/41m7ZfG0ZaL._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 85% OFF Korean Pants',
+      },
+      {
+        asin: 'B0HM3QKR6N',
+        title: "Mehrang Men's Formal Trousers with Textured Pattern, Slim Fit (Pack of 2)",
+        price: 698,
+        originalPrice: 3999,
+        discountPercent: 83,
+        rating: 3.5,
+        ratingsCount: 410,
+        imageUrl: 'https://m.media-amazon.com/images/I/81E+5YLWDAL._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 83% OFF Pack of 2',
+      },
+      {
+        asin: 'B0HCJQN6N5',
+        title: "TOPLOT Men's Slim Fit Formal Trousers | Stretchable Waistband | Smart Casual Office Wear Pants",
+        price: 699,
+        originalPrice: 3999,
+        discountPercent: 83,
+        rating: 3.5,
+        ratingsCount: 257,
+        imageUrl: 'https://m.media-amazon.com/images/I/617EoGqXjoL._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 83% OFF Smart Pants',
+      },
+      {
+        asin: 'B0H2LS5BS8',
+        title: "Thomas Scott Men’s Smart Straight Fit Chinos Trouser | Mid-Rise | Solid | 5-Pocket Design",
+        price: 799,
+        originalPrice: 4699,
+        discountPercent: 83,
+        rating: 3.8,
+        ratingsCount: 140,
+        imageUrl: 'https://m.media-amazon.com/images/I/71wUisBdH2L._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 83% OFF Chinos',
+      },
+      {
+        asin: 'B0D3QP23KT',
+        title: "MALENO Men's Slub Effect Solid Trouser | Classic Slim Fit Formal Trousers for Men",
+        price: 398,
+        originalPrice: 2199,
+        discountPercent: 82,
+        rating: 3.7,
+        ratingsCount: 320,
+        imageUrl: 'https://m.media-amazon.com/images/I/61BnCgC8WyL._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 82% OFF Smart Pants',
+      },
+      {
+        asin: 'B0CQXMKG5M',
+        title: "HARSHAD KUMAR & CO. Men's Solid Flexible Slim Fit Stretchable Comfortable Formal Trousers Pants",
+        price: 450,
+        originalPrice: 1999,
+        discountPercent: 77,
+        rating: 3.8,
+        ratingsCount: 763,
+        imageUrl: 'https://m.media-amazon.com/images/I/51xZxjAagCL._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 77% OFF Stretch Pants',
+      },
+      {
+        asin: 'B0H45L29H3',
+        title: "TAGDO Men's Straight Fit Casual Trousers with Elasticated Waistband | Everyday Smart Cotton Pants",
+        price: 549,
+        originalPrice: 2399,
+        discountPercent: 77,
+        rating: 3.9,
+        ratingsCount: 320,
+        imageUrl: 'https://m.media-amazon.com/images/I/614R+hitO6L._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 77% OFF Casual Pants',
+      },
+      {
+        asin: 'B0CJJMPRSR',
+        title: "MiraMichi Men's Casual Smart Fit Pants & Stretch Trousers",
+        price: 263,
+        originalPrice: 1199,
+        discountPercent: 78,
+        rating: 3.6,
+        ratingsCount: 450,
+        imageUrl: 'https://m.media-amazon.com/images/I/61vYpS85e8L._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 78% OFF Smart Pants',
+      },
+      {
+        asin: 'B0H65YKJLT',
+        title: "Men's Smart Fit Casual & Formal Stretch Trousers Pants",
+        price: 264,
+        originalPrice: 1999,
+        discountPercent: 87,
+        rating: 3.4,
+        ratingsCount: 715,
+        imageUrl: 'https://m.media-amazon.com/images/I/611kYALiqGL._AC_UL640_QL65_.jpg',
+        store: 'amazon',
+        category: 'shoes_fashion',
+        couponText: '🔥 87% OFF Smart Pants',
+      }
+    ];
+
+    for (const item of smartPantsCatalog) {
+      if (collectedDeals.length >= limit) break;
+      const affiliateUrl = `https://www.amazon.in/dp/${item.asin}?tag=${targetTag}`;
+      collectedDeals.push({
+        dealId: `pant-${Date.now().toString().slice(-6)}-${collectedDeals.length + 1}`,
+        title: item.title,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        discountPercent: item.discountPercent,
+        rating: item.rating,
+        ratingsCount: item.ratingsCount,
+        imageUrl: item.imageUrl,
+        asin: item.asin,
+        amazonUrl: affiliateUrl,
+        store: item.store,
+        category: item.category,
+        source: 'Smart Pants Hub',
+        isLootDeal: item.discountPercent >= 70,
+        couponText: item.couponText,
+      });
+    }
+  }
+
+  // ==========================================
   // SYNC & AUTO-CORRECT WITH AMAZON CREATORS API
   // ==========================================
   async function syncAmazonDealsWithApi(

@@ -234,6 +234,7 @@ function getProductType(deal) {
   if (isMobilePhone(t)) return 'smartphones';
   if (/shoe|sneaker|derby|loafer|boot|footwear|sandal|flip\s*flop|clog|oxford|formal\s*shoe/i.test(t)) return 'footwear';
   if (/\b(?:hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|muffler|beanie|lukhum|gloves|scarf|woolen|overcoat|coats?)\b(?!ing|ed)/i.test(t)) return 'winterwear';
+  if (/\b(?:smart\s*pants?|formal\s*trousers?|chinos?|casual\s*trousers?|stretchable\s*pants?|formal\s*pants?|trousers?|linen\s*pants?|korean\s*pants?)\b/i.test(t)) return 'smart_pants';
   if (/handbag|tote|clutch|sling\s*bag|purse|earring|necklace|jewell?ery|pendant|bangle|bracelet|hair\s*clip|scrunchie|kurti|saree|dress/i.test(t)) return 'women_fashion';
   if (/shirt|t-shirt|pant|jeans|trouser|boxer|legging|trackpant/i.test(t)) return 'apparel';
   if (/\b(?:light|lights|led|strip|fairy|curtain\s*light|lamp|cove|christmas)\b/i.test(t)) return 'festive_lights';
@@ -321,6 +322,8 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     lootHeader = isWomenSpecific ? '*✨ HMEICHHETÊ TAN BIK (BEAUTY & SKINCARE)!*\n' : '*✨ BEAUTY & GROOMING DEALS!*\n';
   } else if (pType === 'women_fashion') {
     lootHeader = '*✨ HMEICHHE DUHZAWNG / FASHION PICK!*\n';
+  } else if (pType === 'smart_pants' || /\b(?:smart\s*pants?|formal\s*trousers?|chinos?|casual\s*trousers?|trousers?)\b/i.test(deal.title || '')) {
+    lootHeader = '*👖 MIPA SMART PANTS & TROUSERS DEALS!*\n';
   } else if (/shoe|sneaker|derby|loafer|boot|reebok|puma|adidas|nike/i.test(deal.title || '')) {
     lootHeader = '*👟 SNEAKER & SHOES DEALS!*\n';
   }
