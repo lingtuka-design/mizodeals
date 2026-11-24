@@ -26,6 +26,163 @@ function isMobilePhone(title: string): boolean {
   return /\b(?:smartphone|mobile\s*phone|5g\s*phone|iphone(?:\s*(?:1[1-7]|se))?|galaxy\s*(?:s\d{2}[a-z]*|m\d{2}[a-z]*|a\d{2}[a-z]*|f\d{2}[a-z]*|z\s*(?:fold|flip)\d*|\w+)|redmi(?:\s*(?:note|\d{1,2}[a-z]*|c\d{1,2}|a\d{1,2}|\w+))?|realme(?:\s*(?:narzo|\d{1,2}[a-z]*|gt|p\d|c\d{1,2}|\w+))?|poco(?:\s*(?:c|m|x|f)\d{1,2}[a-z]*|\w+)?|oneplus(?:\s*(?:nord|\d{1,2}[a-z]?|\w+))?|iqoo(?:\s*(?:z|neo|\d{1,2}[a-z]*|\w+))?|motorola|moto\s*(?:edge|g\d{2})|pixel\s*(?:[6-9]|1[0-2])|vivo\s*(?:t\d|y\d|v\d|x\d|\w+)|oppo\s*(?:a\d|k\d|reno|find|\w+)|nothing\s*phone)\b/i.test(t);
 }
 
+interface HeroEventCard {
+  month: string;
+  day: string;
+  title: string;
+  subtitle: string;
+  badgeClass: string;
+  monthClass: string;
+  filter: Partial<DealsFilterParams>;
+}
+
+function getSeasonalHeroEvents(now = new Date()): HeroEventCard[] {
+  const month = now.getMonth() + 1; // 1-12
+  const day = now.getDate();
+
+  // Late November (Black Friday & upcoming Myntra EORS)
+  if (month === 11 && day >= 18) {
+    return [
+      {
+        month: 'NOV',
+        day: '27',
+        title: 'Amazon & Flipkart Black Friday',
+        subtitle: 'Lightning deals, winter appliances & top tech',
+        badgeClass: 'bg-amber-100 text-amber-900 border-amber-200',
+        monthClass: 'text-amber-600',
+        filter: { store: 'amazon', category: 'all' },
+      },
+      {
+        month: 'DEC',
+        day: '5',
+        title: 'Myntra End of Reason Sale',
+        subtitle: '50–90% OFF on Winter Wear, Shoes & Fashion',
+        badgeClass: 'bg-pink-100 text-pink-900 border-pink-200',
+        monthClass: 'text-pink-600',
+        filter: { store: 'myntra', category: 'all' },
+      },
+    ];
+  }
+
+  // Early-to-Mid December (Myntra EORS live + Christmas Winter Sale)
+  if (month === 12 && day <= 16) {
+    return [
+      {
+        month: 'DEC',
+        day: '5',
+        title: 'Myntra End of Reason Sale',
+        subtitle: '50–90% OFF on Winter Wear, Shoes & Fashion',
+        badgeClass: 'bg-pink-100 text-pink-900 border-pink-200',
+        monthClass: 'text-pink-600',
+        filter: { store: 'myntra', category: 'all' },
+      },
+      {
+        month: 'DEC',
+        day: '25',
+        title: 'Christmas & Winter Mega Sale',
+        subtitle: 'Hoodies, jackets, shoes & gift deals',
+        badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-200',
+        monthClass: 'text-emerald-600',
+        filter: { category: 'winterwear', store: 'all' },
+      },
+    ];
+  }
+
+  // Late December (Christmas & New Year Sale)
+  if (month === 12) {
+    return [
+      {
+        month: 'DEC',
+        day: '25',
+        title: 'Christmas & Year-End Sale',
+        subtitle: 'Winter clothes, gifts & clearance deals',
+        badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-200',
+        monthClass: 'text-emerald-600',
+        filter: { category: 'winterwear', store: 'all' },
+      },
+      {
+        month: 'JAN',
+        day: '1',
+        title: 'New Year Fashion & Tech Drops',
+        subtitle: 'Year-end markdowns on Amazon & Flipkart',
+        badgeClass: 'bg-blue-100 text-blue-900 border-blue-200',
+        monthClass: 'text-blue-600',
+        filter: { store: 'flipkart', category: 'all' },
+      },
+    ];
+  }
+
+  // January (Republic Day & Winter Clearance)
+  if (month === 1 && day <= 26) {
+    return [
+      {
+        month: 'JAN',
+        day: '26',
+        title: 'Republic Day Mega Sale',
+        subtitle: 'Amazon Great Republic Day & Flipkart Sale',
+        badgeClass: 'bg-amber-100 text-amber-900 border-amber-200',
+        monthClass: 'text-amber-600',
+        filter: { store: 'amazon', category: 'all' },
+      },
+      {
+        month: 'JAN',
+        day: 'WIN',
+        title: 'Winter Clearance Sale',
+        subtitle: 'Up to 80% OFF on jackets, hoodies & shoes',
+        badgeClass: 'bg-blue-100 text-blue-900 border-blue-200',
+        monthClass: 'text-blue-600',
+        filter: { category: 'winterwear', store: 'all' },
+      },
+    ];
+  }
+
+  // Festive Season (Oct - Mid Nov)
+  if (month === 10 || (month === 11 && day < 18)) {
+    return [
+      {
+        month: 'OCT',
+        day: '9',
+        title: 'Flipkart Big Billion Days',
+        subtitle: 'Dates, bank offers & best deals list',
+        badgeClass: 'bg-blue-100 text-blue-900 border-blue-200',
+        monthClass: 'text-blue-600',
+        filter: { store: 'flipkart', category: 'all' },
+      },
+      {
+        month: 'OCT',
+        day: '8',
+        title: 'Amazon Great Indian Festival',
+        subtitle: 'SBI offers, early deals & lightning deals',
+        badgeClass: 'bg-amber-100 text-amber-900 border-amber-200',
+        monthClass: 'text-amber-600',
+        filter: { store: 'amazon', category: 'all' },
+      },
+    ];
+  }
+
+  // Feb - Sep
+  return [
+    {
+      month: 'HOT',
+      day: 'DEAL',
+      title: 'Amazon & Flipkart Super Value',
+      subtitle: 'Daily lightning deals & top bank discounts',
+      badgeClass: 'bg-amber-100 text-amber-900 border-amber-200',
+      monthClass: 'text-amber-600',
+      filter: { store: 'amazon', category: 'all' },
+    },
+    {
+      month: 'NEW',
+      day: 'DROP',
+      title: 'Myntra & Meesho Fashion Drops',
+      subtitle: 'Trending styles, footwear & budget picks',
+      badgeClass: 'bg-pink-100 text-pink-900 border-pink-200',
+      monthClass: 'text-pink-600',
+      filter: { store: 'myntra', category: 'all' },
+    },
+  ];
+}
+
 export const HomeView: React.FC = () => {
   const { deals } = useData();
   const searchParams = useSearch({ strict: false }) as DealsFilterParams;
@@ -311,43 +468,32 @@ export const HomeView: React.FC = () => {
           </div>
         </div>
 
-        {/* Hero Right Floating Event Cards (Flipkart & Amazon Sales) */}
+        {/* Hero Right Floating Event Cards (Auto-updated by season) */}
         <div className="hidden lg:flex lg:col-span-5 flex-col justify-center gap-3 p-8">
-          <a
-            href="#deals"
-            onClick={(e) => {
-              e.preventDefault();
-              handleFilterChange({ store: 'flipkart' });
-            }}
-            className="flex items-center gap-3 bg-white/95 text-stone-900 rounded-2xl p-3.5 shadow-lg hover:scale-[1.02] transition-transform cursor-pointer"
-          >
-            <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-900 flex flex-col items-center justify-center font-black leading-none shrink-0 border border-blue-200">
-              <small className="text-[10px] uppercase font-bold text-blue-600">OCT</small>
-              <span className="text-base font-black">9</span>
-            </div>
-            <div>
-              <strong className="block text-sm font-bold text-stone-900">Flipkart Big Billion Days</strong>
-              <span className="text-xs text-stone-500">Dates, bank offers &amp; best deals list</span>
-            </div>
-          </a>
-
-          <a
-            href="#deals"
-            onClick={(e) => {
-              e.preventDefault();
-              handleFilterChange({ store: 'amazon' });
-            }}
-            className="flex items-center gap-3 bg-white/95 text-stone-900 rounded-2xl p-3.5 shadow-lg hover:scale-[1.02] transition-transform cursor-pointer"
-          >
-            <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex flex-col items-center justify-center font-black leading-none shrink-0 border border-amber-200">
-              <small className="text-[10px] uppercase font-bold text-amber-600">OCT</small>
-              <span className="text-base font-black">8</span>
-            </div>
-            <div>
-              <strong className="block text-sm font-bold text-stone-900">Amazon Great Indian Festival</strong>
-              <span className="text-xs text-stone-500">SBI offers, early deals &amp; lightning deals</span>
-            </div>
-          </a>
+          {getSeasonalHeroEvents().map((ev) => (
+            <a
+              key={ev.title}
+              href="#deals"
+              onClick={(e) => {
+                e.preventDefault();
+                handleFilterChange(ev.filter);
+              }}
+              className="flex items-center gap-3 bg-white/95 text-stone-900 rounded-2xl p-3.5 shadow-lg hover:scale-[1.02] transition-transform cursor-pointer"
+            >
+              <div
+                className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black leading-none shrink-0 border ${ev.badgeClass}`}
+              >
+                <small className={`text-[10px] uppercase font-bold ${ev.monthClass}`}>
+                  {ev.month}
+                </small>
+                <span className="text-base font-black">{ev.day}</span>
+              </div>
+              <div>
+                <strong className="block text-sm font-bold text-stone-900">{ev.title}</strong>
+                <span className="text-xs text-stone-500">{ev.subtitle}</span>
+              </div>
+            </a>
+          ))}
         </div>
       </section>
 
