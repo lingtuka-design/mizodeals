@@ -233,7 +233,8 @@ function getProductType(deal) {
   const cat = (deal.category || '').toLowerCase();
   if (isMobilePhone(t)) return 'smartphones';
   if (/shoe|sneaker|derby|loafer|boot|footwear|sandal|flip\s*flop|clog|oxford|formal\s*shoe/i.test(t)) return 'footwear';
-  if (/\b(?:hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|muffler|beanie|lukhum|gloves|scarf|woolen|overcoat|coats?)\b(?!ing|ed)/i.test(t)) return 'winterwear';
+  if (/\bsocks?\b/i.test(t)) return 'socks';
+  if (/\b(?:hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|muffler|beanie|lukhum|gloves|scarf|woolen|wool|pullover|overcoat|coats?)\b(?!ing|ed)/i.test(t)) return 'winterwear';
   if (/\b(?:smart\s*pants?|formal\s*trousers?|chinos?|casual\s*trousers?|stretchable\s*pants?|formal\s*pants?|trousers?|linen\s*pants?|korean\s*pants?)\b/i.test(t)) return 'smart_pants';
   if (/handbag|tote|clutch|sling\s*bag|purse|earring|necklace|jewell?ery|pendant|bangle|bracelet|hair\s*clip|scrunchie|kurti|saree|dress/i.test(t)) return 'women_fashion';
   if (/shirt|t-shirt|pant|jeans|trouser|boxer|legging|trackpant/i.test(t)) return 'apparel';
@@ -253,8 +254,9 @@ function getMacroCategory(deal) {
   const t = (deal.title || '').toLowerCase();
   if (
     pType === 'winterwear' ||
+    pType === 'socks' ||
     cat === 'winterwear' ||
-    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|winter|thermal|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|gloves|scarf|scarves|woolen|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(t) ||
+    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|winter|thermal|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|gloves|scarf|scarves|woolen|wool|pullover|socks?|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(t) ||
     /\b(?:winter\s*coat|coats?)\b(?!ing|ed)/i.test(t)
   ) {
     return 'winterwear';
@@ -311,12 +313,16 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     lootHeader = '*📱 SMARTPHONE & 5G MOBILE LOOT!*\n';
   } else if (pType === 'kitchen_home') {
     lootHeader = '*🍳 CHOKA & IN CHHUNG MAMAWH!*\n';
+  } else if (pType === 'socks') {
+    lootHeader = '*🧦 MAWZA THA LEH LUM!*\n';
+  } else if (/\b(?:beanie|lukhum|woolen\s*cap|winter\s*cap|muffler)\b/i.test(deal.title || '')) {
+    lootHeader = '*🧢 LUKHUM LUM & MUFFLER!*\n';
+  } else if (/\b(?:wool|woolen|sweater|cardigan|pullover)\b/i.test(deal.title || '')) {
+    lootHeader = '*🧶 WOOL KAWR LUM & SWEATER!*\n';
   } else if (pType === 'winterwear' || isWinter) {
     lootHeader = '*🧥 THLASIK INTHUAM LUMNA!*\n';
   } else if (pType === 'audio_gadgets' || pType === 'tech_accessories') {
     lootHeader = '*🎧 WIRELESS GADGETS & TECH DEALS!*\n';
-  } else if (pType === 'kitchen_home') {
-    lootHeader = '*🍳 CHOKA & IN CHHUNG MAMAWH!*\n';
   } else if (pType === 'beauty_grooming') {
     const isWomenSpecific = /women|woman|ladies|girl|lipstick|kajal|serum|sunscreen|lip\s*balm|skincare|handbag|tote|clutch|earring|necklace|dress|mascara|makeup|facial|lotion/i.test(deal.title || '') || deal.store === 'nykaa';
     lootHeader = isWomenSpecific ? '*✨ HMEICHHETÊ TAN BIK (BEAUTY & SKINCARE)!*\n' : '*✨ BEAUTY & GROOMING DEALS!*\n';
@@ -324,8 +330,8 @@ function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`)
     lootHeader = '*✨ HMEICHHE DUHZAWNG / FASHION PICK!*\n';
   } else if (pType === 'smart_pants' || /\b(?:smart\s*pants?|formal\s*trousers?|chinos?|casual\s*trousers?|trousers?)\b/i.test(deal.title || '')) {
     lootHeader = '*👖 MIPA SMART PANTS & TROUSERS DEALS!*\n';
-  } else if (/shoe|sneaker|derby|loafer|boot|reebok|puma|adidas|nike/i.test(deal.title || '')) {
-    lootHeader = '*👟 SNEAKER & SHOES DEALS!*\n';
+  } else if (/shoe|sneaker|derby|loafer|boot|oxford|reebok|puma|adidas|nike/i.test(deal.title || '')) {
+    lootHeader = '*👟 PHEIKHAWK, SNEAKERS & SMART SHOES!*\n';
   }
 
   const title = cleanTitle(deal.title);
@@ -1248,9 +1254,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
     const lastPostedMacro = recentMacros[0] || '';
     const lastPostedCategory = (validRecent[0] && validRecent[0].category) || '';
     const footwearCountRecent = recentTypes.filter((t) => t === 'footwear').length;
-    const techCountRecent = recentMacros.slice(0, 3).filter((m) => m === 'tech_gadgets').length;
+    const techInLast6 = recentMacros.slice(0, 6).filter((m) => m === 'tech_gadgets').length;
 
-    // Quality-weighted scoring: Prioritize genuine high discounts, seasonal winterwear, 30%-70% gadgets, high ratings, and customer favorites
+    // Quality-weighted scoring: Prioritize Christmas/Winter fashion & footwear (~65%) and Gadgets (~35%)
     const computeDealScore = (d) => {
       let score = d.discountPercent || 0;
       const pType = getProductType(d);
@@ -1287,7 +1293,8 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         score += isWinterSeason ? 65 : 25; // Top priority during cold season!
       }
 
-      // 2. High Value Lifestyle & Home Essentials:
+      // 2. High Value Christmas Fashion, Lifestyle & Home Essentials:
+      const isChristmasSeason = [10, 11].includes(currentMonth); // Nov & Dec
       if (dMacro === 'home_kitchen') {
         score += 35;
       }
@@ -1295,11 +1302,11 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         score += 35;
       }
       if (dMacro === 'fashion_lifestyle') {
-        score += 30;
+        score += isChristmasSeason ? 55 : 30; // Boost Christmas shoes, sneakers, smart pants & apparel
       }
-      // Tech Gadgets: Controlled modest boost (+15) instead of dominating the whole feed
+      // Tech Gadgets (~35% target share: 2 out of every 6 posts):
       if (dMacro === 'tech_gadgets') {
-        score += 15;
+        score += techInLast6 < 2 ? 45 : 10;
       }
 
       // 1b. Price Sweet Spot Boost (Impulse Buy Optimization & Smartphone Exception):
@@ -1333,9 +1340,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       if (lastPostedMacro === 'tech_gadgets' && dMacro === 'tech_gadgets') {
         score -= 60; // Strong penalty so feed stays naturally diversified
       }
-      // b. Heavy tech cooling: If 2 of last 3 posts were tech, cool down tech:
-      if (techCountRecent >= 2 && dMacro === 'tech_gadgets') {
-        score -= 45;
+      // b. Target ~35% Tech/Gadgets: If >= 2 of last 6 posts were tech (>=33%), cool down tech:
+      if (techInLast6 >= 2 && dMacro === 'tech_gadgets') {
+        score -= 35;
       }
 
       // c. Immediate back-to-back duplicate product type penalty
@@ -1343,12 +1350,12 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         score -= 50; // Hard suppression so we never post the same product type twice in a row
       }
 
-      // d. Strict Shoe / Footwear Throttling (Keep shoes as occasional highlights, never spamming)
+      // d. Footwear Balancing (Highlight sneakers & smart shoes during Christmas without back-to-back spam)
       if (pType === 'footwear') {
-        if (recentTypes.slice(0, 2).includes('footwear')) {
-          score -= 60; // Absolute block if shoes were posted in any of the last 2 runs
-        } else if (footwearCountRecent >= 2) {
-          score -= 35; // Throttled if shoes already appeared 2+ times in recent history
+        if (lastPostedType === 'footwear') {
+          score -= 35;
+        } else if (footwearCountRecent >= 3) {
+          score -= 25;
         }
       }
 
