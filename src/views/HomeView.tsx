@@ -380,52 +380,50 @@ export const HomeView: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* 1. Top Announcement Bar */}
-      <div className="bg-blue-50 border border-blue-200/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
+      <div className="bg-stone-900 text-stone-100 border border-stone-800 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs shadow-2xs">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="bg-[#0369A1] text-white font-extrabold text-[10px] px-2 py-0.5 rounded shrink-0 uppercase tracking-wider">
+          <span className="bg-[#C72026] text-white font-extrabold text-[10px] px-2 py-0.5 rounded-md shrink-0 uppercase tracking-wider">
             Live
           </span>
-          <p className="text-stone-800 font-medium truncate">
-            <strong>Mizoram's #1 Loot Deals Hub</strong> — Amazon, Meesho, Flipkart, Nykaa &amp; Myntra price drops verified 24x7!
+          <p className="text-stone-200 font-medium truncate">
+            <strong className="text-white">Mizoram&rsquo;s #1 Loot Deals Hub</strong> — Amazon, Meesho, Flipkart, Nykaa &amp; Myntra price drops verified 24x7!
           </p>
         </div>
         <a
           href={WHATSAPP_CHANNEL_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="hidden sm:inline-flex items-center gap-1 text-[#0369A1] hover:text-[#075985] font-bold shrink-0"
+          className="hidden sm:inline-flex items-center gap-1 text-[#25D366] hover:text-[#4ade80] font-bold shrink-0 transition-colors"
         >
           <span>Get WhatsApp Alerts &rarr;</span>
         </a>
       </div>
 
-      {/* 2. IndiaDesire 3D Festive Hero Section (Ocean / Navy Blue Theme) */}
-      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#0A192F] text-white min-h-[360px] grid grid-cols-1 lg:grid-cols-12 isolate shadow-md">
-        {/* Background 3D Festive Art with Blue Tone Color Filter */}
+      {/* 2. Hero Section */}
+      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#0F172A] text-white min-h-[340px] grid grid-cols-1 lg:grid-cols-12 isolate shadow-md border border-stone-800/40">
+        {/* Background Festive Art with Deep Slate Overlay */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <img
             src="/assets/hero/hero.webp"
             alt="MizoDeals Festive Season"
             className="w-full h-full object-cover object-right"
           />
-          {/* Blue Tone Color Shift Blend */}
-          <div className="absolute inset-0 bg-[#0B2545]/60 mix-blend-color" />
-          {/* Deep Navy/Blue Gradient Overlay for high-contrast legible text */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0A192F] via-[#0A192F]/95 lg:via-[#0A192F]/85 to-transparent" />
+          <div className="absolute inset-0 bg-[#0F172A]/60 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0F172A] via-[#0F172A]/95 lg:via-[#0F172A]/85 to-transparent" />
         </div>
 
         {/* Hero Left Content Body */}
         <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-center space-y-4">
-          <div className="inline-flex items-center gap-2 bg-white/12 border border-white/20 px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold tracking-wider uppercase text-white w-fit backdrop-blur-xs">
-            <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse" />
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold tracking-wider uppercase text-amber-200 w-fit backdrop-blur-xs">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
             <span>Festive sale season is live</span>
           </div>
 
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-[1.08]">
-            Mizoram&rsquo;s smartest way to <em className="not-italic bg-gradient-to-r from-[#FDBA74] to-[#FB923C] bg-clip-text text-transparent">shop for less</em>
+            Mizoram&rsquo;s smartest way to <span className="text-amber-300">shop for less</span>
           </h1>
 
-          <p className="text-xs sm:text-sm md:text-base text-[#D0E2FF] max-w-xl leading-relaxed">
+          <p className="text-xs sm:text-sm md:text-base text-slate-300 max-w-xl leading-relaxed">
             Hand-picked loot deals, coupons and bank offers from Amazon, Flipkart, Myntra and 100+ stores &mdash; checked and updated every few minutes.
           </p>
 
@@ -434,7 +432,7 @@ export const HomeView: React.FC = () => {
             <button
               type="button"
               onClick={() => handleFilterChange({ tab: 'loot', lootOnly: true })}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-[#E0F2FE] hover:bg-[#BAE6FD] text-[#0369A1] font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-3 bg-[#C72026] hover:bg-[#a81a1f] text-white font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-sm cursor-pointer"
             >
               <span>Browse loot deals</span>
               <ArrowRight className="w-4 h-4" />
