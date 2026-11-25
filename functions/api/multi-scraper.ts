@@ -122,7 +122,7 @@ function classifyCategory(title: string): string {
   const t = title.toLowerCase();
   // High Priority 1: Winterwear & Warm Clothing (Nov-Feb seasonal surge in Mizoram)
   if (
-    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|winter|thermal|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|gloves|scarf|scarves|woolen|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(t) ||
+    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|winter|thermal|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|gloves|scarf|scarves|wool|woolen|pullover|socks?|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(t) ||
     /\b(?:winter\s*coat|coats?)\b(?!ing|ed)/i.test(t)
   ) {
     return 'winterwear';
@@ -134,14 +134,14 @@ function classifyCategory(title: string): string {
   if (/lipstick|perfume|serum|sunscreen|lotion|cream|shampoo|skincare|cosmetic|kajal|beauty|makeup|facewash/i.test(t)) {
     return 'beauty';
   }
-  // Dedicated Gadgets classification: Smart devices, audio, phones, wearables, and mobile accessories
-  if (/phone|iphone|samsung|oneplus|realme|redmi|xiaomi|poco|motorola|moto|vivo|oppo|iqoo|mobile|smartphone|earbud|airpod|headphone|earphone|neckband|tws|audio|speaker|soundbar|bluetooth|gadget|smartwatch|watch|strap|band|tracker|power\s*bank|powerbank|charger|adapter|cable|usb|magsafe|tripod|selfie\s*stick|gimbal|mount|stylus|pen\s*drive|pendrive|otg/i.test(t)) {
+  // Dedicated Gadgets classification: Smart devices, audio, phones, wearables, and mobile/car accessories
+  if (/phone|iphone|samsung|oneplus|realme|redmi|xiaomi|poco|motorola|moto|vivo|oppo|iqoo|mobile|smartphone|earbud|airpod|headphone|earphone|neckband|tws|audio|speaker|soundbar|bluetooth|gadget|smartwatch|watch|strap|band|tracker|power\s*bank|powerbank|charger|adapter|cable|usb|magsafe|tripod|selfie\s*stick|gimbal|mount|air\s*vent|holder|stylus|pen\s*drive|pendrive|otg|trimmer|shaver/i.test(t)) {
     return 'gadgets';
   }
-  if (/laptop|macbook|monitor|keyboard|mouse|ssd|hard\s*drive|hdd|ram|cpu|gpu|motherboard|router|wifi|printer|scanner|pc|computer|tablet|ipad|camera|lens|projector|television|tv|ups/i.test(t)) {
+  if (/laptop|macbook|monitor|keyboard|mouse|ssd|hard\s*drive|hdd|ram|cpu|gpu|motherboard|router|wifi|printer|scanner|pc|computer|tablet|ipad|camera|lens|projector|television|tv|ups|led\s*bulb|bulb/i.test(t)) {
     return 'electronics';
   }
-  if (/shirt|t-shirt|pant|jeans|dress|shoe|sneaker|kurta|saree|sock|sandal|wallet|bag|backpack|fashion|cloth|wear/i.test(t)) {
+  if (/shirt|t-shirt|pant|trouser|chino|jeans|dress|shoe|sneaker|loafer|oxford|derby|boot|heel|slipper|clog|kurta|saree|sock|sandal|wallet|bag|backpack|handbag|tote|clutch|sunglass|belt|fashion|cloth|wear/i.test(t)) {
     return 'shoes_fashion';
   }
   if (/cooker|bottle|flask|thermos|pan|bedsheet|blanket|quilt|comforter|pillow|light|lamp|curtain|mop|cleaner|purifier|kettle|knife|kitchen|home|room|towel|iron|steam\s*iron|dry\s*iron|blender|toaster|mixer|heater|geyser|immersion\s*rod|hot\s*water\s*bag|lunch\s*box|container|storage|rack|hanger/i.test(t)) {
@@ -153,7 +153,7 @@ function classifyCategory(title: string): string {
   if (/gadget|device|electronic|cable|charger|battery|led|display|sensor|circuit/i.test(t)) {
     return 'electronics';
   }
-  return 'shoes_fashion';
+  return 'general';
 }
 
 // Block products that do not sell well on affiliate channels, clutter the feed, cause customer fatigue,
