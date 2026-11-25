@@ -117,14 +117,27 @@ export function isMobilePhone(title: string): boolean {
   return /\b(?:smartphone|mobile\s*phone|5g\s*phone|iphone(?:\s*(?:1[1-7]|se))?|galaxy\s*(?:s\d{2}[a-z]*|m\d{2}[a-z]*|a\d{2}[a-z]*|f\d{2}[a-z]*|z\s*(?:fold|flip)\d*|\w+)|redmi(?:\s*(?:note|\d{1,2}[a-z]*|c\d{1,2}|a\d{1,2}|\w+))?|realme(?:\s*(?:narzo|\d{1,2}[a-z]*|gt|p\d|c\d{1,2}|\w+))?|poco(?:\s*(?:c|m|x|f)\d{1,2}[a-z]*|\w+)?|oneplus(?:\s*(?:nord|\d{1,2}[a-z]?|\w+))?|iqoo(?:\s*(?:z|neo|\d{1,2}[a-z]*|\w+))?|motorola|moto\s*(?:edge|g\d{2})|pixel\s*(?:[6-9]|1[0-2])|vivo\s*(?:t\d|y\d|v\d|x\d|\w+)|oppo\s*(?:a\d|k\d|reno|find|\w+)|nothing\s*phone)\b/i.test(t);
 }
 
+// Strict winterwear detector: prevents thermal paste/lamination/flask, dishwashing gloves, or coating from matching
+function isActualWinterwear(title: string): boolean {
+  if (!title) return false;
+  if (/(?:lamination|pouch|printer|paper|paste|grease|compound|heatsink|cpu|gpu|cutout|water\s*heater|geyser|kettle|flask|bottle|mug|lunch\s*box|dishwash|dish\s*wash|rubber\s*gloves|silicone\s*gloves|latex|nitrile|cleaning\s*gloves|boxing|gym\s*gloves|gardening|surgical|cream|lotion|moisturizer|coat\s*hook|coat\s*hanger|coat\s*stand|lab\s*coat|life\s*jacket|book\s*jacket|cable\s*jacket)/i.test(title)) {
+    return false;
+  }
+  return (
+    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|scarf|scarves|woolen|pullover|socks?|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(title) ||
+    /\b(?:winter\s*coat|coats?)\b(?!ing|ed)/i.test(title) ||
+    /\b(?:thermal\s*(?:wear|inner|top|bottom|set|pant|pyjama|shirt|vest|suit|legging)|(?:men|women|boys|girls|kids|unisex).*\bthermal\b)/i.test(title) ||
+    /\bwinter\s*(?:wear|jacket|coat|cap|beanie|gloves|socks|hoodie|sweater|pullover|cardigan|muffler|scarf|shawl|thermal|inner|pant|trouser)\b/i.test(title) ||
+    /\b(?:winter|woolen|wool|thermal|fleece|knitted|snow)\s*gloves\b/i.test(title) ||
+    /\bwool(?:en)?\s*(?:sweater|cardigan|pullover|cap|beanie|socks|scarf|muffler|shawl|jacket|coat|gloves|kurti|top)\b/i.test(title)
+  );
+}
+
 // Category classifier helper
 function classifyCategory(title: string): string {
   const t = title.toLowerCase();
   // High Priority 1: Winterwear & Warm Clothing (Nov-Feb seasonal surge in Mizoram)
-  if (
-    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|winter|thermal|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|gloves|scarf|scarves|wool|woolen|pullover|socks?|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(t) ||
-    /\b(?:winter\s*coat|coats?)\b(?!ing|ed)/i.test(t)
-  ) {
+  if (isActualWinterwear(title)) {
     return 'winterwear';
   }
   // High Priority 2: Genuine Smartphones strictly categorized as 'gadgets'

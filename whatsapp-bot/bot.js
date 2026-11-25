@@ -227,6 +227,21 @@ function isMobilePhone(title) {
   return /\b(?:smartphone|mobile\s*phone|5g\s*phone|iphone(?:\s*(?:1[1-7]|se))?|galaxy\s*(?:s\d{2}[a-z]*|m\d{2}[a-z]*|a\d{2}[a-z]*|f\d{2}[a-z]*|z\s*(?:fold|flip)\d*|\w+)|redmi(?:\s*(?:note|\d{1,2}[a-z]*|c\d{1,2}|a\d{1,2}|\w+))?|realme(?:\s*(?:narzo|\d{1,2}[a-z]*|gt|p\d|c\d{1,2}|\w+))?|poco(?:\s*(?:c|m|x|f)\d{1,2}[a-z]*|\w+)?|oneplus(?:\s*(?:nord|\d{1,2}[a-z]?|\w+))?|iqoo(?:\s*(?:z|neo|\d{1,2}[a-z]*|\w+))?|motorola|moto\s*(?:edge|g\d{2})|pixel\s*(?:[6-9]|1[0-2])|vivo\s*(?:t\d|y\d|v\d|x\d|\w+)|oppo\s*(?:a\d|k\d|reno|find|\w+)|nothing\s*phone)\b/i.test(t);
 }
 
+function isActualWinterwear(title) {
+  if (!title) return false;
+  if (/(?:lamination|pouch|printer|paper|paste|grease|compound|heatsink|cpu|gpu|cutout|water\s*heater|geyser|kettle|flask|bottle|mug|lunch\s*box|dishwash|dish\s*wash|rubber\s*gloves|silicone\s*gloves|latex|nitrile|cleaning\s*gloves|boxing|gym\s*gloves|gardening|surgical|cream|lotion|moisturizer|coat\s*hook|coat\s*hanger|coat\s*stand|lab\s*coat|life\s*jacket|book\s*jacket|cable\s*jacket)/i.test(title)) {
+    return false;
+  }
+  return (
+    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|scarf|scarves|woolen|pullover|socks?|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(title) ||
+    /\b(?:winter\s*coat|coats?)\b(?!ing|ed)/i.test(title) ||
+    /\b(?:thermal\s*(?:wear|inner|top|bottom|set|pant|pyjama|shirt|vest|suit|legging)|(?:men|women|boys|girls|kids|unisex).*\bthermal\b)/i.test(title) ||
+    /\bwinter\s*(?:wear|jacket|coat|cap|beanie|gloves|socks|hoodie|sweater|pullover|cardigan|muffler|scarf|shawl|thermal|inner|pant|trouser)\b/i.test(title) ||
+    /\b(?:winter|woolen|wool|thermal|fleece|knitted|snow)\s*gloves\b/i.test(title) ||
+    /\bwool(?:en)?\s*(?:sweater|cardigan|pullover|cap|beanie|socks|scarf|muffler|shawl|jacket|coat|gloves|kurti|top)\b/i.test(title)
+  );
+}
+
 function getProductType(deal) {
   if (!deal) return 'general';
   const t = (deal.title || '').toLowerCase();
@@ -234,7 +249,7 @@ function getProductType(deal) {
   if (isMobilePhone(t)) return 'smartphones';
   if (/shoe|sneaker|derby|loafer|boot|footwear|sandal|flip\s*flop|clog|oxford|formal\s*shoe/i.test(t)) return 'footwear';
   if (/\bsocks?\b/i.test(t)) return 'socks';
-  if (/\b(?:hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|muffler|beanie|lukhum|gloves|scarf|woolen|wool|pullover|overcoat|coats?)\b(?!ing|ed)/i.test(t)) return 'winterwear';
+  if (isActualWinterwear(t)) return 'winterwear';
   if (/\b(?:smart\s*pants?|formal\s*trousers?|chinos?|casual\s*trousers?|stretchable\s*pants?|formal\s*pants?|trousers?|linen\s*pants?|korean\s*pants?)\b/i.test(t)) return 'smart_pants';
   if (/handbag|tote|clutch|sling\s*bag|purse|earring|necklace|jewell?ery|pendant|bangle|bracelet|hair\s*clip|scrunchie|kurti|saree|dress/i.test(t)) return 'women_fashion';
   if (/shirt|t-shirt|pant|jeans|trouser|boxer|legging|trackpant/i.test(t)) return 'apparel';
@@ -244,7 +259,7 @@ function getProductType(deal) {
   if (/smart\s*watch|smartwatch|watch|fitness\s*band/i.test(t)) return 'smartwatches';
   if (/power\s*bank|charger|cable|adapter|keyboard|mouse|ssd|hard\s*drive/i.test(t)) return 'tech_accessories';
   if (/shampoo|serum|facewash|cream|perfume|deodorant|lotion|sunscreen|loofah|soap|grooming|lipstick|kajal|mascara|makeup/i.test(t)) return 'beauty_grooming';
-  return cat || 'general';
+  return cat === 'winterwear' && !isActualWinterwear(t) ? 'general' : cat || 'general';
 }
 
 function getMacroCategory(deal) {
@@ -255,9 +270,7 @@ function getMacroCategory(deal) {
   if (
     pType === 'winterwear' ||
     pType === 'socks' ||
-    cat === 'winterwear' ||
-    /\b(?:hoodie|hoodies|jacket|jackets|sweater|sweaters|sweatshirt|sweatshirts|fleece|winter|thermal|cardigan|cardigans|muffler|mufflers|beanie|beanies|lukhum|gloves|scarf|scarves|woolen|wool|pullover|socks?|overcoat|windcheater|puffer|shawl|warm\s*inner|leg\s*warmer)\b/i.test(t) ||
-    /\b(?:winter\s*coat|coats?)\b(?!ing|ed)/i.test(t)
+    isActualWinterwear(t)
   ) {
     return 'winterwear';
   }
@@ -302,7 +315,7 @@ function getMacroCategory(deal) {
 function formatMessage(deal, dealUrl = `https://mizodeals.com/deals/${deal.id}`) {
   const savings = deal.originalPrice - deal.dealPrice;
   const savingsText = savings > 0 ? ` (Save ${formatINR(savings)})` : '';
-  const isWinter = /\b(?:hoodie|jacket|sweater|sweatshirt|fleece|winter|thermal|cardigan|muffler|beanie|lukhum|gloves|scarf|woolen|overcoat|coats?)\b(?!ing|ed)/i.test(deal.title || '');
+  const isWinter = isActualWinterwear(deal.title || '');
   const isFestive = /\b(?:light|lights|led|strip|fairy|curtain\s*light|lamp|bulb|christmas|cove)\b/i.test(deal.title || '');
 
   let lootHeader = deal.isLootDeal || deal.discountPercent >= 50
