@@ -1158,9 +1158,9 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         if (d.dealPrice < 80) return false;
       }
 
-      // Strictly exclude phone back covers, mobile cases, and tempered glass screen protectors
+      // Strictly exclude phone back covers, watch bezel/cases, mobile cases, and tempered glass screen protectors
       // (Model-specific, low conversion, clutter/spam for customers)
-      if (/(?:back\s*cover|mobile\s*cover|phone\s*cover|phone\s*case|bumper\s*case|magnetic\s*case|tempered\s*glass|screen\s*protector|camera\s*lens\s*protector|cases?\s*(?:&|and)\s*covers?|\bcase\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad)|\bcover\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad))/i.test(d.title || '')) {
+      if (/(?:back\s*cover|mobile\s*cover|phone\s*cover|phone\s*case|bumper\s*case|magnetic\s*case|silicone\s*cover|tpu\s*case|flip\s*cover|shockproof\s*case|armor\s*case|magsafe\s*case|clear\s*case|leather\s*case|watch\s*case|bezel\s*ring|watch\s*cover|tempered\s*glass|screen\s*protector|camera\s*lens\s*protector|cases?\s*(?:&|and)\s*covers?|\bcase\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad|galaxy\s*watch|apple\s*watch)|\bcover\s*for\s+(?:iphone|oneplus|samsung|redmi|realme|vivo|oppo|poco|xiaomi|ipad|galaxy\s*watch|apple\s*watch))/i.test(d.title || '')) {
         return false;
       }
 
@@ -1331,6 +1331,10 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
       const isChristmasSeason = [10, 11].includes(currentMonth); // Nov & Dec
       if (dMacro === 'winterwear') {
         score += isChristmasSeason ? 95 : isWinterSeason ? 65 : 25;
+        // Extra priority for Sweatshirts & Woolen Sweaters/Cardigans
+        if (/\b(?:sweatshirt|sweatshirts|wool|woolen|sweater|sweaters|cardigan|cardigans|pullover)\b/i.test(d.title || '')) {
+          score += 55;
+        }
       }
 
       // 2. High Value Christmas Fashion, Lifestyle & Home Essentials:
@@ -1395,6 +1399,14 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
           score -= 35;
         } else if (footwearCountRecent >= 3) {
           score -= 25;
+        }
+      }
+
+      // d2. Watch / Smartwatch Throttling (Admin requested fewer watches on WhatsApp)
+      if (pType === 'smartwatches' || /\b(?:watch|smartwatch|dial\s*(?:men|women)|wrist\s*watch)\b/i.test(d.title || '')) {
+        score -= 45;
+        if (recentTypes.slice(0, 6).includes('smartwatches')) {
+          score -= 75;
         }
       }
 
