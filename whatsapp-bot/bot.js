@@ -795,7 +795,7 @@ ${recentLogs.slice(-15).join('\n')}
       <p style="font-size:13px;color:#78716c;">Connected to Official Channel:<br><code style="background:#f5f5f4;padding:4px 8px;border-radius:6px;">120363414138647022@newsletter</code></p>
       
       <div style="margin:20px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;text-align:left;font-size:13px;color:#334155;line-height:1.6;">
-        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.8-multi-group-broadcast-active</span></div>
+        <div>🚀 <b>Bot Build:</b> <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600;">v3.9-xmas-fashion-35pct-tech</span></div>
         <div>⏰ <b>Last Post Check:</b> ${lastCheckTime ? lastCheckTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'In Progress...'}</div>
         <div>⏳ <b>Next Auto Post:</b> ${lastSuccessfulPostTime ? new Date(lastSuccessfulPostTime + MIN_AUTO_POST_INTERVAL_MS).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Every 30 minutes'}</div>
         <div>📦 <b>Total Deals Sent:</b> ${postedCount}</div>
@@ -1094,20 +1094,40 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
   console.log(`[${new Date().toLocaleTimeString()}] Checking live unposted loot deals in catalog...`);
 
   try {
-    let res;
-    try {
-      res = await fetch('https://mizodeals.com/api/deals?status=all&limit=500', { signal: AbortSignal.timeout(10000) });
-    } catch (e) {
-      console.warn('mizodeals.com API slow, falling back to pages.dev...');
-      res = await fetch('https://mizodeals.pages.dev/api/deals?status=all&limit=500', { signal: AbortSignal.timeout(10000) });
+    const fetchFeed = async (query) => {
+      try {
+        const r = await fetch(`https://mizodeals.com/api/deals?${query}`, { signal: AbortSignal.timeout(10000) });
+        if (r.ok) return await r.json();
+      } catch {}
+      try {
+        const r2 = await fetch(`https://mizodeals.pages.dev/api/deals?${query}`, { signal: AbortSignal.timeout(10000) });
+        if (r2.ok) return await r2.json();
+      } catch {}
+      return null;
+    };
+
+    const [generalData, winterData, fashionData] = await Promise.all([
+      fetchFeed('status=active&limit=300'),
+      fetchFeed('status=active&category=winterwear&limit=200'),
+      fetchFeed('status=active&category=shoes_fashion&limit=200'),
+    ]);
+
+    const mergedMap = new Map();
+    for (const feed of [winterData, fashionData, generalData]) {
+      if (feed && feed.success && Array.isArray(feed.deals)) {
+        for (const d of feed.deals) {
+          if (d && d.id && !mergedMap.has(d.id)) {
+            mergedMap.set(d.id, d);
+          }
+        }
+      }
     }
 
-    if (!res.ok) {
-      console.error(`Deals API responded with status ${res.status}`);
+    const data = { success: mergedMap.size > 0, deals: Array.from(mergedMap.values()) };
+    if (!data.success || data.deals.length === 0) {
+      console.error('Deals API returned 0 deals across all feeds.');
       return;
     }
-    const data = await res.json();
-    if (!data.success || !Array.isArray(data.deals)) return;
 
     const lookup = getPostedLookup();
 
@@ -1566,8 +1586,8 @@ async function checkAndPostDeals(sock, channelJid, isManual = false) {
         const asinKey = d.asin ? d.asin.toUpperCase() : null;
         if (asinKey && seenAsinsInBatch.has(asinKey)) continue;
         const dMacro = getMacroCategory(d);
-        // Even in fallback: STRICTLY reject a 2nd tech deal if Slot 1 was tech
-        if (dMacro === 'tech_gadgets' && seenMacroInBatch.has('tech_gadgets')) continue;
+        // Even in fallback: STRICTLY reject a 2nd tech deal or tech when 35% quota is full
+        if (dMacro === 'tech_gadgets' && (seenMacroInBatch.has('tech_gadgets') || techQuotaFull)) continue;
         toPost.push(d);
         if (toPost.length >= 2) break;
       }
